@@ -102,7 +102,6 @@ class Audio:
                 "ui_hover": self.make(680, 760, 0.025, 0.012, "sin", 0.0),
                 "ready": self.make(440, 990, 0.24, 0.06, "sin", 0.0),
                 "wave": self.make(260, 520, 0.42, 0.06, "tri", 0.0),
-                "pvp_kill": self.make(330, 990, 0.36, 0.075, "sin", 0.0),
             }
             self.ok = True
             self.music = self.make_music()
@@ -305,7 +304,7 @@ class Game:
             self.client = ClientConn(ip)
         except Exception as e:
             log.exception("Не удалось подключиться к %s:%d", ip, PORT)
-            self.set_error("Не удалось подключиться к %s:%d\n%s" % (ip, PORT, e))
+            self.set_error("ИГРА НЕ НАЙДЕНА\\nПо адресу %s:%d никто не отвечает.\\nПроверь IP и убедись, что хост запущен." % (ip, PORT))
             return
         self.is_host = False
         self.last_ip = ip
@@ -805,7 +804,7 @@ class Game:
                 d = p.inp if p.inp.length_squared() > 0 else V(math.cos(p.ang), math.sin(p.ang))
                 p.v = d * 1150
                 p.dash_t = 0.18
-                p.inv = max(p.inv, 0.28)
+                p.inv = max(p.inv, 0.16)
                 p.dash_cd = p.dash_cd_max
                 self.audio.play("dash")
                 self.rings.append(Ring(p.p, 10, 90, 400, CYAN, 3))
@@ -870,7 +869,7 @@ class Game:
         elif self.queue:
             self.spawn_t -= dt
             if self.spawn_t <= 0:
-                self.spawn_t = max(0.18, 0.7 - 0.035 * self.wave)
+                self.spawn_t = max(0.16, 0.7 - 0.018 * self.wave)
                 self.spawn(self.queue.pop())
 
     def begin_intermission(self):
@@ -910,7 +909,7 @@ class Game:
         self.wave += 1
         self.wave_delay = 2.0
         self.banner_t = 2.2
-        n = 6 + int(self.wave * 2.2)
+        n = min(42, 6 + int(self.wave * 2.2))
         q = []
         for _ in range(n):
             r = random.random()
@@ -964,21 +963,22 @@ class Game:
             e.v = e.v.lerp(tgt, min(1.0, 3 * dt))
             e.cool -= dt
             if e.cool <= 0:
-                e.cool = max(0.9, 2.0 - 0.06 * self.wave)
-                n = 1 if self.wave < 5 else 3
+                e.cool = max(0.72, 2.0 - 0.045 * self.wave)
+                n = 1 if self.wave < 3 else (3 if self.wave < 8 else 5)
                 base = math.atan2(d.y, d.x)
                 for i in range(n):
                     a = base + (i - (n - 1) / 2) * 0.25
-                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 300, 6.0])
+                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * min(430, 300 + self.wave * 8), 6.0])
                 self.audio.play("shoot")
         else:  # tank
             e.v = e.v.lerp(d * e.spd, min(1.0, 2 * dt))
             e.cool -= dt
             if e.cool <= 0:
                 e.cool = 3.4
-                for i in range(10):
-                    a = i * math.tau / 10 + e.ang
-                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 230, 6.0])
+                count = 10 if self.wave < 8 else 12
+                for i in range(count):
+                    a = i * math.tau / count + e.ang
+                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * min(340, 230 + self.wave * 5), 6.0])
                 self.audio.play("boom")
         e.p += e.v * dt
         e.p.x = max(15, min(WORLD_W - 15, e.p.x))
@@ -1069,8 +1069,8 @@ class Game:
             src.kills += 1
             if src.lifesteal:
                 src.lifesteal_progress += src.lifesteal
-                if src.lifesteal_progress >= 8:
-                    src.lifesteal_progress -= 8
+                if src.lifesteal_progress >= 18:
+                    src.lifesteal_progress -= 18
                     src.hp = min(src.max_hp, src.hp + 1)
                     self.pops.append([V(src.p), "+1 HP", 0.9, GREEN])
             src.charge = min(100.0, src.charge + (12 if e.kind == "tank" else 4) * src.pulse_gain)
@@ -1098,11 +1098,11 @@ class Game:
                 wts.append(2)
             self.pickups.append([V(e.p), random.choices(kinds, wts)[0], 10.0])
 
-    def hurt(self, p, attacker=None):
+    def hurt(self, p):
         if not p.alive:
             return
         p.hp -= 1
-        p.inv = 1.6
+        p.inv = 0.58
         p.chain = 0
         self.shake = max(self.shake, 24)
         self.flash = 1.0
@@ -1112,14 +1112,7 @@ class Game:
         self.audio.play("hurt")
         if p.hp <= 0:
             p.alive = False
-            if attacker is not None and attacker is not p:
-                stolen = max(0, int(p.score * 0.20))
-                p.score -= stolen
-                attacker.score += stolen
-                attacker.kills += 1
-                self.pops.append([V(attacker.p), "+%d ОЧКОВ" % stolen, 1.1, YELLOW])
-                self.audio.play("pvp_kill")
-            self.burst(p.p, p.color, 120, 800, (0.6, 1.8), 4)
+                self.burst(p.p, p.color, 120, 800, (0.6, 1.8), 4)
             self.burst(p.p, WHITE, 40, 500, (0.3, 0.9), 3)
             for r, s in ((500, 500), (800, 800)):
                 self.rings.append(Ring(p.p, 10, r, s, p.color, 6))
@@ -1149,24 +1142,6 @@ class Game:
             if not hit:
                 keep_b.append(b)
         self.bullets = keep_b
-
-        # Пули игроков поражают других игроков; собственные пули игнорируются.
-        keep_players = []
-        for b in self.bullets:
-            hit_player = False
-            owner = self.players.get(b.owner)
-            if owner is not None:
-                for victim in self.players.values():
-                    if victim is owner or not victim.alive or victim.inv > 0:
-                        continue
-                    if (b.p - victim.p).length_squared() < 17 * 17:
-                        self.hurt(victim, attacker=owner)
-                        self.burst(b.p, victim.color, 10, 300, (0.1, 0.35), 2)
-                        hit_player = True
-                        break
-            if not hit_player:
-                keep_players.append(b)
-        self.bullets = keep_players
 
         # пули врагов → игроки
         keep_e = []
@@ -1256,6 +1231,7 @@ class Game:
                 "k": e.kind, "x": round(e.p.x, 1), "y": round(e.p.y, 1),
                 "r": e.r, "ang": round(e.ang, 2), "age": round(e.age, 2),
                 "flash": round(e.flash, 2), "cool": round(e.cool, 2),
+                "hp": e.hp, "max_hp": e.max_hp,
             })
         for pk in self.pickups:
             snap["pickups"].append([round(pk[0].x, 1), round(pk[0].y, 1), pk[1], round(pk[2], 1)])
@@ -1327,6 +1303,10 @@ class Game:
         if k < 1:
             pygame.draw.circle(sc, dim(base_col, 1 - k), (int(sx), int(sy)),
                                int(e["r"] * (2.2 - 1.2 * k)), 1)
+        if self.wave >= 5:
+            tier = min(3, (self.wave - 1) // 4)
+            pygame.draw.circle(sc, dim(base_col, 0.22 + tier * 0.08),
+                               (int(sx), int(sy)), int(r + 5 + tier * 2), 1)
         fill = dim(base_col, 0.12)
         kind = e["k"]
         draw_glow(sc, (sx, sy), base_col, int(r * 2.2 + 12), 22)
@@ -1340,6 +1320,15 @@ class Game:
             pts = shape(SQ, e["ang"], (sx, sy), r)
         pygame.draw.polygon(sc, fill, pts)
         pygame.draw.polygon(sc, col, pts, 2)
+        max_hp = max(1, e.get("max_hp", 1))
+        hp_ratio = max(0.0, min(1.0, e.get("hp", max_hp) / max_hp))
+        if max_hp > 1:
+            bar_w = max(24, int(r * 2.2))
+            bar = pygame.Rect(int(sx - bar_w / 2), int(sy - r - 12), bar_w, 4)
+            pygame.draw.rect(sc, (18, 18, 22), bar)
+            hp_color = GREEN if hp_ratio > 0.55 else ORANGE if hp_ratio > 0.25 else RED
+            pygame.draw.rect(sc, hp_color, (bar.x, bar.y, int(bar.w * hp_ratio), bar.h))
+            pygame.draw.rect(sc, (8, 10, 14), bar, 1)
         if kind == "shooter":
             pygame.draw.circle(sc, col, (int(sx), int(sy)), max(2, int(r * 0.3)))
             if k >= 1 and e["cool"] < 0.35:
