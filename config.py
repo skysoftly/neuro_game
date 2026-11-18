@@ -21,11 +21,11 @@ def enemy_scaling(wave, player_count=1, boss=False):
         player_speed = 1.0 + 0.01 * (players - 1)
         speed_cap = 1.18
     else:
-        wave_hp = 1.0 + 0.04 * wave_steps + 0.0002 * wave_steps ** 2
+        wave_hp = 1.0 + 0.08 * wave_steps + 0.00025 * wave_steps ** 2
         player_hp = 1.0 + 0.05 * (players - 1)
         player_speed = 1.0 + 0.015 * (players - 1)
         speed_cap = 1.22
-    return wave_hp * player_hp, min(speed_cap, 1.0 + 0.002 * wave_steps) * player_speed
+    return wave_hp * player_hp, min(speed_cap, (1.0 + 0.002 * wave_steps) * player_speed)
 
 
 def wave_enemy_count(wave, player_count=1):
