@@ -41,8 +41,8 @@ class EndlessDifficultyTests(unittest.TestCase):
 
     def test_fifth_wave_boss_is_less_durable_than_old_version(self):
         boss = Enemy("boss", (0, 0), 5)
-        self.assertLess(boss.max_hp, 450)
-        self.assertGreater(boss.max_hp, 350)
+        self.assertLess(boss.max_hp, 300)
+        self.assertGreater(boss.max_hp, 250)
 
 
 if __name__ == "__main__":
