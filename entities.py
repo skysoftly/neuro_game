@@ -40,6 +40,8 @@ class Player:
         self.level = 1
         self.upgrades = {}
         self.upgrade_choices = []
+        self.pending_upgrades = 0
+        self.upgrade_ready = False
         # производные
         self.dmg = 1.0
         self.fire_rate = 0.14
