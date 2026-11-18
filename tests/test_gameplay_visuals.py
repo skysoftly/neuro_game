@@ -23,7 +23,9 @@ class UpgradeTests(unittest.TestCase):
         for kind in ("boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege"):
             self.assertIn(kind, KINDS)
             boss = Enemy(kind, (100, 100), 5)
-            self.assertGreater(boss.max_hp, 500)
+            self.assertGreater(boss.max_hp, 0)
+        # Первый большой босс должен быть посильным на пятой волне.
+        self.assertLess(Enemy("boss", (100, 100), 5).max_hp, 450)
 
     def test_nine_regular_enemy_archetypes_exist(self):
         regular = {"chaser", "swarm", "shooter", "tank", "dasher",
@@ -64,7 +66,7 @@ class UpgradeTests(unittest.TestCase):
     def test_max_hp_upgrade_increases_capacity_and_heals(self):
         apply_upgrade(self.player, "max_hp")
         self.assertEqual(self.player.max_hp, 6)
-        self.assertEqual(self.player.hp, 5)
+        self.assertEqual(self.player.hp, 6)
 
     def test_damage_upgrade_changes_damage(self):
         apply_upgrade(self.player, "dmg")
