@@ -55,7 +55,7 @@ class Player:
         return min(10, 1 + self.chain // 5)
 
     def xp_to_next(self):
-        return 20 + (self.level - 1) * 15
+        return 10 + (self.level - 1) * 8
 
 
 class Enemy:
