@@ -52,6 +52,19 @@ class Player:
         self.lifesteal_progress = 0
         self.magnet = 1.0
         self.pulse_gain = 1.0
+        self.crit = 0.0
+        self.multishot = 0
+        self.bullet_speed = 1.0
+        self.bullet_size = 1.0
+        self.regen = 0.0
+        self.regen_timer = 0.0
+        self.armor = 0
+        self.armor_hits = 0
+        self.pulse_power = 1.0
+        self.dash_damage = 1.0
+        self.xp_gain = 1.0
+        self.combo_bonus = 0
+        self.pulse_boost = 0.0
 
     def mult(self):
         return min(10, 1 + self.chain // 5)
@@ -78,6 +91,7 @@ class Enemy:
         self.ang = random.uniform(0, math.tau)
         self.side = random.choice((-1, 1))
         self.dead = False
+        self.stun = 0.0
 
 
 class Particle:
