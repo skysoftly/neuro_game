@@ -1134,7 +1134,8 @@ class Game:
 
     def do_pulse(self, p):
         p.charge = 0
-        self.shake = max(self.shake, 34)
+        if p.pid == self.my_id:
+            self.shake = max(self.shake, 34)
         p.inv = max(p.inv, 0.85)
         p.shield_t = 5.0
         p.shield_hits = min(5, 2 + p.upgrades.get("pulse_power", 0))
