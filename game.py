@@ -2123,17 +2123,16 @@ class Game:
             score_rect = pygame.Rect(172, y - 10, 62, 22)
             self.draw_fit_text(sc, str(player.get("score", 0)), WHITE, score_rect, 16, 10)
 
-        # Компактная полупрозрачная панель здоровья: не более 10 значков.
-        # При max_hp > 10 первые слоты становятся особыми (11 HP = 1 особый + 9 обычных).
+        # Единая шкала из 10 сердец: каждое сердце показывает долю своего
+        # диапазона HP. Каждые 10 единиц максимального здоровья — новый уровень.
         if me:
             hp = max(0, int(me["hp"]))
             max_hp = max(1, int(me["max_hp"]))
             hp_ratio = max(0.0, min(1.0, hp / max_hp))
             hp_color = GREEN if hp_ratio > 0.55 else ORANGE if hp_ratio > 0.25 else RED
-            slots = min(10, max_hp)
-            special_slots = min(slots, max(0, max_hp - 10))
+            slots = 10
             crystal_w, crystal_gap = 17, 7
-            total_w = slots * crystal_w + max(0, slots - 1) * crystal_gap
+            total_w = slots * crystal_w + (slots - 1) * crystal_gap
             panel_w, panel_h = max(250, total_w + 30), 76
             panel = pygame.Rect((W - panel_w) // 2, H - panel_h - 8, panel_w, panel_h)
             panel_surface = pygame.Surface((panel.w, panel.h), pygame.SRCALPHA)
@@ -2142,85 +2141,76 @@ class Game:
                              panel_surface.get_rect(), 1)
             sc.blit(panel_surface, panel.topleft)
 
+            palette = (
+                "#ffb52e", "#ff7138", "#ff4d68", "#ed55b5", "#ad65ff",
+                "#687cff", "#42b9ff", "#39dfd0", "#72df70", "#d0df48",
+            )
             start_x = panel.centerx - total_w // 2
             heart_y = panel.y + 8
-            for crystal in range(slots):
-                x = int(start_x + crystal * (crystal_w + crystal_gap))
-                active = crystal < hp
-                special = crystal < special_slots
-                if special:
-                    # Каждый бонусный слот получает свой цветовой уровень.
-                    # После десятого уровня палитра повторяется со сдвигом оттенка.
-                    points = [(x + 8, heart_y + 1), (x + 14, heart_y - 1),
-                              (x + 17, heart_y + 5), (x + 8, heart_y + 18),
-                              (x, heart_y + 5), (x + 3, heart_y - 1)]
-                    palette = (
-                        "#ffb52e", "#ff7138", "#ff4d68", "#ed55b5", "#ad65ff",
-                        "#687cff", "#42b9ff", "#39dfd0", "#72df70", "#d0df48",
+            hp_per_heart = max_hp / slots
+            for slot in range(slots):
+                x = int(start_x + slot * (crystal_w + crystal_gap))
+                segment_start = slot * hp_per_heart
+                fill = max(0.0, min(1.0, (hp - segment_start) / hp_per_heart))
+
+                # Уровень определяется тем, к какому десятку HP относится сердце.
+                # Например, при 20 max HP: первые 5 сердец — уровень 1,
+                # следующие 5 — уровень 2.
+                bonus_level = max(1, int((segment_start + hp_per_heart * 0.5) // 10) + 1)
+                cycle = (bonus_level - 1) // 10
+                base = pygame.Color(palette[(bonus_level - 1) % 10])
+                hue, saturation, value, _ = base.hsva
+                base.hsva = ((hue + cycle * 17) % 360,
+                             min(100, saturation + cycle * 2),
+                             max(48, value - cycle * 3), 100)
+                hue, saturation, value, _ = base.hsva
+
+                points = [(x + 8, heart_y + 1), (x + 14, heart_y - 1),
+                          (x + 17, heart_y + 5), (x + 8, heart_y + 18),
+                          (x, heart_y + 5), (x + 3, heart_y - 1)]
+                cx, cy = x + 8.5, heart_y + 8.5
+
+                # Пустая часть сердца остаётся видимой, заполненная часть
+                # постепенно проявляет внутренние слои по мере потери/лечения HP.
+                dark = pygame.Color(base)
+                dark.hsva = (hue, min(100, saturation * 0.42), 22, 100)
+                pygame.draw.polygon(sc, tuple(dark), points)
+
+                old_clip = sc.get_clip()
+                fill_width = round(crystal_w * fill)
+                if fill_width > 0:
+                    sc.set_clip(pygame.Rect(x, heart_y - 2, fill_width, 22).clip(old_clip))
+                    shadow = pygame.Color(0, 0, 0)
+                    shadow.hsva = (hue, saturation, max(18, value * 0.38), 100)
+                    pygame.draw.polygon(sc, tuple(shadow),
+                                        [(px, py + 2) for px, py in points])
+                    pygame.draw.polygon(sc, tuple(base), points)
+
+                    layer_specs = (
+                        (0.82, (hue, max(25, saturation * 0.78), min(100, value + 8))),
+                        (0.64, (hue, max(15, saturation * 0.48), min(100, value + 15))),
+                        (0.46, (hue, max(10, saturation * 0.68), min(100, value - 3))),
+                        (0.28, (hue, max(5, saturation * 0.25), 100)),
                     )
-                    bonus_level = max(1, max_hp - 10 - (slots - 1 - crystal))
-                    cycle = (bonus_level - 1) // 10
-                    base = pygame.Color(palette[(bonus_level - 1) % 10])
-                    hue, saturation, value, _ = base.hsva
-                    base.hsva = ((hue + cycle * 17) % 360,
-                                 min(100, saturation + cycle * 2),
-                                 max(48, value - cycle * 3), 100)
-                    hue, saturation, value, _ = base.hsva
-                    if active:
-                        shadow = pygame.Color(0, 0, 0)
-                        shadow.hsva = (hue, saturation, max(18, value * 0.38), 100)
-                        outer = tuple(base)
-                        layer_specs = (
-                            (0.82, (hue, max(25, saturation * 0.78), min(100, value + 8))),
-                            (0.64, (hue, max(15, saturation * 0.48), min(100, value + 15))),
-                            (0.46, (hue, max(10, saturation * 0.68), min(100, value - 3))),
-                            (0.28, (hue, max(5, saturation * 0.25), 100)),
-                        )
-                        pygame.draw.polygon(sc, tuple(shadow), [(px, py + 2) for px, py in points])
-                        pygame.draw.polygon(sc, outer, points)
-                    else:
-                        shadow = pygame.Color(37, 29, 25)
-                        outer = pygame.Color(base)
-                        outer.hsva = (hue, min(100, saturation * 0.55), 25, 100)
-                        all_layers = (
-                            (0.82, (hue, saturation * 0.45, 38)),
-                            (0.64, (hue, saturation * 0.35, 48)),
-                            (0.46, (hue, saturation * 0.50, 32)),
-                            (0.28, (hue, saturation * 0.20, 58)),
-                        )
-                        # По мере потери HP погасшие сердца теряют внутренние слои:
-                        # первое пустое сохраняет 3, следующее 2, затем 1 и 0.
-                        remaining_layers = max(0, 4 - (crystal - hp))
-                        layer_specs = all_layers[:remaining_layers]
-                        pygame.draw.polygon(sc, tuple(shadow), points)
-                        pygame.draw.polygon(sc, tuple(outer), points)
-                    cx, cy = x + 8.5, heart_y + 8.5
-                    for scale, (layer_hue, layer_sat, layer_value) in layer_specs:
+                    visible_layers = min(4, int(fill * 4 + 0.0001))
+                    for scale, (layer_hue, layer_sat, layer_value) in layer_specs[:visible_layers]:
                         layer_color = pygame.Color(0, 0, 0)
                         layer_color.hsva = (layer_hue, layer_sat, layer_value, 100)
                         layer = [(round(cx + (px - cx) * scale),
                                   round(cy + (py - cy) * scale))
                                  for px, py in points]
                         pygame.draw.polygon(sc, tuple(layer_color), layer)
-                    outline = pygame.Color(base)
-                    outline.hsva = (hue, min(100, saturation * 0.35), 100 if active else 55, 100)
-                    pygame.draw.polygon(sc, tuple(outline), points, 1)
-                else:
-                    # Обычные кристаллы здоровья.
-                    points = [(x + 8, heart_y + 1), (x + 15, heart_y + 9),
-                              (x + 8, heart_y + 18), (x + 1, heart_y + 9)]
-                    fill = hp_color if active else (25, 32, 45)
-                    edge = WHITE if active else (65, 75, 92)
-                    pygame.draw.polygon(sc, fill, points)
-                    pygame.draw.polygon(sc, edge, points, 1)
-                    if active:
-                        pygame.draw.line(sc, (245, 252, 255), (x + 8, heart_y + 4),
-                                         (x + 8, heart_y + 15), 1)
+
+                sc.set_clip(old_clip)
+                outline = pygame.Color(base)
+                outline.hsva = (hue, min(100, saturation * 0.35),
+                                100 if fill > 0 else 55, 100)
+                pygame.draw.polygon(sc, tuple(outline), points, 1)
 
             label = "ЗДОРОВЬЕ"
             label_font = self.f_small
             label_y = panel.bottom - 19
-            label_x = panel.centerx - (label_font.size(label)[0] +
+            label_x = panel.centerx - (label_font.size(label) +
                                        label_font.size("%d / %d" % (hp, max_hp))[0] + 12) / 2
             text(sc, label, label_font, hp_color, (label_x, label_y), "midleft", outline=1)
             count_x = label_x + label_font.size(label)[0] + 12
