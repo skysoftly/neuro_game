@@ -76,6 +76,8 @@ class Enemy:
         self.v = V()
         # Рост HP продолжается и после сотой волны; онлайн учитывается сразу.
         hp_scale, speed_scale = enemy_scaling(wave, player_count, kind.startswith("boss"))
+        wave_steps = max(0, int(wave) - 1)
+        self.attack_scale = min(1.8, 1.0 + 0.004 * wave_steps)
         self.hp = max(1, math.ceil(d["hp"] * hp_scale))
         self.max_hp = self.hp
         self.r = d["r"]
