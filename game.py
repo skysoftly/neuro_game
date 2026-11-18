@@ -247,6 +247,8 @@ class Game:
         self.pause_shade.fill((2, 4, 9, 205))
         self.tutorial_shade = pygame.Surface((W, H), pygame.SRCALPHA)
         self.tutorial_shade.fill((3, 7, 13, 232))
+        self.intermission_shade = pygame.Surface((W, H), pygame.SRCALPHA)
+        self.intermission_shade.fill((5, 8, 14, 218))
         self.input_shade = pygame.Surface((W, H), pygame.SRCALPHA)
         self.input_shade.fill((0, 0, 0, 205))
         self.end_tint = pygame.Surface((W, H), pygame.SRCALPHA)
@@ -2060,9 +2062,9 @@ class Game:
             pygame.draw.circle(sc, WHITE, (int(sx), int(sy)), 35, 1)
 
         if me and not me.get("alive", True) and self.state == "play":
-            panel = pygame.Surface((460, 48), pygame.SRCALPHA)
-            panel.fill((8, 10, 24, 190))
-            sc.blit(panel, (W / 2 - 230, 142))
+            panel = pygame.Rect(W / 2 - 230, 142, 460, 48)
+            pygame.draw.rect(sc, (8, 10, 24), panel)
+            pygame.draw.rect(sc, (90, 145, 165), panel, 1)
             text(sc, "YOU ARE OUT - SPECTATING",
                  self.f_small, RED, (W / 2, 166), outline=2)
 
@@ -2096,9 +2098,7 @@ class Game:
     def draw_upgrade_overlay(self, sc):
         if not self.intermission:
             return
-        overlay = pygame.Surface((W, H), pygame.SRCALPHA)
-        overlay.fill((5, 8, 14, 218))
-        sc.blit(overlay, (0, 0))
+        sc.blit(self.intermission_shade, (0, 0))
         roster = list(self.players.values()) if self.is_host else (self.snap or {}).get("players", [])
         if self.is_host:
             ready_count = sum(1 for p in roster if p.alive and p.upgrade_ready)
