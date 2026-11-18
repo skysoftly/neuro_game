@@ -1964,8 +1964,14 @@ class Game:
             pygame.draw.line(sc, (0, 150, 200), p0, p0 - d * 0.035, max(3, int(5 * (b[4] if len(b) > 4 else 1))))
             pygame.draw.line(sc, WHITE, p0, p0 - d * 0.03, max(2, int(2 * (b[4] if len(b) > 4 else 1))))
 
-        # игроки
+        # Игрок клиента интерполируется тем же таймингом, что и камера:
+        # спрайт не дёргается между сетевыми снимками 30 Гц.
         for pl in snap.get("players", []):
+            if not self.is_host and pl["pid"] == self.my_id and self.camera_target_current is not None:
+                alpha = min(1.0, self.camera_lerp_elapsed / max(1e-4, self.camera_lerp_duration))
+                pl = dict(pl)
+                pl["x"] = self.camera_target_previous[0] + (self.camera_target_current[0] - self.camera_target_previous[0]) * alpha
+                pl["y"] = self.camera_target_previous[1] + (self.camera_target_current[1] - self.camera_target_previous[1]) * alpha
             self.draw_player(sc, pl, pl["pid"] == self.my_id, cam)
 
         # Указатель ближайшего противника рисуется в мировом слое, под HUD.
