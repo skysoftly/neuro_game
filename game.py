@@ -1056,7 +1056,7 @@ class Game:
                 p.regen_timer = 0.0
                 p.hp = min(p.max_hp, p.hp + 1)
                 if p.pid == self.my_id:
-                self.audio.play("heal")
+                    self.audio.play("heal")
         p.rapid = max(0.0, p.rapid - dt)
         p.spread = max(0.0, p.spread - dt)
         if p.want_dash:
