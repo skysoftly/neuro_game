@@ -52,6 +52,7 @@ class UpgradeTests(unittest.TestCase):
         apply_upgrade(self.player, "max_hp")
         self.assertEqual(self.player.max_hp, 6)
         self.assertEqual(self.player.hp, 5)
+        self.assertEqual(self.player.max_hp, 6)
 
     def test_damage_upgrade_changes_damage(self):
         apply_upgrade(self.player, "dmg")
