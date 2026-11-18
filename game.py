@@ -438,6 +438,7 @@ class Game:
             if self.players:
                 self.players.pop(cid, None)
             self.server.broadcast({"t": "lobby", "players": self.lobby_players})
+            self.check_tutorial_ready()
 
     def handle_host_disconnect(self):
         log.warning("Соединение с хостом потеряно")
@@ -949,7 +950,7 @@ class Game:
         elif self.queue:
             self.spawn_t -= dt
             if self.spawn_t <= 0:
-                player_count = max(1, sum(1 for p in self.players.values() if p.alive))
+                player_count = max(1, len(self.players))
                 self.spawn_t = max(0.12, (0.7 - 0.018 * self.wave) / (1.0 + 0.08 * (player_count - 1)))
                 self.spawn(self.queue.pop())
 
@@ -1027,10 +1028,10 @@ class Game:
         pos.x = max(50, min(WORLD_W - 50, pos.x))
         pos.y = max(50, min(WORLD_H - 50, pos.y))
         enemy = Enemy(kind, pos, self.wave)
-        player_scale = 1.0 + 0.20 * max(0, len(alive_players) - 1)
+        player_scale = 1.0 + 0.20 * max(0, len(self.players) - 1)
         enemy.hp = max(1, math.ceil(enemy.hp * player_scale))
         enemy.max_hp = enemy.hp
-        enemy.spd *= 1.0 + 0.035 * max(0, len(alive_players) - 1)
+        enemy.spd *= 1.0 + 0.035 * max(0, len(self.players) - 1)
         self.enemies.append(enemy)
 
     def update_enemy(self, e, dt):
@@ -1212,7 +1213,7 @@ class Game:
         if src:
             src.chain += 1
             src.combo_t = 2.5 + 0.6 * src.combo_bonus
-            pts = d["score"] * src.mult()
+            pts = int(d["score"] * src.mult() * src.score_gain)
             src.score += pts
             src.kills += 1
             if src.lifesteal:
@@ -1364,7 +1365,7 @@ class Game:
             "banner": round(self.banner_t, 2),
             "shake": round(self.shake, 1),
             "enemies_left": len(self.queue) + sum(1 for e in self.enemies if not e.dead),
-            "boss_in": (5 - ((self.wave + (1 if self.intermission else 0)) % 5)) % 5,
+            "boss_in": 5 if self.wave == 0 else (5 - ((self.wave + (1 if self.intermission else 0)) % 5)) % 5,
         }
         for p in self.players.values():
             snap["players"].append({
