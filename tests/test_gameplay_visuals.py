@@ -4,14 +4,20 @@ import unittest
 import pygame
 
 from config import W, H
-from draw_utils import bloom, fisheye, make_overlay
-from entities import Player
+from draw_utils import bloom, make_overlay
+from entities import Enemy, Player
 from upgrades import UPGRADES, apply_upgrade, roll_upgrades
 
 
 class UpgradeTests(unittest.TestCase):
     def setUp(self):
         self.player = Player(1, "Tester")
+
+    def test_enemy_stats_scale_with_wave(self):
+        early = Enemy("tank", (100, 100), 1)
+        late = Enemy("tank", (100, 100), 10)
+        self.assertGreater(late.max_hp, early.max_hp)
+        self.assertGreater(late.spd, early.spd)
 
     def test_roll_returns_three_distinct_upgrades(self):
         result = roll_upgrades(random.Random(7), 3)
@@ -26,23 +32,30 @@ class UpgradeTests(unittest.TestCase):
 
     def test_damage_upgrade_changes_damage(self):
         apply_upgrade(self.player, "dmg")
-        self.assertAlmostEqual(self.player.dmg, 1.12)
+        self.assertAlmostEqual(self.player.dmg, 1.08)
 
     def test_damage_upgrade_has_a_hard_cap(self):
         for _ in range(8):
             apply_upgrade(self.player, "dmg")
         self.assertEqual(self.player.upgrades["dmg"], 3)
-        self.assertAlmostEqual(self.player.dmg, 1.36)
+        self.assertAlmostEqual(self.player.dmg, 1.24)
 
     def test_roll_excludes_upgrades_at_their_cap(self):
         self.player.upgrades["dmg"] = 3
         result = roll_upgrades(random.Random(2), 3, self.player)
         self.assertNotIn("dmg", result)
 
-    def test_lifesteal_upgrade_is_tracked(self):
-        apply_upgrade(self.player, "lifesteal")
+    def test_lifesteal_is_limited_to_one_stack(self):
+        for _ in range(3):
+            apply_upgrade(self.player, "lifesteal")
         self.assertEqual(self.player.lifesteal, 1)
-        self.assertEqual(self.player.lifesteal_progress, 0)
+        self.assertEqual(self.player.upgrades["lifesteal"], 1)
+
+    def test_pierce_is_limited_to_one_extra_enemy(self):
+        for _ in range(3):
+            apply_upgrade(self.player, "pierce")
+        self.assertEqual(self.player.pierce, 1)
+        self.assertEqual(self.player.upgrades["pierce"], 1)
 
 
 class RetroRenderTests(unittest.TestCase):
@@ -54,12 +67,6 @@ class RetroRenderTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         pygame.quit()
-
-    def test_lens_filter_preserves_surface_size(self):
-        source = pygame.Surface((W, H))
-        source.fill((12, 16, 30))
-        result = fisheye(source, 0.075)
-        self.assertEqual(result.get_size(), (W, H))
 
     def test_bloom_and_overlay_are_renderable(self):
         source = pygame.Surface((W, H))
