@@ -215,6 +215,28 @@ class Game:
     def persist(self):
         save_config({"last_ip": self.last_ip, "name": self.name_input})
 
+    def logical_mouse(self, pos=None):
+        if pos is None:
+            pos = pygame.mouse.get_pos()
+        sw, sh = self.screen.get_size()
+        return (pos[0] * W / max(1, sw), pos[1] * H / max(1, sh))
+
+    def draw_button(self, surface, rect, label, color=CYAN, enabled=True):
+        mouse = self.logical_mouse()
+        hovered = enabled and rect.collidepoint(mouse)
+        fill = (12, 24, 42) if not hovered else (20, 43, 66)
+        border = color if enabled else (65, 75, 95)
+        pygame.draw.rect(surface, (2, 7, 18), rect.inflate(6, 6))
+        pygame.draw.rect(surface, fill, rect)
+        pygame.draw.rect(surface, border, rect, 2)
+        pygame.draw.line(surface, dim(border, 0.5), (rect.x + 10, rect.y + 5),
+                         (rect.right - 10, rect.y + 5), 1)
+        if hovered:
+            pygame.draw.rect(surface, color, (rect.x + 5, rect.y + 5, 3, rect.height - 10))
+        text(surface, label, self.f_mid if rect.height >= 44 else self.f_small,
+             WHITE if enabled else (100, 110, 130), rect.center, outline=1)
+        return hovered
+
     # ================= сеть =================
     def start_host(self):
         log.info("Запуск лобби хоста")
@@ -482,15 +504,6 @@ class Game:
                         self.help_t = 10.0
                     continue
 
-                # выбор апгрейда
-                if self.state == "play" and self.local_choices:
-                    if e.key in (pygame.K_1, pygame.K_KP1) and len(self.local_choices) >= 1:
-                        self.pick_upgrade(self.local_choices[0]); continue
-                    if e.key in (pygame.K_2, pygame.K_KP2) and len(self.local_choices) >= 2:
-                        self.pick_upgrade(self.local_choices[1]); continue
-                    if e.key in (pygame.K_3, pygame.K_KP3) and len(self.local_choices) >= 3:
-                        self.pick_upgrade(self.local_choices[2]); continue
-
                 if self.state == "menu":
                     if e.key == pygame.K_1:
                         self.start_host()
@@ -524,10 +537,36 @@ class Game:
                     if e.key in (pygame.K_RETURN, pygame.K_ESCAPE):
                         self.state = "menu"
             elif e.type == pygame.MOUSEBUTTONDOWN:
-                if e.button == 1 and self.state == "play" and self.local_choices:
-                    sw, sh = self.screen.get_size()
-                    mx = e.pos[0] * W / max(1, sw)
-                    my = e.pos[1] * H / max(1, sh)
+                mx, my = self.logical_mouse(e.pos)
+                if self.input_mode and e.button == 1:
+                    if pygame.Rect(W / 2 - 115, H / 2 + 112, 230, 38).collidepoint(mx, my):
+                        self._paste_input()
+                    elif pygame.Rect(W / 2 - 135, H / 2 + 160, 270, 46).collidepoint(mx, my):
+                        mode = self.input_mode
+                        self.input_mode = None
+                        self.persist()
+                        if mode == "ip" and self.ip_input.strip():
+                            self.join_server(self.ip_input)
+                    elif pygame.Rect(W / 2 - 135, H / 2 + 216, 270, 40).collidepoint(mx, my):
+                        self.input_mode = None
+                elif self.state == "menu" and e.button == 1:
+                    cx, cy = W / 2, H / 2 - 140
+                    y = cy + 160
+                    if pygame.Rect(cx - 210, y - 20, 420, 52).collidepoint(mx, my):
+                        self.start_host()
+                    elif pygame.Rect(cx - 210, y + 42, 420, 52).collidepoint(mx, my):
+                        self.input_mode = "ip"
+                        self.ip_input = self.last_ip
+                    elif pygame.Rect(cx - 210, y + 104, 420, 44).collidepoint(mx, my) and self.last_ip:
+                        self.join_server(self.last_ip)
+                    elif pygame.Rect(cx - 210, y + 158, 420, 44).collidepoint(mx, my):
+                        self.input_mode = "name"
+                elif self.state == "lobby" and e.button == 1:
+                    if self.is_host and pygame.Rect(W / 2 - 190, H - 136, 380, 52).collidepoint(mx, my):
+                        self.host_start_game()
+                    elif pygame.Rect(W / 2 - 150, H - 66, 300, 42).collidepoint(mx, my):
+                        self.leave_net()
+                elif self.state == "play" and self.local_choices and e.button == 1:
                     card_w, card_h, gap = 320, 220, 30
                     total = len(self.local_choices) * card_w + (len(self.local_choices) - 1) * gap
                     x0 = (W - total) / 2
@@ -537,10 +576,29 @@ class Game:
                         if card.collidepoint(mx, my):
                             self.pick_upgrade(upgrade_id)
                             break
+                elif self.state == "dead" and e.button == 1:
+                    if self.is_host and pygame.Rect(W / 2 - 190, H - 126, 380, 52).collidepoint(mx, my):
+                        self.host_start_game()
+                    elif pygame.Rect(W / 2 - 150, H - 70, 300, 42).collidepoint(mx, my):
+                        self.leave_net()
+                elif self.state == "error" and e.button == 1:
+                    if pygame.Rect(W / 2 - 150, H - 102, 300, 46).collidepoint(mx, my):
+                        self.state = "menu"
                 elif e.button == 3 and self.state == "play":
                     p = self.players.get(self.my_id)
                     if p:
                         p.want_pulse = True
+
+    def _paste_input(self):
+        value = read_clipboard()
+        if not value:
+            self.connect_error = "Буфер обмена пуст или недоступен"
+            return
+        if self.input_mode == "ip":
+            value = "".join(ch for ch in value.strip() if ch.isdigit() or ch == ".")
+            self.ip_input = value[:15]
+        elif self.input_mode == "name":
+            self.name_input = value.replace("\\n", " ").replace("\\r", " ")[:16]
 
     def _handle_input_event(self, e):
         if e.key == pygame.K_RETURN:
@@ -560,13 +618,7 @@ class Game:
                 self.name_input = self.name_input[:-1]
             return
         if e.key == pygame.K_v and (e.mod & pygame.KMOD_CTRL):
-            s = read_clipboard()
-            if s:
-                if self.input_mode == "ip":
-                    s = "".join(ch for ch in s if ch.isdigit() or ch == ".")
-                    self.ip_input = s
-                else:
-                    self.name_input = s[:16]
+            self._paste_input()
             return
         ch = e.unicode
         if ch and ch.isprintable():
