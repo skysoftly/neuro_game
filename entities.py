@@ -47,6 +47,7 @@ class Player:
         self.dash_cd_max = 0.9
         self.pierce = 0
         self.lifesteal = 0
+        self.lifesteal_progress = 0
         self.magnet = 1.0
         self.pulse_gain = 1.0
 
@@ -54,7 +55,7 @@ class Player:
         return min(10, 1 + self.chain // 5)
 
     def xp_to_next(self):
-        return 20 + (self.level - 1) * 15
+        return 10 + (self.level - 1) * 8
 
 
 class Enemy:

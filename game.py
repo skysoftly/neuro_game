@@ -1,5 +1,6 @@
 """Основной класс игры: логика, рендер, сеть, состояния."""
 import json
+import logging
 import math
 import os
 import random
@@ -21,6 +22,9 @@ from camera import Camera
 from entities import Player, Enemy, Particle, Ring, Bullet
 from upgrades import UPGRADES_BY_ID, apply_upgrade, roll_upgrades
 from network import HostServer, ClientConn
+from visuals import draw_glow
+
+log = logging.getLogger("neuro_game")
 
 
 # ---------- конфиг ----------
@@ -67,40 +71,97 @@ class Audio:
         if not pygame.mixer.get_init():
             return
         try:
+            # Softer, more varied synth tones; avoid harsh square-wave blasts.
             self.s = {
-                "shoot": self.make(900, 300, 0.07, 0.10, "sq", 0.1),
-                "hit": self.make(300, 120, 0.05, 0.12, "sq", 0.5),
-                "boom": self.make(180, 30, 0.35, 0.35, "sq", 0.8),
-                "dash": self.make(300, 1200, 0.15, 0.18, "sin", 0.2),
-                "pickup": self.make(600, 1400, 0.18, 0.20, "sin", 0.0),
-                "pulse": self.make(900, 60, 0.60, 0.40, "sin", 0.4),
-                "hurt": self.make(400, 50, 0.40, 0.40, "sq", 0.6),
-                "levelup": self.make(500, 1600, 0.35, 0.25, "sin", 0.0),
+                "shoot": [
+                    self.make(760, 520, 0.055, 0.035, "tri", 0.0),
+                    self.make(820, 560, 0.050, 0.030, "sin", 0.0),
+                    self.make(690, 470, 0.060, 0.032, "tri", 0.0),
+                ],
+                "hit": [
+                    self.make(260, 170, 0.075, 0.055, "sin", 0.08),
+                    self.make(310, 190, 0.065, 0.045, "tri", 0.04),
+                ],
+                "boom": [
+                    self.make(115, 42, 0.24, 0.10, "sin", 0.12),
+                    self.make(95, 35, 0.28, 0.085, "sin", 0.08),
+                    self.make(135, 48, 0.20, 0.09, "tri", 0.06),
+                ],
+                "dash": [
+                    self.make(260, 920, 0.19, 0.065, "sin", 0.0),
+                    self.make(310, 1080, 0.16, 0.055, "tri", 0.0),
+                ],
+                "pickup": [
+                    self.make(520, 1040, 0.16, 0.055, "tri", 0.0),
+                    self.make(620, 1240, 0.14, 0.050, "sin", 0.0),
+                ],
+                "pulse": self.make(520, 90, 0.42, 0.12, "sin", 0.04),
+                "hurt": self.make(220, 85, 0.20, 0.10, "tri", 0.05),
+                "levelup": self.make(440, 1320, 0.32, 0.085, "sin", 0.0),
             }
             self.ok = True
+            self.music = self.make_music()
+            self.music_channel = pygame.mixer.Channel(7)
+            self.music_channel.set_volume(0.22)
+            self.music_channel.play(self.music, loops=-1)
         except Exception:
             self.ok = False
+            log.exception("Не удалось инициализировать аудио")
+
+    @staticmethod
+    def make_music():
+        """Original mellow chiptune loop with a melody, bass and soft pulse."""
+        rate = 44100
+        melody = (440, 523, 659, 523, 392, 494, 587, 494,
+                  349, 440, 523, 440, 330, 392, 494, 392)
+        bass = (110, 110, 130.81, 130.81, 87.31, 87.31, 98, 98)
+        beat = 0.22
+        count = int(rate * beat)
+        buf = array.array("h")
+        for step, note in enumerate(melody):
+            base_phase = 0.0
+            bass_phase = 0.0
+            for i in range(count):
+                t = i / count
+                base_phase += note / rate
+                bass_phase += bass[(step // 2) % len(bass)] / rate
+                tri = 1.0 - 4.0 * abs(round(base_phase) - base_phase)
+                lead_env = min(1.0, i / 500) * min(1.0, (count - i) / 1800)
+                bass_env = min(1.0, i / 900) * min(1.0, (count - i) / 2500)
+                lead = tri * lead_env * 0.075
+                low = math.sin(bass_phase * math.tau) * bass_env * 0.045
+                pulse = 0.0
+                if step % 4 == 0 and i < int(rate * 0.055):
+                    pulse = math.sin((75 - 35 * t) * math.tau * i / rate) * (1 - t / 0.25) * 0.035
+                buf.append(int(max(-1.0, min(1.0, lead + low + pulse)) * 32767))
+        return pygame.mixer.Sound(buffer=buf.tobytes())
 
     @staticmethod
     def make(f0, f1, dur, vol, wave, noise):
         rate = 44100
-        n = int(rate * dur)
+        n = max(1, int(rate * dur))
         buf = array.array("h")
-        ph = 0.0
+        phase = 0.0
         for i in range(n):
             t = i / n
-            ph += (f0 + (f1 - f0) * t) / rate
+            phase += (f0 + (f1 - f0) * t) / rate
             if wave == "sq":
-                s = 1.0 if (ph % 1.0) < 0.5 else -1.0
+                sample = 1.0 if phase % 1.0 < 0.5 else -1.0
+            elif wave == "tri":
+                sample = 1.0 - 4.0 * abs(round(phase) - phase)
             else:
-                s = math.sin(ph * math.tau)
-            s = s * (1 - noise) + random.uniform(-1, 1) * noise
-            buf.append(int(s * (1 - t) ** 2 * vol * 32767))
+                sample = math.sin(phase * math.tau)
+            sample = sample * (1 - noise) + random.uniform(-1, 1) * noise
+            envelope = min(1.0, i / max(1, int(rate * 0.008))) * (1 - t) ** 1.6
+            buf.append(int(sample * envelope * vol * 32767))
         return pygame.mixer.Sound(buffer=buf.tobytes())
 
     def play(self, name):
         if self.ok and name in self.s:
-            self.s[name].play()
+            sound = self.s[name]
+            if isinstance(sound, list):
+                sound = random.choice(sound)
+            sound.play()
 
 
 # ---------- игра ----------
@@ -133,7 +194,8 @@ class Game:
         self.hitstop = 0.0
         self.show_help = True
         self.help_t = 10.0
-        self.fisheye_on = True
+        self.debug_overlay = False
+        self.debug_timer = 0.0
 
         cfg = load_config()
         self.last_ip = cfg.get("last_ip", "")
@@ -173,8 +235,32 @@ class Game:
     def persist(self):
         save_config({"last_ip": self.last_ip, "name": self.name_input})
 
+    def logical_mouse(self, pos=None):
+        if pos is None:
+            pos = pygame.mouse.get_pos()
+        sw, sh = self.screen.get_size()
+        return (pos[0] * W / max(1, sw), pos[1] * H / max(1, sh))
+
+    def draw_button(self, surface, rect, label, color=CYAN, enabled=True):
+        mouse = self.logical_mouse()
+        hovered = enabled and rect.collidepoint(mouse)
+        fill = (12, 24, 42) if not hovered else (20, 43, 66)
+        border = color if enabled else (65, 75, 95)
+        pygame.draw.rect(surface, (2, 7, 18), rect.inflate(6, 6))
+        pygame.draw.rect(surface, fill, rect)
+        pygame.draw.rect(surface, border, rect, 2)
+        pygame.draw.line(surface, dim(border, 0.5), (rect.x + 10, rect.y + 5),
+                         (rect.right - 10, rect.y + 5), 1)
+        if hovered:
+            pygame.draw.rect(surface, color, (rect.x + 5, rect.y + 5, 3, rect.height - 10))
+        text(surface, label, self.f_mid if rect.height >= 50 else self.f_small,
+             WHITE if enabled else (100, 110, 130), rect.center, outline=1)
+        return hovered
+
     # ================= сеть =================
     def start_host(self):
+        log.info("Запуск лобби хоста")
+        self.connect_error = ""
         try:
             self.server = HostServer()
         except Exception as e:
@@ -186,15 +272,17 @@ class Game:
         self.state = "lobby"
 
     def join_server(self, ip):
+        log.info("Подключение к хосту %s:%d", ip, PORT)
         self.connect_error = ""
         ip = ip.strip()
         if not ip:
-            self.connect_error = "Пустой IP"
+            self.set_error("Не указан IP-адрес хоста.")
             return
         try:
             self.client = ClientConn(ip)
         except Exception as e:
-            self.connect_error = "Ошибка: %s" % e
+            log.exception("Не удалось подключиться к %s:%d", ip, PORT)
+            self.set_error("Не удалось подключиться к %s:%d\n%s" % (ip, PORT, e))
             return
         self.is_host = False
         self.last_ip = ip
@@ -204,6 +292,7 @@ class Game:
         self.lobby_players = []
 
     def set_error(self, msg):
+        log.error("Состояние ошибки: %s", msg.replace("\n", " | "))
         self.error_msg = msg
         self.state = "error"
         pygame.mouse.set_visible(True)
@@ -223,6 +312,9 @@ class Game:
         self.parts, self.rings, self.pickups, self.pops = [], [], [], []
         self.queue = []
         self.local_choices = []
+        self.snap = None
+        self.paused = False
+        self.hitstop = 0.0
         self.state = "menu"
         pygame.mouse.set_visible(True)
 
@@ -235,6 +327,9 @@ class Game:
         self.bullets, self.ebullets, self.enemies = [], [], []
         self.parts, self.rings, self.pickups, self.pops = [], [], [], []
         self.queue = []
+        self.local_choices = []
+        self.snap = None
+        self.paused = False
         self.wave = 0
         self.wave_delay = 1.5
         self.spawn_t = 0.0
@@ -279,7 +374,7 @@ class Game:
         elif t == "upgrade" and self.state == "play":
             p = self.players.get(cid)
             up_id = m.get("id")
-            if p and up_id in p.upgrade_choices:
+            if p and p.alive and up_id in p.upgrade_choices:
                 apply_upgrade(p, up_id)
                 p.upgrade_choices = []
         elif t == "disconnect":
@@ -288,13 +383,30 @@ class Game:
                 self.players.pop(cid, None)
             self.server.broadcast({"t": "lobby", "players": self.lobby_players})
 
+    def handle_host_disconnect(self):
+        log.warning("Соединение с хостом потеряно")
+        if self.client:
+            self.client.stop()
+            self.client = None
+        self.snap = None
+        self.local_choices = []
+        self.lobby_players = []
+        self.players = {}
+        self.paused = False
+        self.is_host = False
+        self.my_id = 0
+        self.set_error("Связь с хостом потеряна.\nХост закрыл игру или соединение оборвалось.")
+
     def on_client_msg(self, m):
         t = m.get("t")
         if t == "welcome":
             self.my_id = int(m.get("id", 0))
+            log.info("Подключено к хосту, client_id=%d", self.my_id)
         elif t == "lobby":
             self.lobby_players = [(int(a), b) for a, b in m.get("players", [])]
         elif t == "start":
+            self.snap = None
+            self.local_choices = []
             self.state = "play"
             self.paused = False
             self.help_t = 10.0
@@ -305,15 +417,16 @@ class Game:
             # выбрать апгрейды локального игрока
             for pl in m.get("players", []):
                 if pl["pid"] == self.my_id:
-                    self.local_choices = pl.get("upgrade_choices", [])
+                    self.local_choices = pl.get("upgrade_choices", []) if pl.get("alive", True) else []
                     break
             else:
                 self.local_choices = []
         elif t == "dead":
+            self.local_choices = []
             self.state = "dead"
             pygame.mouse.set_visible(True)
         elif t == "disconnect":
-            self.set_error("Соединение с хостом потеряно.")
+            self.handle_host_disconnect()
 
     def send_input(self):
         if self.is_host or not self.client or self.state != "play":
@@ -351,11 +464,14 @@ class Game:
         })
 
     def pick_upgrade(self, upgrade_id):
+        if upgrade_id not in self.local_choices:
+            return
         if self.is_host:
             p = self.players.get(self.my_id)
-            if p and upgrade_id in p.upgrade_choices:
+            if p and p.alive and upgrade_id in p.upgrade_choices:
                 apply_upgrade(p, upgrade_id)
                 p.upgrade_choices = []
+                self.local_choices = []
                 self.audio.play("levelup")
         elif self.client:
             self.client.send({"t": "upgrade", "id": upgrade_id})
@@ -397,8 +513,8 @@ class Game:
                 if e.key == pygame.K_F11:
                     pygame.display.toggle_fullscreen()
                     continue
-                if e.key == pygame.K_f and not self.input_mode:
-                    self.fisheye_on = not self.fisheye_on
+                if e.key == pygame.K_F3 and not self.input_mode:
+                    self.debug_overlay = not self.debug_overlay
                     continue
                 if self.input_mode:
                     self._handle_input_event(e)
@@ -408,15 +524,6 @@ class Game:
                     if self.show_help:
                         self.help_t = 10.0
                     continue
-
-                # выбор апгрейда
-                if self.state == "play" and self.local_choices:
-                    if e.key in (pygame.K_1, pygame.K_KP1) and len(self.local_choices) >= 1:
-                        self.pick_upgrade(self.local_choices[0]); continue
-                    if e.key in (pygame.K_2, pygame.K_KP2) and len(self.local_choices) >= 2:
-                        self.pick_upgrade(self.local_choices[1]); continue
-                    if e.key in (pygame.K_3, pygame.K_KP3) and len(self.local_choices) >= 3:
-                        self.pick_upgrade(self.local_choices[2]); continue
 
                 if self.state == "menu":
                     if e.key == pygame.K_1:
@@ -451,17 +558,78 @@ class Game:
                     if e.key in (pygame.K_RETURN, pygame.K_ESCAPE):
                         self.state = "menu"
             elif e.type == pygame.MOUSEBUTTONDOWN:
-                if e.button == 3 and self.state == "play":
+                mx, my = self.logical_mouse(e.pos)
+                if self.input_mode and e.button == 1:
+                    if pygame.Rect(W / 2 - 115, H / 2 + 32, 230, 38).collidepoint(mx, my):
+                        self._paste_input()
+                    elif pygame.Rect(W / 2 - 135, H / 2 + 80, 270, 46).collidepoint(mx, my):
+                        mode = self.input_mode
+                        self.input_mode = None
+                        self.persist()
+                        if mode == "ip":
+                            self.join_server(self.ip_input)
+                    elif pygame.Rect(W / 2 - 135, H / 2 + 136, 270, 40).collidepoint(mx, my):
+                        self.input_mode = None
+                elif self.state == "menu" and e.button == 1:
+                    cx, cy = W / 2, H / 2 - 140
+                    if pygame.Rect(cx - 100, H - 58, 200, 38).collidepoint(mx, my):
+                        self.quit()
+                    y = cy + 160
+                    if pygame.Rect(cx - 210, y - 20, 420, 52).collidepoint(mx, my):
+                        self.start_host()
+                    elif pygame.Rect(cx - 210, y + 42, 420, 52).collidepoint(mx, my):
+                        self.input_mode = "ip"
+                        self.ip_input = self.last_ip
+                    elif pygame.Rect(cx - 210, y + 104, 420, 44).collidepoint(mx, my) and self.last_ip:
+                        self.join_server(self.last_ip)
+                    elif pygame.Rect(cx - 210, y + 158, 420, 44).collidepoint(mx, my):
+                        self.input_mode = "name"
+                elif self.state == "lobby" and e.button == 1:
+                    if self.is_host and pygame.Rect(W / 2 - 190, H - 136, 380, 52).collidepoint(mx, my):
+                        self.host_start_game()
+                    elif pygame.Rect(W / 2 - 150, H - 66, 300, 42).collidepoint(mx, my):
+                        self.leave_net()
+                elif self.state == "play" and self.local_choices and e.button == 1:
+                    card_w, card_h, gap = 320, 220, 30
+                    total = len(self.local_choices) * card_w + (len(self.local_choices) - 1) * gap
+                    x0 = (W - total) / 2
+                    card_y = H / 2 - card_h / 2 + 40
+                    for i, upgrade_id in enumerate(self.local_choices):
+                        card = pygame.Rect(x0 + i * (card_w + gap), card_y, card_w, card_h)
+                        if card.collidepoint(mx, my):
+                            self.pick_upgrade(upgrade_id)
+                            break
+                elif self.state == "dead" and e.button == 1:
+                    if self.is_host and pygame.Rect(W / 2 - 190, H - 126, 380, 52).collidepoint(mx, my):
+                        self.host_start_game()
+                    elif pygame.Rect(W / 2 - 150, H - 70, 300, 42).collidepoint(mx, my):
+                        self.leave_net()
+                elif self.state == "error" and e.button == 1:
+                    if pygame.Rect(W / 2 - 150, H - 102, 300, 46).collidepoint(mx, my):
+                        self.state = "menu"
+                elif e.button == 3 and self.state == "play":
                     p = self.players.get(self.my_id)
                     if p:
                         p.want_pulse = True
+
+    def _paste_input(self):
+        value = read_clipboard()
+        if not value:
+            self.connect_error = "Буфер обмена пуст или недоступен"
+            return
+        self.connect_error = ""
+        if self.input_mode == "ip":
+            value = "".join(ch for ch in value.strip() if ch.isdigit() or ch == ".")
+            self.ip_input = value[:15]
+        elif self.input_mode == "name":
+            self.name_input = value.replace("\n", " ").replace("\r", " ")[:16]
 
     def _handle_input_event(self, e):
         if e.key == pygame.K_RETURN:
             mode = self.input_mode
             self.input_mode = None
             self.persist()
-            if mode == "ip" and self.ip_input.strip():
+            if mode == "ip":
                 self.join_server(self.ip_input)
             return
         if e.key == pygame.K_ESCAPE:
@@ -474,20 +642,15 @@ class Game:
                 self.name_input = self.name_input[:-1]
             return
         if e.key == pygame.K_v and (e.mod & pygame.KMOD_CTRL):
-            s = read_clipboard()
-            if s:
-                if self.input_mode == "ip":
-                    s = "".join(ch for ch in s if ch.isdigit() or ch == ".")
-                    self.ip_input = s
-                else:
-                    self.name_input = s[:16]
+            self._paste_input()
             return
         ch = e.unicode
         if ch and ch.isprintable():
             if self.input_mode == "ip":
-                self.ip_input += ch
+                if ch.isdigit() or ch == ".":
+                    self.ip_input = (self.ip_input + ch)[:15]
             else:
-                self.name_input += ch
+                self.name_input = (self.name_input + ch)[:16]
 
     def quit(self):
         self.leave_net()
@@ -523,6 +686,9 @@ class Game:
 
         if not any(p.alive for p in self.players.values()):
             self.state = "dead"
+            self.local_choices = []
+            for player in self.players.values():
+                player.upgrade_choices = []
             self.server.broadcast({"t": "dead"})
             pygame.mouse.set_visible(True)
 
@@ -708,7 +874,9 @@ class Game:
         for b in self.ebullets:
             b[0] += b[1] * dt
             b[2] -= dt
-        self.ebullets = [b for b in self.ebullets if -40 < b[0].x < WORLD_W + 40 and -40 < b[0].y < WORLD_H + 40]
+        self.ebullets = [b for b in self.ebullets if b[2] > 0
+                         and -40 < b[0].x < WORLD_W + 40
+                         and -40 < b[0].y < WORLD_H + 40]
 
     def update_pickups(self, dt):
         keep = []
@@ -766,6 +934,12 @@ class Game:
             pts = d["score"] * src.mult()
             src.score += pts
             src.kills += 1
+            if src.lifesteal:
+                src.lifesteal_progress += src.lifesteal
+                if src.lifesteal_progress >= 8:
+                    src.lifesteal_progress -= 8
+                    src.hp = min(src.max_hp, src.hp + 1)
+                    self.pops.append([V(src.p), "+1 HP", 0.9, GREEN])
             src.charge = min(100.0, src.charge + (12 if e.kind == "tank" else 4) * src.pulse_gain)
             self.pops.append([V(e.p), "+%d" % pts, 0.8, e.col])
             # XP
@@ -776,6 +950,7 @@ class Game:
                 src.level += 1
                 src.upgrade_choices = roll_upgrades(self.rng, 3)
                 if src.pid == self.my_id:
+                    self.local_choices = list(src.upgrade_choices)
                     self.audio.play("levelup")
         self.audio.play("boom")
         if e.kind == "tank":
@@ -971,6 +1146,7 @@ class Game:
             col = WHITE
         if data["alive"] and (data.get("inv", 0) <= 0 or data.get("dash_t", 0) > 0
                               or int(self.t * 22) % 2 == 0):
+            draw_glow(sc, (sx, sy), col, 48, 28)
             pts = shape(SHIP, data["ang"], (sx, sy), 20)
             pygame.draw.polygon(sc, (6, 40, 56), pts)
             pygame.draw.polygon(sc, col, pts, 2)
@@ -995,6 +1171,7 @@ class Game:
                                int(e["r"] * (2.2 - 1.2 * k)), 1)
         fill = dim(base_col, 0.12)
         kind = e["k"]
+        draw_glow(sc, (sx, sy), base_col, int(r * 2.2 + 12), 22)
         if kind == "chaser":
             pts = shape(DIAMOND, e["ang"], (sx, sy), r)
         elif kind == "swarm":
@@ -1015,6 +1192,10 @@ class Game:
                 pygame.draw.circle(sc, WHITE, (int(sx), int(sy)), int(r + 8), 2)
 
     def draw_world(self, sc, snap, cam):
+        # Полная очистка буфера обязательна каждый кадр: иначе старые позиции
+        # объектов остаются на экране и создают эффект бесконечных копий.
+        sc.fill(BG)
+
         # звёзды с параллаксом от камеры
         for x, y, z in self.stars:
             sx = (x - cam.x * 0.3 * z) % W
@@ -1036,6 +1217,7 @@ class Game:
                     continue
                 bob = math.sin(self.t * 5 + pk[0]) * 3
                 pos = (sx, sy + bob)
+                draw_glow(sc, pos, col, 34, 38)
                 pygame.draw.polygon(sc, col, shape(HEX, self.t * 1.5, pos, 17), 2)
                 text(sc, PICK_LET[pk[2]], self.f_small, col, pos, outline=1)
 
@@ -1047,6 +1229,7 @@ class Game:
         for b in snap.get("ebullets", []):
             sx, sy = cam.to_screen(b[0], b[1])
             if -20 <= sx <= W + 20 and -20 <= sy <= H + 20:
+                draw_glow(sc, (sx, sy), PINK, 22, 42)
                 pygame.draw.circle(sc, PINK, (int(sx), int(sy)), 6)
                 pygame.draw.circle(sc, WHITE, (int(sx), int(sy)), 2)
 
@@ -1057,6 +1240,7 @@ class Game:
                 continue
             p0 = V(sx, sy)
             d = V(b[2], b[3])
+            draw_glow(sc, (sx, sy), CYAN, 18, 30)
             pygame.draw.line(sc, (0, 150, 200), p0, p0 - d * 0.035, 5)
             pygame.draw.line(sc, WHITE, p0, p0 - d * 0.03, 2)
 
@@ -1094,7 +1278,7 @@ class Game:
         alpha = 255 if self.help_t > 2.0 else int(255 * self.help_t / 2.0)
         hint = [
             "WASD — движение   мышь — прицел   ЛКМ — огонь",
-            "SPACE — рывок   E / ПКМ — импульс   F — рыбий глаз   H — скрыть",
+            "SPACE — рывок   ПКМ — импульс   улучшения выбираются мышью   H — скрыть",
         ]
         box = pygame.Surface((820, 76), pygame.SRCALPHA)
         box.fill((0, 0, 0, int(150 * alpha / 255)))
@@ -1142,7 +1326,7 @@ class Game:
             pygame.draw.rect(sc, (20, 20, 40), (bx, by, bar_w, 10))
             pygame.draw.rect(sc, YELLOW, (bx, by, int(bar_w * cur / need), 10))
             pygame.draw.rect(sc, (60, 60, 100), (bx, by, bar_w, 10), 1)
-            text(sc, "УР. %d" % me["level"], self.f_mid, YELLOW, (W / 2, by + 26), outline=2)
+            text(sc, "УР. %d  •  ДО СЛЕДУЮЩЕГО: %d/%d" % (me["level"], cur, need), self.f_mid, YELLOW, (W / 2, by + 26), outline=2)
 
             def bar(x, y, w, frac, col, label):
                 pygame.draw.rect(sc, (20, 20, 40), (x, y, w, 12))
@@ -1168,6 +1352,13 @@ class Game:
                      (W / 2, 100), outline=2)
                 pygame.draw.rect(sc, YELLOW, (W / 2 - 50, 120,
                                               int(100 * max(0, me["combo_t"]) / 2.5), 3))
+
+        if me and not me.get("alive", True) and self.state == "play":
+            panel = pygame.Surface((460, 48), pygame.SRCALPHA)
+            panel.fill((8, 10, 24, 190))
+            sc.blit(panel, (W / 2 - 230, 142))
+            text(sc, "ВЫ ВЫБЫЛИ — МОЖНО НАБЛЮДАТЬ ЗА ИГРОЙ",
+                 self.f_small, RED, (W / 2, 166), outline=2)
 
         # баннер волны
         if snap.get("banner", 0) > 0 and self.state == "play":
@@ -1196,7 +1387,7 @@ class Game:
         overlay.fill((0, 0, 0, 180))
         sc.blit(overlay, (0, 0))
         text(sc, "УРОВЕНЬ ПОВЫШЕН!", self.f_big, YELLOW, (W / 2, 100), outline=3)
-        text(sc, "Выберите улучшение (1 / 2 / 3)", self.f_mid, WHITE, (W / 2, 160), outline=2)
+        text(sc, "Выберите карточку мышью", self.f_mid, WHITE, (W / 2, 160), outline=2)
 
         card_w, card_h = 320, 220
         gap = 30
@@ -1210,10 +1401,13 @@ class Game:
             y = H / 2 - card_h / 2 + 40
             rect = pygame.Rect(x, y, card_w, card_h)
             col = u["color"]
-            pygame.draw.rect(sc, (20, 20, 40), rect)
-            pygame.draw.rect(sc, col, rect, 3)
-            # номер
-            text(sc, str(i + 1), self.f_huge, dim(col, 0.8), (x + 40, y + 40), outline=3)
+            hovered = rect.collidepoint(self.logical_mouse())
+            draw_glow(sc, (rect.centerx, rect.centery), col, 150, 20 if hovered else 12)
+            pygame.draw.rect(sc, (8, 16, 34) if hovered else (5, 12, 28), rect)
+            pygame.draw.rect(sc, (24, 35, 62), rect.inflate(-8, -8), 1)
+            pygame.draw.rect(sc, WHITE if hovered else col, rect, 3 if hovered else 2)
+            pygame.draw.line(sc, dim(col, 0.55), (x + 18, y + 8), (x + card_w - 18, y + 8), 1)
+            text(sc, "ВЫБРАТЬ", self.f_small, col, (rect.centerx, rect.bottom - 18), outline=1)
             # название + описание
             text(sc, u["name"], self.f_mid, col, (x + card_w / 2, y + 90), outline=2)
             # описание с переносом
@@ -1238,23 +1432,25 @@ class Game:
     def draw_menu(self, sc):
         cx, cy = W / 2, H / 2 - 140
         for i in range(5):
-            a = self.t * (0.3 + i * 0.15) * (1 if i % 2 else -1)
-            col = [CYAN, MAGENTA, PURPLE, YELLOW, RED][i]
-            pygame.draw.polygon(sc, dim(col, 0.5),
-                                shape(HEX if i % 2 else SQ, a, (cx, cy), 120 + i * 30), 1)
+            angle = self.t * (0.3 + i * 0.15) * (1 if i % 2 else -1)
+            color = [CYAN, MAGENTA, PURPLE, YELLOW, RED][i]
+            pygame.draw.polygon(sc, dim(color, 0.5),
+                                shape(HEX if i % 2 else SQ, angle, (cx, cy), 120 + i * 30), 1)
         pulse = 0.8 + 0.2 * math.sin(self.t * 3)
+        draw_glow(sc, (cx, cy), CYAN, 190, 18)
         text(sc, "NEON VOID", self.f_huge, dim(CYAN, pulse), (cx, cy), outline=3)
-        text(sc, "СЕТЕВАЯ ИГРА ПО ЛОКАЛЬНОЙ СЕТИ", self.f_mid, MAGENTA, (cx, cy + 78), outline=2)
+        text(sc, "СЕТЕВАЯ ИГРА ПО ЛОКАЛЬНОЙ СЕТИ", self.f_mid, MAGENTA,
+             (cx, cy + 78), outline=2)
 
         y = cy + 160
-        text(sc, "1 — СОЗДАТЬ ЛОББИ (ХОСТ)", self.f_mid, WHITE, (cx, y), outline=2)
-        text(sc, "2 — ПОДКЛЮЧИТЬСЯ (ввести IP)", self.f_mid, WHITE, (cx, y + 44), outline=2)
-        if self.last_ip:
-            text(sc, "4 — БЫСТРО К ПОСЛЕДНЕМУ IP (%s)" % self.last_ip,
-                 self.f_small, YELLOW, (cx, y + 86), outline=2)
-        text(sc, "3 — СМЕНИТЬ ИМЯ   (сейчас: %s)" % self.name_input,
-             self.f_small, (150, 170, 220), (cx, y + 122), outline=2)
-        text(sc, "Esc — выход", self.f_small, (130, 140, 190), (cx, H - 40), outline=2)
+        self.draw_button(sc, pygame.Rect(cx - 210, y - 20, 420, 52), "СОЗДАТЬ ЛОББИ", CYAN)
+        self.draw_button(sc, pygame.Rect(cx - 210, y + 42, 420, 52), "ПОДКЛЮЧИТЬСЯ ПО IP", MAGENTA)
+        quick = "ПОДКЛЮЧИТЬСЯ: " + (self.last_ip if self.last_ip else "НЕТ СОХРАНЁННОГО IP")
+        self.draw_button(sc, pygame.Rect(cx - 210, y + 104, 420, 44), quick,
+                         YELLOW, enabled=bool(self.last_ip))
+        self.draw_button(sc, pygame.Rect(cx - 210, y + 158, 420, 44),
+                         "ИМЯ ИГРОКА: " + self.name_input, PURPLE)
+        self.draw_button(sc, pygame.Rect(cx - 100, H - 58, 200, 38), "ВЫХОД", RED)
 
     def draw_lobby(self, sc):
         cx = W / 2
@@ -1285,22 +1481,22 @@ class Game:
                  (cx, py0 + 55), outline=2)
 
         if self.is_host:
-            text(sc, "Enter — НАЧАТЬ ИГРУ", self.f_mid, CYAN, (cx, H - 110), outline=2)
+            self.draw_button(sc, pygame.Rect(cx - 190, H - 136, 380, 52), "НАЧАТЬ ИГРУ", CYAN)
         else:
             text(sc, "Ожидание, пока хост начнёт игру...", self.f_mid, PURPLE,
                  (cx, H - 110), outline=2)
         if self.connect_error:
-            text(sc, self.connect_error, self.f_small, RED, (cx, H - 66), outline=2)
-        text(sc, "Esc — выйти из лобби", self.f_small, (140, 140, 180), (cx, H - 32), outline=2)
+            text(sc, self.connect_error, self.f_small, RED, (cx, H - 82), outline=2)
+        self.draw_button(sc, pygame.Rect(cx - 150, H - 66, 300, 42), "НАЗАД В МЕНЮ", RED)
 
     def draw_error(self, sc):
         text(sc, "ОШИБКА", self.f_huge, RED, (W / 2, 150), outline=3)
-        for i, ln in enumerate(self.error_msg.split("\n")):
-            text(sc, ln, self.f_mid, WHITE, (W / 2, 290 + i * 46), outline=2)
-        text(sc, "Enter / Esc — в меню", self.f_small, (160, 160, 200), (W / 2, H - 80), outline=2)
+        for i, line in enumerate(self.error_msg.split("\n")):
+            text(sc, line, self.f_mid, WHITE, (W / 2, 290 + i * 46), outline=2)
+        self.draw_button(sc, pygame.Rect(W / 2 - 150, H - 102, 300, 46), "В МЕНЮ", CYAN)
 
     def draw_dead(self, sc, snap):
-        text(sc, "СИГНАЛ ПОТЕРЯН", self.f_huge, RED, (W / 2, 100), outline=3)
+        text(sc, "СЕССИЯ ЗАВЕРШЕНА", self.f_huge, RED, (W / 2, 100), outline=3)
         players = sorted(snap.get("players", []), key=lambda p: -p["score"])
         mvp_pid = players[0]["pid"] if players else -1
 
@@ -1330,27 +1526,33 @@ class Game:
             text(sc, "★ MVP: %s" % mvp_name, self.f_mid, YELLOW, (W / 2, y + 30), outline=2)
 
         if self.is_host:
-            text(sc, "Enter — сыграть снова", self.f_mid, CYAN, (W / 2, H - 100), outline=2)
-        text(sc, "Esc — в меню", self.f_small, (160, 160, 200), (W / 2, H - 50), outline=2)
+            self.draw_button(sc, pygame.Rect(W / 2 - 190, H - 126, 380, 52), "ИГРАТЬ СНОВА", CYAN)
+        self.draw_button(sc, pygame.Rect(W / 2 - 150, H - 70, 300, 42), "В МЕНЮ", RED)
 
     def draw_input_overlay(self, sc):
         if not self.input_mode:
             return
         overlay = pygame.Surface((W, H), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 200))
+        overlay.fill((0, 0, 0, 205))
         sc.blit(overlay, (0, 0))
         label = "ВВЕДИТЕ IP ХОСТА" if self.input_mode == "ip" else "ВВЕДИТЕ ИМЯ"
-        text(sc, label, self.f_big, CYAN, (W / 2, H / 2 - 90), outline=3)
-        val = self.ip_input if self.input_mode == "ip" else self.name_input
-        box = pygame.Rect(W / 2 - 280, H / 2 - 30, 560, 64)
-        pygame.draw.rect(sc, (20, 20, 40), box)
+        text(sc, label, self.f_big, CYAN, (W / 2, H / 2 - 110), outline=3)
+        value = self.ip_input if self.input_mode == "ip" else self.name_input
+        box = pygame.Rect(W / 2 - 280, H / 2 - 45, 560, 64)
+        pygame.draw.rect(sc, (5, 12, 28), box)
         pygame.draw.rect(sc, CYAN, box, 2)
-        shown = val + ("|" if int(self.t * 2) % 2 == 0 else "")
-        text(sc, shown, self.f_big, WHITE, (W / 2, H / 2), outline=2)
-        text(sc, "Enter — подтвердить    Esc — отмена",
-             self.f_small, (170, 190, 220), (W / 2, H / 2 + 76), outline=2)
-        text(sc, "Ctrl+V — вставить из буфера",
-             self.f_small, (140, 170, 210), (W / 2, H / 2 + 108), outline=2)
+        shown = value + ("|" if int(self.t * 2) % 2 == 0 else "")
+        text(sc, shown, self.f_big, WHITE, (W / 2, H / 2 - 13), outline=2)
+        self.draw_button(sc, pygame.Rect(W / 2 - 115, H / 2 + 32, 230, 38),
+                         "ВСТАВИТЬ ИЗ БУФЕРА", PURPLE)
+        self.draw_button(sc, pygame.Rect(W / 2 - 135, H / 2 + 80, 270, 46),
+                         "ПОДТВЕРДИТЬ", CYAN)
+        self.draw_button(sc, pygame.Rect(W / 2 - 135, H / 2 + 136, 270, 40),
+                         "ОТМЕНА", RED)
+        if self.connect_error:
+            text(sc, self.connect_error, self.f_small, RED, (W / 2, H / 2 + 190), outline=2)
+        text(sc, "Можно также нажать Ctrl+V и Enter", self.f_small,
+             (170, 190, 220), (W / 2, H / 2 + 220), outline=2)
 
     # ================= главный render =================
     def render(self):
@@ -1387,20 +1589,18 @@ class Game:
         if self.flash > 0:
             sc.fill((int(70 * self.flash), 0, int(10 * self.flash)), special_flags=pygame.BLEND_RGB_ADD)
 
-        # рыбий глаз
-        if self.fisheye_on and self.state in ("play", "dead"):
-            sc = fisheye(sc, 0.25)
+        # Gentle CRT lens + restrained glow. Keep HUD text crisp above the filter.
+        post = fisheye(sc, 0.075)
+        bloom(post, W, H, 0.16)
 
-        # bloom
-        bloom(sc, W, H)
-
-        # тряска
+        # Screen shake is applied to the game image, not to the interface.
         ox = random.uniform(-self.shake, self.shake) if self.shake > 0.5 else 0
         oy = random.uniform(-self.shake, self.shake) if self.shake > 0.5 else 0
         self.screen.fill((0, 0, 0))
-        self.screen.blit(sc, (ox, oy))
+        self.screen.blit(post, (ox, oy))
+        self.screen.blit(self.overlay, (0, 0))
 
-        # UI поверх (чёткий текст, без блума)
+        # UI поверх игрового слоя: текст и кнопки остаются контрастными.
         if self.state == "menu":
             self.draw_menu(self.screen)
         elif self.state == "lobby":
@@ -1417,13 +1617,36 @@ class Game:
                     text(self.screen, "ПАУЗА", self.f_huge, WHITE, (W / 2, H / 2), outline=3)
 
         self.draw_input_overlay(self.screen)
-        self.screen.blit(self.overlay, (0, 0))
+
+        if self.debug_overlay:
+            snap_players = snap.get("players", []) if snap else []
+            snap_enemies = snap.get("enemies", []) if snap else []
+            debug_lines = [
+                "DEBUG  F3: hide",
+                "FPS: %.1f   STATE: %s" % (self.clock.get_fps(), self.state),
+                "PLAYERS: %d   ENEMIES: %d" % (len(snap_players) if snap else len(self.players), len(snap_enemies) if snap else len(self.enemies)),
+                "BULLETS: %d   PARTICLES: %d" % (len(snap.get("bullets", [])) if snap else len(self.bullets), len(self.parts)),
+                "NETWORK: %s" % ("HOST" if self.is_host else ("CLIENT" if self.client else "OFFLINE")),
+            ]
+            panel = pygame.Surface((310, 126), pygame.SRCALPHA)
+            panel.fill((4, 8, 18, 220))
+            self.screen.blit(panel, (W - 322, H - 138))
+            for i, line in enumerate(debug_lines):
+                text(self.screen, line, self.f_small, GREEN, (W - 312, H - 126 + i * 23), "topleft", outline=1)
 
     # ================= главный цикл =================
     def run(self):
+        log.info("Игра запущена | разрешение=%dx%d | порт=%d", W, H, PORT)
         while True:
             real_dt = min(self.clock.tick(60) / 1000.0, 1 / 20)
             self.t += real_dt
+            self.debug_timer += real_dt
+            if self.debug_timer >= 5.0:
+                self.debug_timer = 0.0
+                enemy_count = len(self.enemies) if self.is_host else len(self.snap.get("enemies", [])) if self.snap else 0
+                player_count = len(self.players) if self.is_host else len(self.snap.get("players", [])) if self.snap else 0
+                client_count = len(self.server.clients) if self.server else (1 if self.client else 0)
+                log.info("FPS=%.1f state=%s players=%d enemies=%d bullets=%d particles=%d net_clients=%d", self.clock.get_fps(), self.state, player_count, enemy_count, len(self.bullets), len(self.parts), client_count)
             self.handle_events()
             self.poll_network()
 

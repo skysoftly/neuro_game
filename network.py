@@ -41,6 +41,8 @@ def _recv_msg_blocking(sock):
     if len(hdr) < 4:
         return None
     n = struct.unpack(">I", hdr)[0]
+    if n <= 0 or n > 8 * 1024 * 1024:
+        return None
     data = _recvn_blocking(sock, n)
     if data is None or data == b"":
         return None
@@ -140,9 +142,12 @@ class ClientConn:
     def __init__(self, ip, connect_timeout=4.0):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.settimeout(connect_timeout)
-        self.sock.connect((ip, PORT))
-        # КРИТИЧЕСКИ ВАЖНО: после connect — блокирующий режим,
-        # иначе 0.5s таймауты вызывают ложный "разрыв".
+        try:
+            self.sock.connect((ip, PORT))
+        except OSError:
+            self.sock.close()
+            raise
+        # After connect use blocking mode; short timeouts can corrupt partial frames.
         self.sock.settimeout(None)
         self.inbox = []
         self.lock = threading.Lock()
@@ -151,6 +156,22 @@ class ClientConn:
         self.dead = False
         threading.Thread(target=self._loop, daemon=True).start()
 
+    def _mark_dead(self):
+        with self.lock:
+            if self.dead:
+                return
+            self.dead = True
+            self.running = False
+            self.inbox.append({"t": "disconnect"})
+        try:
+            self.sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        try:
+            self.sock.close()
+        except OSError:
+            pass
+
     def _loop(self):
         while self.running:
             try:
@@ -158,9 +179,8 @@ class ClientConn:
             except Exception:
                 msg = None
             if msg is None:
-                with self.lock:
-                    self.dead = True
-                    self.inbox.append({"t": "disconnect"})
+                if self.running:
+                    self._mark_dead()
                 break
             if msg == b"":
                 continue
@@ -168,15 +188,21 @@ class ClientConn:
                 self.inbox.append(msg)
 
     def send(self, obj):
+        if self.dead or not self.running:
+            return
         try:
             with self.slock:
                 send_msg(self.sock, obj)
-        except Exception:
-            pass
+        except (OSError, ValueError):
+            self._mark_dead()
 
     def stop(self):
         self.running = False
         try:
+            self.sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        try:
             self.sock.close()
-        except Exception:
+        except OSError:
             pass
