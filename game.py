@@ -1017,6 +1017,9 @@ class Game:
             return
         if self.intermission:
             self.shake *= math.exp(-8 * dt)
+            for player in self.players.values():
+                if not player.alive:
+                    player.hurt_t = max(0.0, player.hurt_t - dt)
             if all((not p.alive) or p.upgrade_ready for p in self.players.values()):
                 self.start_next_wave()
             return
