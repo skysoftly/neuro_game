@@ -81,8 +81,31 @@ class Audio:
                 "levelup": self.make(500, 1600, 0.35, 0.25, "sin", 0.0),
             }
             self.ok = True
+            self.music = self.make_music()
+            self.music_channel = pygame.mixer.Channel(7)
+            self.music_channel.set_volume(0.16)
+            self.music_channel.play(self.music, loops=-1)
         except Exception:
             self.ok = False
+            log.exception("Не удалось инициализировать аудио")
+
+    @staticmethod
+    def make_music():
+        """Небольшой оригинальный чиптюн-луп без внешних аудиофайлов."""
+        rate = 22050
+        notes = (220, 277, 330, 440, 330, 277, 247, 330,
+                 196, 247, 294, 392, 294, 247, 220, 277)
+        beat = 0.16
+        buf = array.array("h")
+        phase = 0.0
+        for note in notes:
+            count = int(rate * beat)
+            for i in range(count):
+                phase += note / rate
+                square = 1.0 if phase % 1.0 < 0.5 else -1.0
+                envelope = min(1.0, i / 180) * min(1.0, (count - i) / 300)
+                buf.append(int(square * envelope * 2300))
+        return pygame.mixer.Sound(buffer=buf.tobytes())
 
     @staticmethod
     def make(f0, f1, dur, vol, wave, noise):
