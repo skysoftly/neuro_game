@@ -2005,10 +2005,9 @@ class Game:
             pygame.draw.line(sc, (0, 150, 200), p0, p0 - d * 0.035, max(3, int(5 * (b[4] if len(b) > 4 else 1))))
             pygame.draw.line(sc, WHITE, p0, p0 - d * 0.03, max(2, int(2 * (b[4] if len(b) > 4 else 1))))
 
-        # Игрок клиента интерполируется тем же таймингом, что и камера:
-        # спрайт не дёргается между сетевыми снимками 30 Гц.
+        # Рисуем локального игрока в той же позиции, по которой уже выставили камеру.
         for pl in snap.get("players", []):
-            if not self.is_host and pl["pid"] == self.my_id and self.camera_target_current is not None:
+            if pl["pid"] == self.my_id and not self.is_host and self.camera_target_current is not None:
                 alpha = min(1.0, self.camera_lerp_elapsed / max(1e-4, self.camera_lerp_duration))
                 pl = dict(pl)
                 pl["x"] = self.camera_target_previous[0] + (self.camera_target_current[0] - self.camera_target_previous[0]) * alpha
@@ -2099,25 +2098,28 @@ class Game:
         if me:
             hp_ratio = max(0.0, min(1.0, me["hp"] / max(1, me["max_hp"])))
             hp_color = GREEN if hp_ratio > 0.55 else ORANGE if hp_ratio > 0.25 else RED
-            crystal_w, crystal_gap = 19, 8
+            crystal_w, crystal_gap = 17, 7
             total_w = me["max_hp"] * crystal_w + max(0, me["max_hp"] - 1) * crystal_gap
-            start_x = (W - total_w) / 2
-            panel = pygame.Rect(int(start_x - 24), H - 75, int(total_w + 48), 70)
+            header_w = 118
+            panel_w = max(total_w + 32, header_w + total_w + 22)
+            panel = pygame.Rect((W - panel_w) // 2, H - 67, panel_w, 60)
             pygame.draw.rect(sc, (7, 13, 23), panel)
             pygame.draw.rect(sc, dim(hp_color, 0.48), panel, 1)
-            text(sc, "ЗДОРОВЬЕ", self.f_small, hp_color, (W / 2, H - 64), outline=1)
+            header_x = panel.x + 14
+            text(sc, "ЗДОРОВЬЕ", self.f_small, hp_color, (header_x, H - 37), "midleft", outline=1)
+            text(sc, "%d / %d" % (me["hp"], me["max_hp"]), self.f_small, WHITE,
+                 (header_x, H - 18), "midleft", outline=1)
+            start_x = panel.right - total_w - 14
             for crystal in range(me["max_hp"]):
                 x = int(start_x + crystal * (crystal_w + crystal_gap))
-                points = [(x + 9, H - 53), (x + 17, H - 42),
-                          (x + 9, H - 31), (x + 1, H - 42)]
+                points = [(x + 8, H - 53), (x + 15, H - 43),
+                          (x + 8, H - 33), (x + 1, H - 43)]
                 active = crystal < me["hp"]
                 fill = hp_color if active else (25, 32, 45)
                 pygame.draw.polygon(sc, fill, points)
                 pygame.draw.polygon(sc, WHITE if active else (65, 75, 92), points, 1)
                 if active:
-                    pygame.draw.line(sc, (245, 252, 255), (x + 9, H - 50), (x + 9, H - 35), 1)
-            text(sc, "%d / %d" % (me["hp"], me["max_hp"]), self.f_small, WHITE,
-                 (W / 2, H - 14), outline=1)
+                    pygame.draw.line(sc, (245, 252, 255), (x + 8, H - 50), (x + 8, H - 36), 1)
 
         # правый верх: волна
         wave = max(0, int(snap.get("wave", 0)))
@@ -2380,7 +2382,8 @@ class Game:
         pygame.draw.polygon(sc, (60, 85, 98), pts, 1)
         pygame.draw.line(sc, CYAN, (panel.x + 28, panel.y + 70),
                          (panel.right - 28, panel.y + 70), 2)
-        text(sc, "ПАУЗА", self.f_huge, WHITE, (W / 2, panel.y + 42), outline=2)
+        self.draw_fit_text(sc, "ПАУЗА", WHITE,
+                           pygame.Rect(panel.x + 30, panel.y + 12, panel.w - 60, 48), 34, 26, outline=2)
         text(sc, "АРЕНА ОСТАНОВЛЕНА", self.f_small, (155, 183, 192),
              (W / 2, panel.y + 98), outline=1)
         if self.is_host:
@@ -2535,28 +2538,35 @@ class Game:
 
     def render(self):
         sc = self.scene
+        snap = self.snap if self.state in ("play", "dead") else None
+        camera_dt = min(self.clock.get_time() / 1000.0, 1 / 20)
 
-        # Живой игрок ведёт камеру за собой. В режиме наблюдателя камера
-        # свободная и перемещается WASD/стрелками.
+        # Сначала определяем точную позицию локального игрока, которую нарисуем,
+        # затем ставим камеру относительно неё и только после этого рисуем мир.
         if not self.is_spectating():
-            if not self.is_host and self.camera_target_current is not None:
-                alpha = min(1.0, self.camera_lerp_elapsed / max(1e-4, self.camera_lerp_duration))
-                tx = self.camera_target_previous[0] + (self.camera_target_current[0] - self.camera_target_previous[0]) * alpha
-                ty = self.camera_target_previous[1] + (self.camera_target_current[1] - self.camera_target_previous[1]) * alpha
-            else:
-                tx, ty = self._player_screen_pos()
-            if not self.is_host and self.camera_target_current is not None:
-                # Клиентская цель уже интерполирована между сетевыми снимками.
-                # Второе сильное сглаживание создавало заметное запаздывание/рывки.
-                self.camera.follow(tx, ty, self.clock.get_time() / 1000.0, snap=True)
-            else:
-                self.camera.follow(tx, ty, self.clock.get_time() / 1000.0)
-
-        snap = None
-        if self.state in ("play", "dead"):
-            snap = self.snap
+            local_draw_pos = None
             if snap is not None:
-                self.wave = int(snap.get("wave", self.wave))
+                local_state = next((pl for pl in snap.get("players", [])
+                                    if pl.get("pid") == self.my_id), None)
+                if local_state is not None:
+                    local_draw_pos = (float(local_state["x"]), float(local_state["y"]))
+                    if not self.is_host and self.camera_target_current is not None:
+                        alpha = min(1.0, self.camera_lerp_elapsed /
+                                    max(1e-4, self.camera_lerp_duration))
+                        local_draw_pos = (
+                            self.camera_target_previous[0] +
+                            (self.camera_target_current[0] - self.camera_target_previous[0]) * alpha,
+                            self.camera_target_previous[1] +
+                            (self.camera_target_current[1] - self.camera_target_previous[1]) * alpha,
+                        )
+            if local_draw_pos is None:
+                local_draw_pos = self._player_screen_pos()
+            # Камера и локальный спрайт используют одну и ту же мировую позицию.
+            # Это убирает рассинхрон host simulation vs 30 Hz snapshot.
+            self.camera.follow(local_draw_pos[0], local_draw_pos[1], camera_dt,
+                               snap=not self.is_host)
+        if snap is not None:
+            self.wave = int(snap.get("wave", self.wave))
 
         # мир
         if snap is not None:
@@ -2594,14 +2604,9 @@ class Game:
         low_hp = max(0.0, min(1.0, (0.55 - health_ratio) / 0.55))
         damage_flash = min(1.0, hurt_t / 0.52) * 0.68
         vignette_strength = max(low_hp, damage_flash)
-        shake_amount = 0.0
-        if self.state == "play" and snap is not None and not self.paused and self.screen_shake_enabled:
-            # Не используем случайное смещение каждый кадр: оно выглядит как дрожание камеры.
-            shake_amount = min(4.0, self.shake * 0.16)
-            if hurt_t > 0:
-                shake_amount = max(shake_amount, 5.0 * min(1.0, hurt_t / 0.52))
-        ox = math.sin(self.t * 47.0) * shake_amount if shake_amount > 0.15 else 0
-        oy = math.cos(self.t * 39.0) * shake_amount * 0.72 if shake_amount > 0.15 else 0
+        # Экранная тряска отключена: она сдвигала весь кадр независимо от камеры
+        # и воспринималась как постоянное дрожание персонажа.
+        ox = oy = 0
         self.screen.fill((0, 0, 0))
         self.screen.blit(sc, (ox, oy))
         self.screen.blit(self.overlay, (0, 0))
