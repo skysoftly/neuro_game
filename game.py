@@ -2149,23 +2149,47 @@ class Game:
                 active = crystal < hp
                 special = crystal < special_slots
                 if special:
-                    # Особое сердце для дополнительного запаса здоровья.
-                    points = [(x + 8, heart_y + 2), (x + 14, heart_y - 1),
+                    # Особое сердце состоит из пяти вложенных цветовых слоёв.
+                    points = [(x + 8, heart_y + 1), (x + 14, heart_y - 1),
                               (x + 17, heart_y + 5), (x + 8, heart_y + 18),
                               (x, heart_y + 5), (x + 3, heart_y - 1)]
-                    fill = (255, 190, 75) if active else (48, 38, 31)
-                    edge = (255, 235, 170) if active else (105, 83, 58)
+                    if active:
+                        pygame.draw.polygon(sc, (105, 54, 18),
+                                            [(px, py + 2) for px, py in points])
+                        pygame.draw.polygon(sc, (255, 177, 48), points)
+                        layers = [
+                            (0.82, (255, 218, 105)),
+                            (0.64, (255, 239, 165)),
+                            (0.46, (255, 190, 75)),
+                            (0.28, (255, 247, 205)),
+                        ]
+                    else:
+                        pygame.draw.polygon(sc, (37, 29, 25), points)
+                        layers = [
+                            (0.82, (91, 68, 43)),
+                            (0.64, (116, 87, 52)),
+                            (0.46, (78, 61, 43)),
+                            (0.28, (139, 107, 63)),
+                        ]
+                    cx, cy = x + 8.5, heart_y + 8.5
+                    for scale, layer_color in layers:
+                        layer = [(round(cx + (px - cx) * scale),
+                                  round(cy + (py - cy) * scale))
+                                 for px, py in points]
+                        pygame.draw.polygon(sc, layer_color, layer)
+                    pygame.draw.polygon(sc, (255, 246, 205) if active else (155, 126, 86),
+                                        points, 1)
                 else:
                     # Обычные кристаллы здоровья.
                     points = [(x + 8, heart_y + 1), (x + 15, heart_y + 9),
                               (x + 8, heart_y + 18), (x + 1, heart_y + 9)]
                     fill = hp_color if active else (25, 32, 45)
                     edge = WHITE if active else (65, 75, 92)
-                pygame.draw.polygon(sc, fill, points)
-                pygame.draw.polygon(sc, edge, points, 1)
-                if active:
-                    pygame.draw.line(sc, (245, 252, 255), (x + 8, heart_y + 4),
-                                     (x + 8, heart_y + 15), 1)
+                    pygame.draw.polygon(sc, fill, points)
+                    pygame.draw.polygon(sc, edge, points, 1)
+                    if active:
+                        pygame.draw.line(sc, (245, 252, 255), (x + 8, heart_y + 4),
+                                         (x + 8, heart_y + 15), 1)
 
             label = "ЗДОРОВЬЕ"
             label_font = self.f_small
