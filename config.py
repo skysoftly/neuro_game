@@ -46,7 +46,7 @@ KINDS = {
     "boss_hunter": dict(hp=880, r=62, spd=96, col=(255, 145, 90), score=800),
     "boss_void": dict(hp=1020, r=66, spd=68, col=(165, 120, 245), score=950),
     "boss_siege": dict(hp=1250, r=72, spd=48, col=(240, 185, 95), score=1200),
-    "boss_minor": dict(hp=150, r=34, spd=58, col=(115, 225, 175), score=180),
+    "boss_minor": dict(hp=100, r=34, spd=58, col=(115, 225, 175), score=180),
 }
 
 # ---------- подбираемое ----------
