@@ -12,7 +12,7 @@ import pygame
 from pygame import Vector2 as V
 
 from config import (
-    W, H, WORLD_W, WORLD_H, PORT, CONFIG_FILE,
+    W, H, WORLD_W, WORLD_H, PORT, CONFIG_FILE, MAX_PLAYERS,
     BG, CYAN, MAGENTA, YELLOW, RED, ORANGE, GREEN, PURPLE, PINK, WHITE,
     SHIP, DIAMOND, TRI, HEX, SQ,
     KINDS, PICK_COL, PICK_LET, PLAYER_COLORS, PLAYER_SKINS,
@@ -736,7 +736,7 @@ class RenderingMixin:
             pygame.draw.line(sc, accent, (panel.x + 16, panel.y + 42),
                              (panel.right - 16, panel.y + 42), 2)
 
-        text(sc, "ИГРОКИ  ·  %d / 12" % len(self.lobby_players), self.f_mid,
+        text(sc, "ИГРОКИ  ·  %d / %d" % (len(self.lobby_players), MAX_PLAYERS), self.f_mid,
              WHITE, (list_rect.centerx, list_rect.y + 23), outline=2)
         visible = max(1, (list_rect.h - 62) // 34)
         self.lobby_scroll = max(0, min(self.lobby_scroll, max(0, len(self.lobby_players) - visible)))
