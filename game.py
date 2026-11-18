@@ -195,6 +195,7 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
         self.spawn_t = 0.0
         self.wave_delay = 1.5
         self.rng = random.Random()
+        self.last_boss_kind = None
 
         # у клиента: локальные данные из снапшота
         self.snap = None
