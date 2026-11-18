@@ -2383,9 +2383,11 @@ class Game:
             score_rect = pygame.Rect(172, y - 10, 62, 22)
             self.draw_fit_text(sc, str(player.get("score", 0)), WHITE, score_rect, 16, 10)
 
-        # Единая шкала из 10 сердец: каждое сердце показывает долю своего
-        # диапазона HP. Каждые 10 единиц максимального здоровья — новый уровень.
-        if me:
+        spectating = self.is_spectating()
+
+        # Здоровье показывается только живому игроку. У наблюдателя нижняя
+        # панель освобождена под отдельный статус SPECTATOR.
+        if me and not spectating:
             hp = max(0, int(me["hp"]))
             max_hp = max(1, int(me["max_hp"]))
             hp_ratio = max(0.0, min(1.0, hp / max_hp))
@@ -2497,7 +2499,7 @@ class Game:
             boss = bosses[0]
             bw = 500
             bx = (W - bw) // 2
-            by = 104
+            by = 34
             ratio = max(0.0, min(1.0, boss.get("hp", 0) / max(1, boss.get("max_hp", 1))))
             pygame.draw.rect(sc, (12, 8, 18), (bx, by, bw, 14))
             pygame.draw.rect(sc, MAGENTA, (bx, by, int(bw * ratio), 14))
@@ -2514,7 +2516,7 @@ class Game:
             text(sc, "%s  -  %d%%" % (boss_name, int(ratio * 100)), self.f_small, WHITE,
                  (W / 2, by - 12), outline=1)
 
-        if me:
+        if me and not spectating:
             def bar(x, y, w, frac, col, label):
                 pygame.draw.rect(sc, (20, 20, 40), (x, y, w, 12))
                 pygame.draw.rect(sc, col, (x, y, int(w * frac), 12))
@@ -2544,7 +2546,7 @@ class Game:
                                        pygame.Rect(panel.x + 8, panel.y + 1 + i * 24,
                                                    panel.w - 16, 20), 18, 10)
 
-        if me and me.get("shield_t", 0) > 0:
+        if me and not spectating and me.get("shield_t", 0) > 0:
             sx, sy = self.camera.to_screen(me["x"], me["y"])
             pygame.draw.circle(sc, CYAN, (int(sx), int(sy)), 31 + int(2 * math.sin(self.t * 9)), 2)
             pygame.draw.circle(sc, WHITE, (int(sx), int(sy)), 35, 1)
@@ -2570,8 +2572,11 @@ class Game:
                 pygame.draw.line(sc, WHITE, (mx + dx * 16, my + dy * 16),
                                  (mx + dx * 22, my + dy * 22), 2)
 
-        # Статус наблюдателя рисуется отдельным верхним баннером в render(),
-        # чтобы он не занимал центр игрового поля.
+        if spectating:
+            panel = pygame.Rect(W / 2 - 112, H - 58, 224, 38)
+            pygame.draw.rect(sc, (7, 15, 25), panel)
+            pygame.draw.rect(sc, (65, 220, 255), panel, 1)
+            text(sc, "SPECTATOR", self.f_mid, CYAN, panel.center, outline=2)
 
         self.draw_hint(sc)
 
@@ -3062,12 +3067,6 @@ class Game:
         elif self.state in ("play", "dead"):
             if snap is not None:
                 self.draw_hud(self.screen, snap)
-                if self.is_spectating() and self.state == "play":
-                    panel = pygame.Rect(W / 2 - 230, 18, 460, 38)
-                    pygame.draw.rect(self.screen, (8, 15, 26), panel)
-                    pygame.draw.rect(self.screen, (90, 145, 165), panel, 1)
-                    text(self.screen, "ВЫ ВЫБЫЛИ  •  НАБЛЮДЕНИЕ  •  WASD — КАМЕРА",
-                         self.f_small, (205, 220, 230), panel.center, outline=1)
                 self.draw_upgrade_overlay(self.screen)
                 if self.tutorial_active and self.state == "play":
                     self.draw_tutorial_overlay(self.screen)
