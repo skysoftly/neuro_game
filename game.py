@@ -2026,6 +2026,10 @@ class Game:
         # Клиент рисует локального игрока по той же интерполированной позиции,
         # относительно которой выше выставлена камера.
         for pl in snap.get("players", []):
+            # Мёртвые игроки полностью исчезают из мира: без корабля,
+            # подписи и локального маркера. Их камера остаётся свободной.
+            if not pl.get("alive", True):
+                continue
             if pl["pid"] == self.my_id and self.is_host:
                 live_player = self.players.get(self.my_id)
                 if live_player is not None:
@@ -2110,16 +2114,18 @@ class Game:
             y = 24 + rank * 25
             is_me = player["pid"] == self.my_id
             color = YELLOW if is_me else PLAYER_COLORS[(player["pid"] - 1) % len(PLAYER_COLORS)]
-            name_rect = pygame.Rect(18, y - 10, 148, 22)
-            name = "%d. %s" % (rank + 1, player["name"])
-            self.draw_fit_text(sc, name, color, name_rect, 16, 10)
+            rank_rect = pygame.Rect(18, y - 10, 18, 22)
+            text(sc, "%d." % (rank + 1), self.f_small, color, rank_rect.midleft, "midleft", outline=1)
+            name_rect = pygame.Rect(40, y - 10, 126, 22)
+            name_font = font(16)
+            while name_font.size(player["name"])[0] > name_rect.width and name_font.get_height() > 10:
+                name_font = font(name_font.get_height() - 1)
+            name_width = min(name_rect.width, name_font.size(player["name"])[0])
+            text(sc, player["name"], name_font, color, name_rect.center, outline=1)
             if is_me:
-                name_font = font(16)
-                while name_font.size(name)[0] > name_rect.width and name_font.get_height() > 11:
-                    name_font = font(name_font.get_height() - 1)
-                underline_width = min(name_rect.width - 4, name_font.size(name)[0])
-                pygame.draw.line(sc, color, (name_rect.x + 2, y + 9),
-                                 (name_rect.x + 2 + underline_width, y + 9), 2)
+                underline_left = name_rect.centerx - name_width // 2
+                pygame.draw.line(sc, color, (underline_left, y + 9),
+                                 (underline_left + name_width, y + 9), 2)
             score_rect = pygame.Rect(172, y - 10, 62, 22)
             self.draw_fit_text(sc, str(player.get("score", 0)), WHITE, score_rect, 16, 10)
 
@@ -2494,6 +2500,14 @@ class Game:
         players = sorted(snap.get("players", []), key=lambda p: -p["score"])
         mvp_pid = players[0]["pid"] if players else -1
 
+        # Общая панель итогов одинакова для хоста и клиентов.
+        panel = pygame.Rect(W / 2 - 420, 158, 840, 350)
+        panel_surface = pygame.Surface(panel.size, pygame.SRCALPHA)
+        pygame.draw.rect(panel_surface, (5, 10, 22, 224), panel_surface.get_rect())
+        pygame.draw.rect(panel_surface, (105, 48, 70, 220), panel_surface.get_rect(), 2)
+        pygame.draw.line(panel_surface, RED, (22, 54), (panel.w - 22, 54), 2)
+        sc.blit(panel_surface, panel.topleft)
+
         # заголовки
         hdr_y = 192
         text(sc, "N", self.f_small, (150, 160, 200), (W / 2 - 380, hdr_y), "midleft", outline=2)
@@ -2507,10 +2521,17 @@ class Game:
             col = PLAYER_COLORS[(pl["pid"] - 1) % len(PLAYER_COLORS)]
             is_mvp = pl["pid"] == mvp_pid
             row_col = YELLOW if is_mvp else col
-            mark = "" if is_mvp else ""
             text(sc, "%d" % (i + 1), self.f_mid, row_col, (W / 2 - 380, y), "midleft", outline=2)
-            self.draw_fit_text(sc, pl["name"] + mark, row_col,
-                               pygame.Rect(W / 2 - 320, y - 18, 360, 36), 30, 14)
+            name_rect = pygame.Rect(W / 2 - 320, y - 18, 360, 36)
+            name_font = font(30)
+            while name_font.size(pl["name"])[0] > name_rect.width and name_font.get_height() > 14:
+                name_font = font(name_font.get_height() - 1)
+            name_width = min(name_rect.width, name_font.size(pl["name"])[0])
+            text(sc, pl["name"], name_font, row_col, name_rect.center, outline=2)
+            if pl["pid"] == self.my_id:
+                underline_left = name_rect.centerx - name_width // 2
+                pygame.draw.line(sc, row_col, (underline_left, y + 17),
+                                 (underline_left + name_width, y + 17), 2)
             text(sc, str(pl["score"]), self.f_mid, WHITE, (W / 2 + 60, y), "midleft", outline=2)
             text(sc, str(pl.get("kills", 0)), self.f_mid, WHITE, (W / 2 + 200, y), "midleft", outline=2)
             text(sc, str(snap.get("wave", 0)), self.f_mid, WHITE, (W / 2 + 340, y), "midleft", outline=2)
@@ -2523,6 +2544,9 @@ class Game:
 
         if self.is_host:
             self.draw_button(sc, pygame.Rect(W / 2 - 190, H - 126, 380, 52), "ИГРАТЬ СНОВА", CYAN)
+        else:
+            text(sc, "ОЖИДАЙТЕ НАЧАЛА НОВОЙ ИГРЫ", self.f_small, YELLOW,
+                 (W / 2, H - 104), outline=2)
         self.draw_button(sc, pygame.Rect(W / 2 - 150, H - 70, 300, 42), "В МЕНЮ", RED)
 
     def draw_input_overlay(self, sc):
@@ -2731,7 +2755,7 @@ class Game:
                 self.draw_upgrade_overlay(self.screen)
                 if self.tutorial_active and self.state == "play":
                     self.draw_tutorial_overlay(self.screen)
-                if self.state == "dead" and self.is_host:
+                if self.state == "dead":
                     self.screen.blit(self.end_tint, (0, 0))
                 if self.state == "dead":
                     self.draw_dead(self.screen, snap)
