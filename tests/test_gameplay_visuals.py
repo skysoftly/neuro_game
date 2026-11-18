@@ -31,6 +31,16 @@ class UpgradeTests(unittest.TestCase):
         self.assertEqual(len(regular), 9)
         self.assertTrue(regular.issubset(KINDS))
 
+    def test_regular_enemy_colors_are_distinct(self):
+        regular = ("chaser", "swarm", "shooter", "tank", "dasher",
+                   "splitter", "mine", "orbiter", "bruiser")
+        colors = [KINDS[kind]["col"] for kind in regular]
+        self.assertEqual(len(colors), len(set(colors)))
+
+    def test_shield_upgrade_uses_clear_name(self):
+        shield = next(upgrade for upgrade in UPGRADES if upgrade["id"] == "pulse_power")
+        self.assertIn("ЩИТ", shield["name"])
+
     def test_enemy_hp_scaling_is_noticeable(self):
         early = Enemy("chaser", (100, 100), 1)
         late = Enemy("chaser", (100, 100), 10)
