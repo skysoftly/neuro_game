@@ -1646,6 +1646,26 @@ class Game:
                                                           else "БОСС ЧЕРЕЗ %d ВОЛН" % boss_in)
         text(sc, boss_label, self.f_small, MAGENTA, (W - 30, 84), "midright", outline=1)
 
+        # Стрелка к ближайшему врагу, если он за пределами экрана.
+        if me and snap.get("enemies"):
+            offscreen = []
+            for enemy in snap["enemies"]:
+                ex, ey = self.camera.to_screen(enemy["x"], enemy["y"])
+                if ex < 18 or ex > W - 18 or ey < 18 or ey > H - 18:
+                    dx, dy = ex - W / 2, ey - H / 2
+                    offscreen.append((dx * dx + dy * dy, dx, dy))
+            if offscreen:
+                _, dx, dy = min(offscreen, key=lambda item: item[0])
+                angle = math.atan2(dy, dx)
+                scale = min((W / 2 - 30) / max(1, abs(dx)),
+                            (H / 2 - 30) / max(1, abs(dy)))
+                ax, ay = W / 2 + dx * scale, H / 2 + dy * scale
+                tip = (ax + math.cos(angle) * 13, ay + math.sin(angle) * 13)
+                left = (ax + math.cos(angle + 2.45) * 11, ay + math.sin(angle + 2.45) * 11)
+                right = (ax + math.cos(angle - 2.45) * 11, ay + math.sin(angle - 2.45) * 11)
+                pygame.draw.polygon(sc, MAGENTA, (tip, left, right))
+                pygame.draw.circle(sc, WHITE, (int(ax), int(ay)), 3)
+
         bosses = [e for e in snap.get("enemies", []) if e.get("k", "").startswith("boss")]
         if bosses:
             boss = bosses[0]
