@@ -3,17 +3,18 @@ import math
 
 
 class Camera:
-    def __init__(self, vw, vh, ww, wh):
+    def __init__(self, vw, vh, ww, wh, margin=0):
         self.vw, self.vh = vw, vh
         self.ww, self.wh = ww, wh
+        self.margin = max(0, float(margin))
         self.x = 0.0
         self.y = 0.0
 
     def follow(self, tx, ty, dt, snap=False):
         target_x = tx - self.vw / 2
         target_y = ty - self.vh / 2
-        target_x = max(0, min(self.ww - self.vw, target_x))
-        target_y = max(0, min(self.wh - self.vh, target_y))
+        target_x = max(-self.margin, min(self.ww + self.margin - self.vw, target_x))
+        target_y = max(-self.margin, min(self.wh + self.margin - self.vh, target_y))
         if snap:
             self.x, self.y = target_x, target_y
             return
