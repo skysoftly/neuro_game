@@ -1063,8 +1063,7 @@ class Game:
             if p.regen_timer >= 1.0 / p.regen:
                 p.regen_timer = 0.0
                 p.hp = min(p.max_hp, p.hp + 1)
-                if p.pid == self.my_id:
-                    self.play_sound("heal", p.pid)
+                self.play_sound("heal", p.pid)
         p.rapid = max(0.0, p.rapid - dt)
         p.spread = max(0.0, p.spread - dt)
         if p.want_dash:
@@ -1541,17 +1540,17 @@ class Game:
             p.shield_hits -= 1
             if p.shield_hits <= 0:
                 p.shield_t = 0.0
+            self.play_sound("shield_block", p.pid)
             if p.pid == self.my_id:
                 self.pops.append([V(p.p), "ЩИТ", 0.75, CYAN, p.pid])
-                self.play_sound("shield_block", p.pid)
                 self.rings.append(Ring(p.p, 20, 125, 620, CYAN, 4))
                 self.burst(p.p, CYAN, 18, 300, (0.15, 0.35), 2)
             return
         p.armor_hits += 1
         if p.armor > 0 and p.armor_hits % max(2, 5 - p.armor) == 0:
+            self.play_sound("armor_block", p.pid)
             if p.pid == self.my_id:
                 self.pops.append([V(p.p), "БРОНЯ", 0.8, CYAN, p.pid])
-                self.play_sound("armor_block", p.pid)
                 self.rings.append(Ring(p.p, 8, 100, 520, CYAN, 3))
             return
         p.hp -= 1
@@ -1559,17 +1558,18 @@ class Game:
         if p.pid == self.my_id:
             self.shake = max(self.shake, 18)
         p.hurt_t = 0.52
+        self.play_sound("hurt", p.pid)
         if p.pid == self.my_id:
             self.burst(p.p, CYAN, 40, 520, (0.3, 0.9), 3)
             self.rings.append(Ring(p.p, 10, 280, 900, RED, 5))
-            self.play_sound("hurt", p.pid)
         if p.hp <= 0:
             p.alive = False
             self.burst(p.p, p.color, 120, 800, (0.6, 1.8), 4)
             self.burst(p.p, WHITE, 40, 500, (0.3, 0.9), 3)
             for r, s in ((500, 500), (800, 800)):
                 self.rings.append(Ring(p.p, 10, r, s, p.color, 6))
-            self.shake = 40
+            if p.pid == self.my_id:
+                self.shake = 40
 
     def collide(self):
         # Пространственная сетка: пуля проверяет только ближайшие клетки,
