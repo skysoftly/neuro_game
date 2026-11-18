@@ -32,7 +32,7 @@ SQ = [(0.8, 0.8), (-0.8, 0.8), (-0.8, -0.8), (0.8, -0.8)]
 
 # ---------- враги ----------
 KINDS = {
-    "chaser": dict(hp=2, r=13, spd=150, col=RED, score=10, xp=4),
+    "chaser": dict(hp=3, r=13, spd=150, col=RED, score=10, xp=4),
     "swarm": dict(hp=2, r=9, spd=215, col=ORANGE, score=5, xp=2),
     "shooter": dict(hp=5, r=17, spd=95, col=PURPLE, score=30, xp=8),
     "tank": dict(hp=18, r=28, spd=60, col=YELLOW, score=60, xp=20),
