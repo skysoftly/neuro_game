@@ -847,7 +847,7 @@ class Game:
                 d = V(math.cos(aa), math.sin(aa))
                 shot_damage = p.dmg * (2.0 if random.random() < p.crit else 1.0)
                 self.bullets.append(Bullet(p.p + d * 22, d * (1100 * p.bullet_speed), p.pid,
-                                           shot_damage * p.bullet_size, p.pierce))
+                                           shot_damage * p.bullet_size, p.pierce, p.bullet_size))
             for i in range(p.multishot):
                 spread = 0.12 * (i + 1)
                 for sign in (-1, 1):
@@ -855,7 +855,7 @@ class Game:
                     d = V(math.cos(aa), math.sin(aa))
                     shot_damage = p.dmg * (2.0 if random.random() < p.crit else 1.0)
                     self.bullets.append(Bullet(p.p + d * 22, d * (1100 * p.bullet_speed),
-                                               p.pid, shot_damage * p.bullet_size, p.pierce))
+                                               p.pid, shot_damage * p.bullet_size, p.pierce, p.bullet_size))
             fwd = V(math.cos(p.ang), math.sin(p.ang))
             p.v -= fwd * 25
             self.burst(p.p + fwd * 24, CYAN, 3, 260, (0.08, 0.2), 2)
@@ -881,7 +881,7 @@ class Game:
                 self.damage(e, 12 * p.dmg * p.pulse_power, p)
                 if dist > 0:
                     e.v += delta.normalize() * (900 * p.pulse_power * (1.0 - dist / radius * 0.35))
-                    e.stun = max(e.stun, 0.45 if e.kind != "boss" else 0.18)
+                    e.stun = max(e.stun, 0.18 if e.kind.startswith("boss") else 0.45)
 
     def update_waves(self, dt):
         if self.intermission:
@@ -1151,7 +1151,7 @@ class Game:
         self.shake = max(self.shake, 5 + e.r * 0.4)
         if src:
             src.chain += 1
-            src.combo_t = 2.5
+            src.combo_t = 2.5 + 0.6 * src.combo_bonus
             pts = d["score"] * src.mult()
             src.score += pts
             src.kills += 1
@@ -1161,7 +1161,7 @@ class Game:
                     src.lifesteal_progress -= 18
                     src.hp = min(src.max_hp, src.hp + 1)
                     self.pops.append([V(src.p), "+1 HP", 0.9, GREEN])
-            src.charge = min(100.0, src.charge + (22 if e.kind == "boss" else 12 if e.kind == "tank" else 5) * src.pulse_gain)
+            src.charge = min(100.0, src.charge + (22 if e.kind.startswith("boss") else 12 if e.kind == "tank" else 5) * src.pulse_gain)
             self.pops.append([V(e.p), "+%d" % pts, 0.8, e.col])
             # Уровень растёт сразу, но выбор переносится на перерыв между волнами.
             src.xp += int(d["xp"] * src.xp_gain)
@@ -1226,7 +1226,7 @@ class Game:
                     continue
                 if id(e) in b.hit_ids:
                     continue
-                rr = e.r + 5
+                rr = e.r + 5 * b.size
                 if (b.p - e.p).length_squared() < rr * rr:
                     src = self.players.get(b.owner)
                     self.damage(e, b.dmg, src)
@@ -1323,7 +1323,7 @@ class Game:
             })
         for b in self.bullets:
             snap["bullets"].append([round(b.p.x, 1), round(b.p.y, 1),
-                                    round(b.v.x, 1), round(b.v.y, 1)])
+                                    round(b.v.x, 1), round(b.v.y, 1), round(b.size, 2)])
         for b in self.ebullets:
             snap["ebullets"].append([round(b[0].x, 1), round(b[0].y, 1)])
         for e in self.enemies:
@@ -1495,8 +1495,8 @@ class Game:
             p0 = V(sx, sy)
             d = V(b[2], b[3])
             draw_glow(sc, (sx, sy), CYAN, 18, 30)
-            pygame.draw.line(sc, (0, 150, 200), p0, p0 - d * 0.035, 5)
-            pygame.draw.line(sc, WHITE, p0, p0 - d * 0.03, 2)
+            pygame.draw.line(sc, (0, 150, 200), p0, p0 - d * 0.035, max(3, int(5 * (b[4] if len(b) > 4 else 1))))
+            pygame.draw.line(sc, WHITE, p0, p0 - d * 0.03, max(2, int(2 * (b[4] if len(b) > 4 else 1))))
 
         # игроки
         for pl in snap.get("players", []):
