@@ -106,6 +106,7 @@ class Audio:
                 "boss_hit": [self.make(190, 82, 0.12, 0.075, "tri", 0.04),
                              self.make(145, 62, 0.16, 0.085, "sin", 0.06)],
                 "enemy_shot": self.make(440, 260, 0.09, 0.028, "tri", 0.0),
+                "boss_death": self.make(180, 28, 0.85, 0.13, "sin", 0.10),
             }
             self.ok = True
             self.music = self.make_music()
@@ -1160,6 +1161,7 @@ class Game:
                 for i in range(8):
                     a = i * math.tau / 8 + e.ang
                     self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 270, 5.5])
+                self.audio.play("enemy_shot")
         elif k == "shooter":
             if dist > 400:
                 tgt = d * e.spd
@@ -1176,7 +1178,7 @@ class Game:
                 for i in range(n):
                     a = base + (i - (n - 1) / 2) * 0.25
                     self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * min(430, 300 + self.wave * 8), 6.0])
-                self.audio.play("shoot")
+                self.audio.play("enemy_shot")
         elif k == "orbiter":
             tangent = V(-d.y, d.x) * e.side
             desired = 300
@@ -1263,7 +1265,10 @@ class Game:
                         self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 360, 7.0])
                     self.rings.append(Ring(e.p, 18, 185, 430, YELLOW, 8))
                 self.shake = max(self.shake, 11 if k == "boss_siege" else 8)
-                self.audio.play("boom")
+                boss_sounds = {"boss": "boom", "boss_storm": "enemy_shot",
+                               "boss_hunter": "dash", "boss_void": "pulse",
+                               "boss_siege": "boss_spawn"}
+                self.audio.play(boss_sounds.get(k, "boom"))
         else:  # tank
             e.v = e.v.lerp(d * e.spd, min(1.0, 2 * dt))
             e.cool -= dt
@@ -1394,6 +1399,7 @@ class Game:
                 c.age = 0.45
                 self.enemies.append(c)
         if e.kind.startswith("boss"):
+            self.audio.play("boss_death")
             self.burst(e.p, MAGENTA, 180, 980, (0.5, 1.5), 5)
             self.rings.append(Ring(e.p, 10, 900, 700, YELLOW, 9))
             for player in self.players.values():
@@ -1562,6 +1568,7 @@ class Game:
                 "k": e.kind, "x": round(e.p.x, 1), "y": round(e.p.y, 1),
                 "r": e.r, "ang": round(e.ang, 2), "age": round(e.age, 2),
                 "flash": round(e.flash, 2), "cool": round(e.cool, 2),
+                "windup": round(e.windup, 2),
                 "hp": e.hp, "max_hp": e.max_hp,
             })
         for pk in self.pickups:
@@ -1871,7 +1878,15 @@ class Game:
             pygame.draw.rect(sc, (12, 8, 18), (bx, by, bw, 14))
             pygame.draw.rect(sc, MAGENTA, (bx, by, int(bw * ratio), 14))
             pygame.draw.rect(sc, (230, 190, 220), (bx, by, bw, 14), 1)
-            text(sc, "БОСС  -  %d%%" % int(ratio * 100), self.f_small, WHITE,
+            boss_names = {
+                "boss": "СТРАЖ АРЕНЫ",
+                "boss_storm": "ШТОРМ",
+                "boss_hunter": "ОХОТНИК",
+                "boss_void": "ПУСТОТА",
+                "boss_siege": "ОСАДА",
+            }
+            boss_name = boss_names.get(boss.get("k"), "БОСС")
+            text(sc, "%s  -  %d%%" % (boss_name, int(ratio * 100)), self.f_small, WHITE,
                  (W / 2, by - 12), outline=1)
 
         if me:
