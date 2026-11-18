@@ -19,13 +19,12 @@ UPGRADES = [
     {"id":"armor","name":"Бронепластина","desc":"Каждый четвёртый полученный удар игнорируется","color":(150,180,220)},
     {"id":"pulse_power","name":"Многослойный щит","desc":"Щит выдерживает на одно попадание больше","color":(210,130,235)},
     {"id":"dash_damage","name":"Таран","desc":"Рывок наносит огромный урон врагам","color":(255,130,110)},
-    {"id":"score_gain","name":"Охотничий контракт","desc":"Получай на 20% больше очков за каждое убийство","color":(235,220,120)},
 ]
 MAX_STACKS = {
-    "max_hp":3,"dmg":5,"fire_rate":4,"move":4,"dash":3,"pierce":3,
-    "lifesteal":2,"magnet":3,"pulse_gain":4,"crit":4,"multishot":3,
-    "bullet_speed":3,"bullet_size":3,"regen":3,"armor":3,"pulse_power":4,
-    "dash_damage":3,"score_gain":4,
+    "max_hp":2,"dmg":4,"fire_rate":3,"move":3,"dash":2,"pierce":2,
+    "lifesteal":1,"magnet":2,"pulse_gain":3,"crit":3,"multishot":1,
+    "bullet_speed":2,"bullet_size":2,"regen":2,"armor":2,"pulse_power":2,
+    "dash_damage":2,
 }
 UPGRADES_BY_ID = {u["id"]:u for u in UPGRADES}
 
@@ -49,21 +48,20 @@ def apply_upgrade(player,upgrade_id):
 
 def recompute(p):
     u=p.upgrades
-    p.max_hp=5+min(3,u.get("max_hp",0))
-    p.dmg=1.0+0.12*min(5,u.get("dmg",0))
-    p.fire_rate=0.14/(1.0+0.13*min(4,u.get("fire_rate",0)))
-    p.move_spd=3000.0*(1.0+0.07*min(4,u.get("move",0)))
-    p.dash_cd_max=0.9*(0.86**min(3,u.get("dash",0)))
-    p.pierce=min(3,u.get("pierce",0))
-    p.lifesteal=min(2,u.get("lifesteal",0))
-    p.magnet=1.0+0.28*min(3,u.get("magnet",0))
-    p.pulse_gain=1.0+0.22*min(4,u.get("pulse_gain",0))
-    p.crit=min(0.45,0.10*min(4,u.get("crit",0)))
-    p.multishot=min(3,u.get("multishot",0))
-    p.bullet_speed=1.0+0.18*min(3,u.get("bullet_speed",0))
-    p.bullet_size=1.0+0.22*min(3,u.get("bullet_size",0))
-    p.regen=0.0+0.035*min(3,u.get("regen",0))
-    p.armor=min(3,u.get("armor",0))
-    p.pulse_power=1.0+0.35*min(4,u.get("pulse_power",0))
-    p.dash_damage=1.0+0.65*min(3,u.get("dash_damage",0))
-    p.score_gain=1.0+0.20*min(4,u.get("score_gain",0))
+    p.max_hp=5+min(2,u.get("max_hp",0))
+    p.dmg=1.0+0.09*min(4,u.get("dmg",0))
+    p.fire_rate=0.16/(1.0+0.10*min(3,u.get("fire_rate",0)))
+    p.move_spd=2800.0*(1.0+0.05*min(3,u.get("move",0)))
+    p.dash_cd_max=1.05*(0.90**min(2,u.get("dash",0)))
+    p.pierce=min(2,u.get("pierce",0))
+    p.lifesteal=min(1,u.get("lifesteal",0))
+    p.magnet=1.0+0.22*min(2,u.get("magnet",0))
+    p.pulse_gain=1.0+0.16*min(3,u.get("pulse_gain",0))
+    p.crit=min(0.30,0.10*min(3,u.get("crit",0)))
+    p.multishot=min(1,u.get("multishot",0))
+    p.bullet_speed=1.0+0.12*min(2,u.get("bullet_speed",0))
+    p.bullet_size=1.0+0.16*min(2,u.get("bullet_size",0))
+    p.regen=0.0+0.025*min(2,u.get("regen",0))
+    p.armor=min(2,u.get("armor",0))
+    p.pulse_power=1.0+0.25*min(2,u.get("pulse_power",0))
+    p.dash_damage=1.0+0.35*min(2,u.get("dash_damage",0))
