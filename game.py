@@ -353,7 +353,7 @@ class Game:
         elif t == "upgrade" and self.state == "play":
             p = self.players.get(cid)
             up_id = m.get("id")
-            if p and up_id in p.upgrade_choices:
+            if p and p.alive and up_id in p.upgrade_choices:
                 apply_upgrade(p, up_id)
                 p.upgrade_choices = []
         elif t == "disconnect":
@@ -396,7 +396,7 @@ class Game:
             # выбрать апгрейды локального игрока
             for pl in m.get("players", []):
                 if pl["pid"] == self.my_id:
-                    self.local_choices = pl.get("upgrade_choices", [])
+                    self.local_choices = pl.get("upgrade_choices", []) if pl.get("alive", True) else []
                     break
             else:
                 self.local_choices = []
@@ -447,7 +447,7 @@ class Game:
             return
         if self.is_host:
             p = self.players.get(self.my_id)
-            if p and upgrade_id in p.upgrade_choices:
+            if p and p.alive and upgrade_id in p.upgrade_choices:
                 apply_upgrade(p, upgrade_id)
                 p.upgrade_choices = []
                 self.local_choices = []
@@ -661,6 +661,9 @@ class Game:
 
         if not any(p.alive for p in self.players.values()):
             self.state = "dead"
+            self.local_choices = []
+            for player in self.players.values():
+                player.upgrade_choices = []
             self.server.broadcast({"t": "dead"})
             pygame.mouse.set_visible(True)
 
@@ -1324,6 +1327,13 @@ class Game:
                      (W / 2, 100), outline=2)
                 pygame.draw.rect(sc, YELLOW, (W / 2 - 50, 120,
                                               int(100 * max(0, me["combo_t"]) / 2.5), 3))
+
+        if me and not me.get("alive", True) and self.state == "play":
+            panel = pygame.Surface((460, 48), pygame.SRCALPHA)
+            panel.fill((8, 10, 24, 190))
+            sc.blit(panel, (W / 2 - 230, 142))
+            text(sc, "ВЫ ВЫБЫЛИ — МОЖНО НАБЛЮДАТЬ ЗА ИГРОЙ",
+                 self.f_small, RED, (W / 2, 166), outline=2)
 
         # баннер волны
         if snap.get("banner", 0) > 0 and self.state == "play":
