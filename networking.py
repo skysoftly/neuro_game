@@ -12,7 +12,7 @@ import pygame
 from pygame import Vector2 as V
 
 from config import (
-    W, H, WORLD_W, WORLD_H, PORT, CONFIG_FILE,
+    W, H, WORLD_W, WORLD_H, PORT, CONFIG_FILE, MAX_PLAYERS,
     BG, CYAN, MAGENTA, YELLOW, RED, ORANGE, GREEN, PURPLE, PINK, WHITE,
     SHIP, DIAMOND, TRI, HEX, SQ,
     KINDS, PICK_COL, PICK_LET, PLAYER_COLORS, PLAYER_SKINS,
@@ -167,7 +167,7 @@ class NetworkingMixin:
                 self.server.send(cid, {"t": "started"})
                 self.server._drop_client(cid)
                 return
-            if len(self.lobby_players) >= 12:
+            if len(self.lobby_players) >= MAX_PLAYERS:
                 self.server.send(cid, {"t": "full"})
                 self.server._drop_client(cid)
                 return
@@ -292,7 +292,7 @@ class NetworkingMixin:
             if self.client:
                 self.client.stop()
                 self.client = None
-            self.set_error("Лобби заполнено. Максимум игроков: 12.")
+            self.set_error(f"Лобби заполнено. Максимум игроков: {MAX_PLAYERS}.")
         elif t == "started":
             if self.client:
                 self.client.stop()
