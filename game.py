@@ -2197,7 +2197,9 @@ class Game:
         # Баннер волны всегда помещается в экран независимо от номера волны.
         if snap.get("banner", 0) > 0 and self.state == "play":
             k = min(1.0, snap["banner"])
-            self.draw_fit_text(sc, "ВОЛНА %d" % snap.get("wave", 1), dim(WHITE, k),
+            current_wave = max(0, int(snap.get("wave", 0)))
+            banner_label = "ПОДГОТОВКА" if current_wave == 0 else "ВОЛНА %d" % current_wave
+            self.draw_fit_text(sc, banner_label, dim(WHITE, k),
                                pygame.Rect(180, H / 2 - 205, W - 360, 130), 88, 48)
 
         # прицел
