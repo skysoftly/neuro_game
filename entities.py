@@ -65,6 +65,7 @@ class Player:
         self.pulse_boost = 0.0
         self.shield_t = 0.0
         self.shield_hits = 0
+        self.hurt_t = 0.0
         self.tutorial_ready = False
 
     def mult(self):
@@ -77,7 +78,7 @@ class Enemy:
         self.kind = kind
         self.p = V(pos)
         self.v = V()
-        hp_scale = 1.0 + 0.11 * max(0, wave - 1)
+        hp_scale = 1.0 + 0.14 * max(0, wave - 1)
         self.hp = max(1, math.ceil(d["hp"] * hp_scale))
         self.max_hp = self.hp
         self.r = d["r"]
@@ -90,6 +91,10 @@ class Enemy:
         self.side = random.choice((-1, 1))
         self.dead = False
         self.stun = 0.0
+        self.windup = 0.0
+        self.charge_t = 0.0
+        self.charge_dir = V()
+        self.phase = 0
 
 
 class Particle:
