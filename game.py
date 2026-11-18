@@ -1743,7 +1743,7 @@ class Game:
                 "upgrade_ready": p.upgrade_ready,
                 "pending_upgrades": p.pending_upgrades,
                 "buffs": {"rapid": round(p.rapid,1), "spread": round(p.spread,1),
-                          "pulse_boost": round(p.shield_t,1)},
+                          "shield": round(p.shield_t,1)},
             })
         for b in self.bullets:
             snap["bullets"].append([round(b.p.x, 1), round(b.p.y, 1),
