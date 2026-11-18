@@ -1,1 +1,9 @@
-/.idea/
+__pycache__/
+*.py[cod]
+*.spec
+config.json
+build/
+dist/
+.venv/
+venv/
+\n/.idea/\n
