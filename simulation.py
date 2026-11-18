@@ -216,6 +216,9 @@ class SimulationMixin:
         # За одну завершённую волну каждому живому игроку полагается ровно один выбор.
         self.intermission = True
         self.queue.clear()
+        # Не переносим опасные снаряды через экран выбора улучшения.
+        self.ebullets.clear()
+        self.bullets.clear()
         self.play_sound("wave_clear")
         for p in self.players.values():
             if not p.alive:
@@ -240,6 +243,9 @@ class SimulationMixin:
             self.finish_session()
             return
         self.intermission = False
+        # Дополнительная страховка: перед новой волной арена чистая от снарядов.
+        self.ebullets.clear()
+        self.bullets.clear()
         self.local_choices = []
         self.local_upgrade_waiting = False
         for p in self.players.values():
@@ -621,14 +627,17 @@ class SimulationMixin:
                     continue
                 reward = "heal" if player.hp < player.max_hp and random.random() < 0.55 else random.choice(("rapid", "spread"))
                 self.pickups.append([V(player.p), reward, 18.0, player.pid])
-        chance = {"shooter": 0.2, "tank": 0.6}.get(e.kind, 0.05)
+        # Чуть чаще выдаём расходники, а при потерянном HP заметно повышаем
+        # шанс аптечки. Это помогает пережить первые волны, не превращая арену
+        # в склад лечения на поздних этапах.
+        chance = {"shooter": 0.24, "tank": 0.58}.get(e.kind, 0.09)
         if random.random() < chance:
             kinds = ["rapid", "spread"]
-            wts = [4, 4]
+            wts = [3, 3]
             any_low = any(p.hp < p.max_hp for p in self.players.values() if p.alive)
             if any_low:
                 kinds.append("heal")
-                wts.append(2)
+                wts.append(4)
             self.pickups.append([V(e.p), random.choices(kinds, wts)[0], 10.0])
 
     def hurt(self, p):
