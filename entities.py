@@ -141,6 +141,14 @@ class Bullet:
         self.hit_ids = set()
         self.size = size
 
+    def register_hit(self):
+        """Return whether the bullet survives; each penetration loses 35% damage."""
+        if self.pierce <= 0:
+            return False
+        self.pierce -= 1
+        self.dmg *= 0.65
+        return True
+
     def update(self, dt):
         self.p += self.v * dt
         self.life -= dt
