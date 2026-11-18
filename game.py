@@ -623,6 +623,9 @@ class Game:
             self.lobby_players = [(int(a), b) for a, b in m.get("players", [])]
         elif t == "start":
             self.snap = None
+            self.camera_target_previous = None
+            self.camera_target_current = None
+            self.camera_lerp_elapsed = 0.0
             self.local_choices = []
             self.local_upgrade_waiting = False
             self.intermission = False
