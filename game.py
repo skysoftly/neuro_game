@@ -60,7 +60,7 @@ def get_lan_ips():
                 ips.append(ip)
     except Exception:
         pass
-    return ips or ["127.0.0.1"]
+    return ips
 
 
 # ---------- звук ----------
@@ -260,6 +260,7 @@ class Game:
         # у клиента: локальные данные из снапшота
         self.snap = None
         self.local_choices = []   # id апгрейдов для оверлея выбора
+        self._last_hovered_button = None
 
         pygame.mouse.set_visible(True)
 
