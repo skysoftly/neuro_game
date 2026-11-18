@@ -20,13 +20,12 @@ UPGRADES = [
     {"id":"pulse_power","name":"Многослойный щит","desc":"Щит выдерживает на одно попадание больше","color":(210,130,235)},
     {"id":"dash_damage","name":"Таран","desc":"Рывок наносит огромный урон врагам","color":(255,130,110)},
     {"id":"score_gain","name":"Охотничий контракт","desc":"Получай на 20% больше очков за каждое убийство","color":(235,220,120)},
-    {"id":"combo","name":"Азарт охоты","desc":"Комбо держится дольше и множитель выше","color":(255,150,190)},
 ]
 MAX_STACKS = {
     "max_hp":3,"dmg":5,"fire_rate":4,"move":4,"dash":3,"pierce":3,
     "lifesteal":2,"magnet":3,"pulse_gain":4,"crit":4,"multishot":3,
     "bullet_speed":3,"bullet_size":3,"regen":3,"armor":3,"pulse_power":4,
-    "dash_damage":3,"score_gain":4,"combo":3,
+    "dash_damage":3,"score_gain":4,
 }
 UPGRADES_BY_ID = {u["id"]:u for u in UPGRADES}
 
@@ -69,4 +68,3 @@ def recompute(p):
     p.dash_damage=1.0+0.65*min(3,u.get("dash_damage",0))
     p.xp_gain=1.0+0.20*min(4,u.get("score_gain",0))
     p.score_gain=1.0+0.20*min(4,u.get("score_gain",0))
-    p.combo_bonus=min(3,u.get("combo",0))
