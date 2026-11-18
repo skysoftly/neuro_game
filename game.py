@@ -97,11 +97,9 @@ class Audio:
                 ],
                 "pulse": self.make(520, 90, 0.42, 0.12, "sin", 0.04),
                 "hurt": self.make(220, 85, 0.20, 0.10, "tri", 0.05),
-                "levelup": self.make(440, 880, 0.28, 0.055, "sin", 0.0),
                 "ui_click": self.make(520, 390, 0.045, 0.025, "sin", 0.0),
                 "ui_hover": self.make(680, 760, 0.025, 0.012, "sin", 0.0),
                 "ready": self.make(440, 990, 0.24, 0.06, "sin", 0.0),
-                "wave": self.make(260, 520, 0.42, 0.06, "tri", 0.0),
                 "boss_spawn": self.make(92, 38, 0.95, 0.15, "sin", 0.08),
                 "boss_hit": [self.make(190, 82, 0.12, 0.075, "tri", 0.04),
                              self.make(145, 62, 0.16, 0.085, "sin", 0.06)],
@@ -269,14 +267,10 @@ class Game:
         self.screen_shake_enabled = True
         self.shake = 0.0
         self.spectator_speed = 620.0
-        self.flash = 0.0
         self.banner_t = 0.0
         self.intermission = False
         self.local_upgrade_waiting = False
         self.wave = 0
-        self.hitstop = 0.0
-        self.show_help = True
-        self.help_t = 10.0
         self.debug_overlay = False
         self.debug_timer = 0.0
 
@@ -812,11 +806,6 @@ class Game:
                     self._handle_input_event(e)
                     continue
                 if e.key == pygame.K_h:
-                    self.show_help = not self.show_help
-                    if self.show_help:
-                        self.help_t = 10.0
-                    continue
-
                 if self.state == "loading":
                     continue
                 if self.tutorial_active and e.key in (pygame.K_RETURN, pygame.K_SPACE):
@@ -1011,8 +1000,7 @@ class Game:
             return
         if self.intermission:
             self.shake *= math.exp(-8 * dt)
-            self.flash = max(0.0, self.flash - dt * 3.0)
-            if all((not p.alive) or p.upgrade_ready for p in self.players.values()):
+                if all((not p.alive) or p.upgrade_ready for p in self.players.values()):
                 self.start_next_wave()
             return
         self.gather_local_input()
@@ -1038,9 +1026,7 @@ class Game:
             pop[2] -= dt
         self.pops = [x for x in self.pops if x[2] > 0]
         self.shake *= math.exp(-6 * dt)
-        self.flash = max(0.0, self.flash - dt * 2.5)
         self.banner_t = max(0.0, self.banner_t - dt)
-        self.help_t = max(0.0, self.help_t - dt)
 
         if not any(p.alive for p in self.players.values()):
             self.state = "dead"
@@ -2544,9 +2530,7 @@ class Game:
                         self.input_mode = "name"
             if self.state == "play" and not self.paused:
                 if self.is_host:
-                    if self.hitstop > 0 and not self.tutorial_active:
-                        self.hitstop -= real_dt
-                    elif not self.tutorial_active:
+                    if not self.tutorial_active:
                         self.host_update(real_dt)
                     self.snapshot_timer += real_dt
                     if self.snap is None or self.snapshot_timer >= 1.0 / 30.0 or self.state == "dead":
