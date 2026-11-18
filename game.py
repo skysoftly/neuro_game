@@ -134,13 +134,14 @@ class Audio:
         """Generate three distinct, loopable original chiptune themes."""
         rate = 44100
         patterns = {
-            "menu": ((392, 0, 494, 587, 0, 494, 440, 0, 330, 0, 392, 494, 0, 440, 392, 0),
-                     (98, 98, 82.4, 82.4), 0.24, False),
-            "game": ((659, 0, 523, 659, 784, 0, 659, 523,
-                     587, 0, 440, 587, 698, 0, 587, 440,
-                     523, 659, 784, 0, 880, 784, 659, 523,
-                     440, 0, 523, 659, 587, 523, 440, 0),
-                    (82.4, 82.4, 110, 110, 73.4, 73.4, 98, 98), 0.14, True),
+            "menu": ((392, 0, 494, 587, 659, 0, 587, 494, 440, 0, 392, 494, 587, 0, 494, 392,
+                      330, 392, 494, 0, 440, 494, 587, 659, 784, 0, 659, 587, 494, 440, 392, 0),
+                     (98, 98, 82.4, 82.4, 73.4, 73.4, 87.3, 87.3), 0.30, False),
+            "game": ((523, 0, 440, 523, 659, 0, 523, 440,
+                     494, 0, 392, 494, 587, 0, 494, 392,
+                     440, 523, 659, 0, 698, 659, 523, 440,
+                     392, 0, 440, 523, 494, 440, 392, 0),
+                    (73.4, 73.4, 98, 98, 65.4, 65.4, 82.4, 82.4), 0.18, False),
             "dead": ((392, 349, 330, 294, 262, 0, 220, 196,
                      174, 0, 147, 131, 110, 0, 98, 82),
                     (65.4, 58.3, 55.0, 49.0), 0.30, False),
@@ -186,7 +187,7 @@ class Audio:
             return
         self.music_mode = mode
         self.music_channel.stop()
-        self.music_channel.set_volume(self.music_volume * (0.42 if mode == "game" else 1.0))
+        self.music_channel.set_volume(self.music_volume * (0.34 if mode == "game" else 1.0))
         self.music_channel.play(self.music_tracks[mode], loops=0 if mode == "dead" else -1)
 
     @staticmethod
@@ -1742,7 +1743,7 @@ class Game:
                 "upgrade_ready": p.upgrade_ready,
                 "pending_upgrades": p.pending_upgrades,
                 "buffs": {"rapid": round(p.rapid,1), "spread": round(p.spread,1),
-                          "pulse_boost": round(p.pulse_boost,1)},
+                          "pulse_boost": round(p.shield_t,1)},
             })
         for b in self.bullets:
             snap["bullets"].append([round(b.p.x, 1), round(b.p.y, 1),
@@ -2043,11 +2044,15 @@ class Game:
         if me:
             hp_ratio = max(0.0, min(1.0, me["hp"] / max(1, me["max_hp"])))
             hp_color = GREEN if hp_ratio > 0.55 else ORANGE if hp_ratio > 0.25 else RED
-            text(sc, "HP %d/%d" % (me["hp"], me["max_hp"]), self.f_small, hp_color,
-                 (430, 25), "midleft", outline=1)
-            pygame.draw.rect(sc, (14, 19, 27), (430, 39, 150, 8))
-            pygame.draw.rect(sc, hp_color, (430, 39, int(150 * hp_ratio), 8))
-            pygame.draw.rect(sc, (90, 105, 112), (430, 39, 150, 8), 1)
+            text(sc, "ЗДОРОВЬЕ", self.f_small, hp_color, (430, 19), "midleft", outline=1)
+            for crystal in range(me["max_hp"]):
+                x = 438 + crystal * 22
+                points = [(x, 43), (x + 8, 31), (x + 16, 43), (x + 8, 55)]
+                fill = hp_color if crystal < me["hp"] else (25, 32, 45)
+                pygame.draw.polygon(sc, fill, points)
+                pygame.draw.polygon(sc, WHITE if crystal < me["hp"] else (65, 75, 92), points, 1)
+                if crystal < me["hp"]:
+                    pygame.draw.line(sc, (235, 250, 255), (x + 8, 34), (x + 8, 50), 1)
 
         # правый верх: волна
         wave = snap.get("wave", 1)
@@ -2097,13 +2102,15 @@ class Game:
 
             # Временные баффы - отдельная компактная панель справа снизу, не под обучением.
             buffs = me.get("buffs", {})
-            active = [(name, buffs.get(name, 0)) for name in ("rapid", "spread", "pulse_boost") if buffs.get(name, 0) > 0]
+            active = [(name, buffs.get(name, 0)) for name in ("rapid", "spread") if buffs.get(name, 0) > 0]
+            if me.get("shield_t", 0) > 0:
+                active.append(("shield", me["shield_t"]))
             if active:
-                panel = pygame.Rect(W - 230, H - 48 - len(active) * 24, 206, len(active) * 24 + 18)
+                panel = pygame.Rect(W - 278, H - 48 - len(active) * 24, 254, len(active) * 24 + 18)
                 pygame.draw.rect(sc, (8, 13, 20), panel)
                 pygame.draw.rect(sc, (80, 100, 112), panel, 1)
                 for i, (name, value) in enumerate(active):
-                    label = {"rapid":"СКОРОСТРЕЛЬНОСТЬ","spread":"ТРОЙНОЙ ОГОНЬ","pulse_boost":"ИМПУЛЬСНЫЙ БУСТ"}[name]
+                    label = {"rapid":"СКОРОСТРЕЛЬНОСТЬ","spread":"ТРОЙНОЙ ВЫСТРЕЛ","shield":"ЩИТ АКТИВЕН"}[name]
                     col = PICK_COL.get(name, MAGENTA)
                     self.draw_fit_text(sc, "%s  %.1fс" % (label, value), col,
                                        pygame.Rect(panel.x + 8, panel.y + 1 + i * 24,
@@ -2215,7 +2222,7 @@ class Game:
         pulse = 0.8 + 0.2 * math.sin(self.t * 3)
         draw_glow(sc, (cx, cy), CYAN, 190, 18)
         text(sc, "NEON VOID", self.f_huge, dim(CYAN, pulse), (cx, cy), outline=3)
-        text(sc, "СЕТЕВАЯ ИГРА ПО ЛОКАЛЬНОЙ СЕТИ", self.f_mid, MAGENTA,
+        text(sc, "ВОЛНЫ. ХАОС. ВЫЖИВИ.", self.f_mid, MAGENTA,
              (cx, cy + 78), outline=2)
 
         y = cy + 160
