@@ -17,7 +17,7 @@ from config import (
     KINDS, PICK_COL, PICK_LET, PLAYER_COLORS,
 )
 from fonts import font, text
-from draw_utils import shape, dim, make_overlay, bloom, fisheye, read_clipboard
+from draw_utils import shape, dim, make_overlay, bloom, read_clipboard
 from camera import Camera
 from entities import Player, Enemy, Particle, Ring, Bullet
 from upgrades import UPGRADES_BY_ID, apply_upgrade, roll_upgrades
@@ -60,7 +60,7 @@ def get_lan_ips():
                 ips.append(ip)
     except Exception:
         pass
-    return ips or ["127.0.0.1"]
+    return ips
 
 
 # ---------- звук ----------
@@ -97,12 +97,16 @@ class Audio:
                 ],
                 "pulse": self.make(520, 90, 0.42, 0.12, "sin", 0.04),
                 "hurt": self.make(220, 85, 0.20, 0.10, "tri", 0.05),
-                "levelup": self.make(440, 1320, 0.32, 0.085, "sin", 0.0),
+                "levelup": self.make(440, 880, 0.28, 0.055, "sin", 0.0),
+                "ui_click": self.make(520, 390, 0.045, 0.025, "sin", 0.0),
+                "ui_hover": self.make(680, 760, 0.025, 0.012, "sin", 0.0),
+                "ready": self.make(440, 990, 0.24, 0.06, "sin", 0.0),
+                "wave": self.make(260, 520, 0.42, 0.06, "tri", 0.0),
             }
             self.ok = True
             self.music = self.make_music()
             self.music_channel = pygame.mixer.Channel(7)
-            self.music_channel.set_volume(0.22)
+            self.music_channel.set_volume(0.12)
             self.music_channel.play(self.music, loops=-1)
         except Exception:
             self.ok = False
@@ -110,32 +114,27 @@ class Audio:
 
     @staticmethod
     def make_music():
-        """Original mellow chiptune loop with a melody, bass and soft pulse."""
+        """Longer, quieter ambient chiptune with space between phrases."""
         rate = 44100
-        melody = (440, 523, 659, 523, 392, 494, 587, 494,
-                  349, 440, 523, 440, 330, 392, 494, 392)
-        bass = (110, 110, 130.81, 130.81, 87.31, 87.31, 98, 98)
-        beat = 0.22
-        count = int(rate * beat)
+        melody = (440, 0, 523, 659, 0, 587, 523, 0, 392, 0, 440, 523, 0, 494, 440, 0,
+                  349, 0, 392, 440, 0, 523, 494, 0, 330, 0, 392, 494, 0, 440, 392, 0)
+        bass = (110, 110, 130.81, 130.81, 98, 98, 87.31, 87.31)
+        count = int(rate * 0.28)
         buf = array.array("h")
         for step, note in enumerate(melody):
-            base_phase = 0.0
-            bass_phase = 0.0
+            lead_phase = bass_phase = 0.0
             for i in range(count):
-                t = i / count
-                base_phase += note / rate
-                bass_phase += bass[(step // 2) % len(bass)] / rate
-                tri = 1.0 - 4.0 * abs(round(base_phase) - base_phase)
-                lead_env = min(1.0, i / 500) * min(1.0, (count - i) / 1800)
-                bass_env = min(1.0, i / 900) * min(1.0, (count - i) / 2500)
-                lead = tri * lead_env * 0.075
-                low = math.sin(bass_phase * math.tau) * bass_env * 0.045
-                pulse = 0.0
-                if step % 4 == 0 and i < int(rate * 0.055):
-                    pulse = math.sin((75 - 35 * t) * math.tau * i / rate) * (1 - t / 0.25) * 0.035
-                buf.append(int(max(-1.0, min(1.0, lead + low + pulse)) * 32767))
+                bass_phase += bass[(step // 4) % len(bass)] / rate
+                env = min(1.0, i / 1800) * min(1.0, (count - i) / 3500)
+                low = math.sin(bass_phase * math.tau) * env * 0.035
+                lead = 0.0
+                if note:
+                    lead_phase += note / rate
+                    tri = 1.0 - 4.0 * abs(round(lead_phase) - lead_phase)
+                    lead_env = min(1.0, i / 1400) * min(1.0, (count - i) / 3000)
+                    lead = tri * lead_env * 0.032
+                buf.append(int(max(-1.0, min(1.0, lead + low)) * 32767))
         return pygame.mixer.Sound(buffer=buf.tobytes())
-
     @staticmethod
     def make(f0, f1, dur, vol, wave, noise):
         rate = 44100
@@ -191,6 +190,8 @@ class Game:
         self.spectator_speed = 620.0
         self.flash = 0.0
         self.banner_t = 0.0
+        self.intermission = False
+        self.local_upgrade_waiting = False
         self.wave = 0
         self.hitstop = 0.0
         self.show_help = True
@@ -200,7 +201,8 @@ class Game:
 
         cfg = load_config()
         self.last_ip = cfg.get("last_ip", "")
-        self.name_input = cfg.get("name", "Игрок")
+        self.first_run = not bool(str(cfg.get("name", "")).strip())
+        self.name_input = str(cfg.get("name", "")).strip() if not self.first_run else ""
         self.ip_input = self.last_ip
         self.lan_ips = get_lan_ips()
 
@@ -209,7 +211,7 @@ class Game:
         self.client = None
         self.my_id = 0
         self.lobby_players = []
-        self.input_mode = None
+        self.input_mode = "name" if self.first_run else None
         self.connect_error = ""
 
         self.camera = Camera(W, H, WORLD_W, WORLD_H)
@@ -230,6 +232,7 @@ class Game:
         # у клиента: локальные данные из снапшота
         self.snap = None
         self.local_choices = []   # id апгрейдов для оверлея выбора
+        self._last_hovered_button = None
 
         pygame.mouse.set_visible(True)
 
@@ -246,6 +249,12 @@ class Game:
         # Старая панельная кнопка: тёмная эмаль, двойная рамка и светлая грань.
         mouse = self.logical_mouse()
         hovered = enabled and rect.collidepoint(mouse)
+        hover_key = (rect.x, rect.y, rect.w, rect.h, label)
+        if hovered and self._last_hovered_button != hover_key:
+            self.audio.play("ui_hover")
+            self._last_hovered_button = hover_key
+        elif not hovered and self._last_hovered_button == hover_key:
+            self._last_hovered_button = None
         fill = (25, 37, 52) if not hovered else (39, 57, 72)
         edge = color if enabled else (75, 82, 94)
         shadow = pygame.Rect(rect.x + 4, rect.y + 5, rect.w, rect.h)
@@ -295,7 +304,7 @@ class Game:
             self.client = ClientConn(ip)
         except Exception as e:
             log.exception("Не удалось подключиться к %s:%d", ip, PORT)
-            self.set_error("Не удалось подключиться к %s:%d\n%s" % (ip, PORT, e))
+            self.set_error("ИГРА НЕ НАЙДЕНА\nПо адресу %s:%d никто не отвечает.\nПроверь IP и убедись, что хост запущен." % (ip, PORT))
             return
         self.is_host = False
         self.last_ip = ip
@@ -325,6 +334,8 @@ class Game:
         self.parts, self.rings, self.pickups, self.pops = [], [], [], []
         self.queue = []
         self.local_choices = []
+        self.local_upgrade_waiting = False
+        self.intermission = False
         self.snap = None
         self.paused = False
         self.hitstop = 0.0
@@ -350,6 +361,8 @@ class Game:
         self.wave = 0
         self.wave_delay = 1.5
         self.spawn_t = 0.0
+        self.intermission = False
+        self.local_upgrade_waiting = False
         self.banner_t = 2.0
         self.help_t = 10.0
         self.state = "play"
@@ -388,12 +401,18 @@ class Game:
                     p.want_dash = True
                 if m.get("pulse"):
                     p.want_pulse = True
-        elif t == "upgrade" and self.state == "play":
+        elif t == "upgrade" and self.state == "play" and self.intermission:
             p = self.players.get(cid)
             up_id = m.get("id")
-            if p and p.alive and up_id in p.upgrade_choices:
-                apply_upgrade(p, up_id)
-                p.upgrade_choices = []
+            if p and p.alive and not p.upgrade_ready and up_id in p.upgrade_choices and apply_upgrade(p, up_id):
+                p.pending_upgrades = max(0, p.pending_upgrades - 1)
+                if p.pending_upgrades > 0:
+                    p.upgrade_choices = roll_upgrades(self.rng, 3, p)
+                    if not p.upgrade_choices:
+                        p.pending_upgrades = 0
+                if p.pending_upgrades <= 0:
+                    p.upgrade_choices = []
+                    p.upgrade_ready = True
         elif t == "disconnect":
             self.lobby_players = [x for x in self.lobby_players if x[0] != cid]
             if self.players:
@@ -424,6 +443,8 @@ class Game:
         elif t == "start":
             self.snap = None
             self.local_choices = []
+            self.local_upgrade_waiting = False
+            self.intermission = False
             self.state = "play"
             self.paused = False
             self.help_t = 10.0
@@ -431,13 +452,16 @@ class Game:
         elif t == "snap":
             self.snap = m
             self.banner_t = m.get("banner", 0)
-            # выбрать апгрейды локального игрока
+            self.intermission = bool(m.get("intermission", False))
             for pl in m.get("players", []):
                 if pl["pid"] == self.my_id:
                     self.local_choices = pl.get("upgrade_choices", []) if pl.get("alive", True) else []
+                    self.local_upgrade_waiting = bool(pl.get("upgrade_ready", False))
                     break
             else:
                 self.local_choices = []
+                self.local_upgrade_waiting = False
+            pygame.mouse.set_visible(not (self.state == "play" and self.intermission))
         elif t == "dead":
             self.local_choices = []
             self.state = "dead"
@@ -481,18 +505,29 @@ class Game:
         })
 
     def pick_upgrade(self, upgrade_id):
-        if upgrade_id not in self.local_choices:
+        if not self.intermission or upgrade_id not in self.local_choices:
             return
         if self.is_host:
             p = self.players.get(self.my_id)
-            if p and p.alive and upgrade_id in p.upgrade_choices:
-                apply_upgrade(p, upgrade_id)
-                p.upgrade_choices = []
-                self.local_choices = []
-                self.audio.play("levelup")
+            if p and p.alive and not p.upgrade_ready and upgrade_id in p.upgrade_choices and apply_upgrade(p, upgrade_id):
+                p.pending_upgrades = max(0, p.pending_upgrades - 1)
+                if p.pending_upgrades > 0:
+                    p.upgrade_choices = roll_upgrades(self.rng, 3, p)
+                    if not p.upgrade_choices:
+                        p.pending_upgrades = 0
+                if p.pending_upgrades <= 0:
+                    p.upgrade_choices = []
+                    p.upgrade_ready = True
+                    self.local_choices = []
+                    self.local_upgrade_waiting = True
+                else:
+                    self.local_choices = list(p.upgrade_choices)
+                self.audio.play("ready")
         elif self.client:
             self.client.send({"t": "upgrade", "id": upgrade_id})
             self.local_choices = []
+            self.local_upgrade_waiting = True
+            self.audio.play("ready")
 
     # ================= ввод =================
     def mouse_world(self):
@@ -598,6 +633,8 @@ class Game:
                     if e.key in (pygame.K_RETURN, pygame.K_ESCAPE):
                         self.state = "menu"
             elif e.type == pygame.MOUSEBUTTONDOWN:
+                if e.button == 1:
+                    self.audio.play("ui_click")
                 mx, my = self.logical_mouse(e.pos)
                 if self.input_mode and e.button == 1:
                     if pygame.Rect(W / 2 - 115, H / 2 + 32, 230, 38).collidepoint(mx, my):
@@ -605,6 +642,9 @@ class Game:
                     elif pygame.Rect(W / 2 - 135, H / 2 + 80, 270, 46).collidepoint(mx, my):
                         mode = self.input_mode
                         self.input_mode = None
+                        if mode == "name":
+                            self.name_input = self.name_input.strip() or "Игрок"
+                            self.first_run = False
                         self.persist()
                         if mode == "ip":
                             self.join_server(self.ip_input)
@@ -668,11 +708,18 @@ class Game:
         if e.key == pygame.K_RETURN:
             mode = self.input_mode
             self.input_mode = None
+            if mode == "name":
+                self.name_input = self.name_input.strip() or "Игрок"
+                self.first_run = False
             self.persist()
             if mode == "ip":
                 self.join_server(self.ip_input)
             return
         if e.key == pygame.K_ESCAPE:
+            if self.input_mode == "name" and self.first_run:
+                self.name_input = "Игрок"
+                self.first_run = False
+                self.persist()
             self.input_mode = None
             return
         if e.key == pygame.K_BACKSPACE:
@@ -699,6 +746,12 @@ class Game:
 
     # ================= симуляция (хост) =================
     def host_update(self, dt):
+        if self.intermission:
+            self.shake *= math.exp(-8 * dt)
+            self.flash = max(0.0, self.flash - dt * 3.0)
+            if all((not p.alive) or p.upgrade_ready for p in self.players.values()):
+                self.start_next_wave()
+            return
         self.gather_local_input()
         for p in self.players.values():
             if p.alive:
@@ -726,6 +779,8 @@ class Game:
 
         if not any(p.alive for p in self.players.values()):
             self.state = "dead"
+            self.intermission = False
+            self.local_upgrade_waiting = False
             self.local_choices = []
             for player in self.players.values():
                 player.upgrade_choices = []
@@ -749,7 +804,7 @@ class Game:
                 d = p.inp if p.inp.length_squared() > 0 else V(math.cos(p.ang), math.sin(p.ang))
                 p.v = d * 1150
                 p.dash_t = 0.18
-                p.inv = max(p.inv, 0.28)
+                p.inv = max(p.inv, 0.16)
                 p.dash_cd = p.dash_cd_max
                 self.audio.play("dash")
                 self.rings.append(Ring(p.p, 10, 90, 400, CYAN, 3))
@@ -802,22 +857,59 @@ class Game:
                 self.damage(e, 6 * p.dmg, p)
 
     def update_waves(self, dt):
+        if self.intermission:
+            return
         alive = any(not e.dead for e in self.enemies)
-        if not self.queue and not alive:
+        if self.wave == 0 and not self.queue and not alive:
             self.wave_delay -= dt
             if self.wave_delay <= 0:
                 self.next_wave()
+        elif not self.queue and not alive:
+            self.begin_intermission()
         elif self.queue:
             self.spawn_t -= dt
             if self.spawn_t <= 0:
-                self.spawn_t = max(0.18, 0.7 - 0.035 * self.wave)
+                self.spawn_t = max(0.16, 0.7 - 0.018 * self.wave)
                 self.spawn(self.queue.pop())
+
+    def begin_intermission(self):
+        if self.intermission:
+            return
+        self.intermission = True
+        self.queue.clear()
+        self.audio.play("wave")
+        for p in self.players.values():
+            if not p.alive:
+                p.upgrade_choices = []
+                p.upgrade_ready = True
+                continue
+            p.pending_upgrades = max(1, p.pending_upgrades)
+            p.upgrade_ready = False
+            p.upgrade_choices = roll_upgrades(self.rng, 3, p)
+            if not p.upgrade_choices:
+                p.pending_upgrades = 0
+                p.upgrade_ready = True
+        local = self.players.get(self.my_id)
+        self.local_choices = list(local.upgrade_choices) if local and local.alive else []
+        self.local_upgrade_waiting = bool(local and local.upgrade_ready)
+        pygame.mouse.set_visible(False)
+
+    def start_next_wave(self):
+        if not self.intermission:
+            return
+        self.intermission = False
+        self.local_choices = []
+        self.local_upgrade_waiting = False
+        for p in self.players.values():
+            p.upgrade_choices = []
+            p.upgrade_ready = False
+        self.next_wave()
 
     def next_wave(self):
         self.wave += 1
         self.wave_delay = 2.0
         self.banner_t = 2.2
-        n = 6 + int(self.wave * 2.2)
+        n = min(42, 6 + int(self.wave * 2.2))
         q = []
         for _ in range(n):
             r = random.random()
@@ -871,21 +963,22 @@ class Game:
             e.v = e.v.lerp(tgt, min(1.0, 3 * dt))
             e.cool -= dt
             if e.cool <= 0:
-                e.cool = max(0.9, 2.0 - 0.06 * self.wave)
-                n = 1 if self.wave < 5 else 3
+                e.cool = max(0.72, 2.0 - 0.045 * self.wave)
+                n = 1 if self.wave < 3 else (3 if self.wave < 8 else 5)
                 base = math.atan2(d.y, d.x)
                 for i in range(n):
                     a = base + (i - (n - 1) / 2) * 0.25
-                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 300, 6.0])
+                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * min(430, 300 + self.wave * 8), 6.0])
                 self.audio.play("shoot")
         else:  # tank
             e.v = e.v.lerp(d * e.spd, min(1.0, 2 * dt))
             e.cool -= dt
             if e.cool <= 0:
                 e.cool = 3.4
-                for i in range(10):
-                    a = i * math.tau / 10 + e.ang
-                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 230, 6.0])
+                count = 10 if self.wave < 8 else 12
+                for i in range(count):
+                    a = i * math.tau / count + e.ang
+                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * min(340, 230 + self.wave * 5), 6.0])
                 self.audio.play("boom")
         e.p += e.v * dt
         e.p.x = max(15, min(WORLD_W - 15, e.p.x))
@@ -976,22 +1069,19 @@ class Game:
             src.kills += 1
             if src.lifesteal:
                 src.lifesteal_progress += src.lifesteal
-                if src.lifesteal_progress >= 8:
-                    src.lifesteal_progress -= 8
+                if src.lifesteal_progress >= 18:
+                    src.lifesteal_progress -= 18
                     src.hp = min(src.max_hp, src.hp + 1)
                     self.pops.append([V(src.p), "+1 HP", 0.9, GREEN])
             src.charge = min(100.0, src.charge + (12 if e.kind == "tank" else 4) * src.pulse_gain)
             self.pops.append([V(e.p), "+%d" % pts, 0.8, e.col])
-            # XP
+            # Уровень растёт сразу, но выбор переносится на перерыв между волнами.
             src.xp += d["xp"]
-            need = src.xp_to_next()
-            if src.xp >= need:
-                src.xp -= need
+            while src.xp >= src.xp_to_next():
+                src.xp -= src.xp_to_next()
                 src.level += 1
-                src.upgrade_choices = roll_upgrades(self.rng, 3)
-                if src.pid == self.my_id:
-                    self.local_choices = list(src.upgrade_choices)
-                    self.audio.play("levelup")
+                src.pending_upgrades += 1
+                self.audio.play("levelup")
         self.audio.play("boom")
         if e.kind == "tank":
             for _ in range(4):
@@ -1012,7 +1102,7 @@ class Game:
         if not p.alive:
             return
         p.hp -= 1
-        p.inv = 1.6
+        p.inv = 0.58
         p.chain = 0
         self.shake = max(self.shake, 24)
         self.flash = 1.0
@@ -1110,6 +1200,7 @@ class Game:
             "pickups": [],
             "pops": [],
             "wave": self.wave,
+            "intermission": self.intermission,
             "banner": round(self.banner_t, 2),
             "shake": round(self.shake, 1),
         }
@@ -1125,6 +1216,8 @@ class Game:
                 "alive": p.alive, "inv": round(p.inv, 2), "dash_t": round(p.dash_t, 2),
                 "level": p.level, "xp": p.xp, "xp_next": p.xp_to_next(),
                 "upgrade_choices": list(p.upgrade_choices),
+                "upgrade_ready": p.upgrade_ready,
+                "pending_upgrades": p.pending_upgrades,
             })
         for b in self.bullets:
             snap["bullets"].append([round(b.p.x, 1), round(b.p.y, 1),
@@ -1138,6 +1231,7 @@ class Game:
                 "k": e.kind, "x": round(e.p.x, 1), "y": round(e.p.y, 1),
                 "r": e.r, "ang": round(e.ang, 2), "age": round(e.age, 2),
                 "flash": round(e.flash, 2), "cool": round(e.cool, 2),
+                "hp": e.hp, "max_hp": e.max_hp,
             })
         for pk in self.pickups:
             snap["pickups"].append([round(pk[0].x, 1), round(pk[0].y, 1), pk[1], round(pk[2], 1)])
@@ -1209,6 +1303,10 @@ class Game:
         if k < 1:
             pygame.draw.circle(sc, dim(base_col, 1 - k), (int(sx), int(sy)),
                                int(e["r"] * (2.2 - 1.2 * k)), 1)
+        if self.wave >= 5:
+            tier = min(3, (self.wave - 1) // 4)
+            pygame.draw.circle(sc, dim(base_col, 0.22 + tier * 0.08),
+                               (int(sx), int(sy)), int(r + 5 + tier * 2), 1)
         fill = dim(base_col, 0.12)
         kind = e["k"]
         draw_glow(sc, (sx, sy), base_col, int(r * 2.2 + 12), 22)
@@ -1222,6 +1320,15 @@ class Game:
             pts = shape(SQ, e["ang"], (sx, sy), r)
         pygame.draw.polygon(sc, fill, pts)
         pygame.draw.polygon(sc, col, pts, 2)
+        max_hp = max(1, e.get("max_hp", 1))
+        hp_ratio = max(0.0, min(1.0, e.get("hp", max_hp) / max_hp))
+        if max_hp > 1:
+            bar_w = max(24, int(r * 2.2))
+            bar = pygame.Rect(int(sx - bar_w / 2), int(sy - r - 12), bar_w, 4)
+            pygame.draw.rect(sc, (18, 18, 22), bar)
+            hp_color = GREEN if hp_ratio > 0.55 else ORANGE if hp_ratio > 0.25 else RED
+            pygame.draw.rect(sc, hp_color, (bar.x, bar.y, int(bar.w * hp_ratio), bar.h))
+            pygame.draw.rect(sc, (8, 10, 14), bar, 1)
         if kind == "shooter":
             pygame.draw.circle(sc, col, (int(sx), int(sy)), max(2, int(r * 0.3)))
             if k >= 1 and e["cool"] < 0.35:
@@ -1428,54 +1535,55 @@ class Game:
         self.draw_hint(sc)
 
     def draw_upgrade_overlay(self, sc):
-        if not self.local_choices:
+        if not self.intermission:
             return
         overlay = pygame.Surface((W, H), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
+        overlay.fill((5, 8, 14, 218))
         sc.blit(overlay, (0, 0))
-        text(sc, "УРОВЕНЬ ПОВЫШЕН!", self.f_big, YELLOW, (W / 2, 100), outline=3)
-        text(sc, "Выберите карточку мышью", self.f_mid, WHITE, (W / 2, 160), outline=2)
-
-        card_w, card_h = 320, 220
-        gap = 30
-        total = len(self.local_choices) * card_w + (len(self.local_choices) - 1) * gap
+        roster = list(self.players.values()) if self.is_host else (self.snap or {}).get("players", [])
+        if self.is_host:
+            ready_count = sum(1 for p in roster if p.alive and p.upgrade_ready)
+            alive_count = sum(1 for p in roster if p.alive)
+        else:
+            ready_count = sum(1 for p in roster if p.get("alive", True) and p.get("upgrade_ready", False))
+            alive_count = sum(1 for p in roster if p.get("alive", True))
+        text(sc, "ПЕРЕДЫШКА МЕЖДУ ВОЛНАМИ", self.f_big, YELLOW, (W / 2, 92), outline=2)
+        if self.local_choices:
+            text(sc, "ВЫБЕРИ ОДНО УЛУЧШЕНИЕ", self.f_mid, WHITE, (W / 2, 148), outline=1)
+            text(sc, "Следующая волна начнётся, когда выберут все игроки", self.f_small, (184, 195, 194), (W / 2, 184), outline=1)
+        else:
+            text(sc, "ВЫБОР ПРИНЯТ — ОЖИДАНИЕ ОСТАЛЬНЫХ", self.f_mid, CYAN, (W / 2, 150), outline=1)
+            text(sc, "Готово: %d / %d" % (ready_count, alive_count), self.f_small, WHITE, (W / 2, 188), outline=1)
+        card_w, card_h, gap = 320, 220, 30
+        total = len(self.local_choices) * card_w + max(0, len(self.local_choices) - 1) * gap
         x0 = (W - total) / 2
         for i, up_id in enumerate(self.local_choices):
             u = UPGRADES_BY_ID.get(up_id)
             if not u:
                 continue
-            x = x0 + i * (card_w + gap)
-            y = H / 2 - card_h / 2 + 40
+            x, y = x0 + i * (card_w + gap), H / 2 - card_h / 2 + 40
             rect = pygame.Rect(x, y, card_w, card_h)
             col = u["color"]
             hovered = rect.collidepoint(self.logical_mouse())
-            draw_glow(sc, (rect.centerx, rect.centery), col, 150, 20 if hovered else 12)
-            pygame.draw.rect(sc, (8, 16, 34) if hovered else (5, 12, 28), rect)
-            pygame.draw.rect(sc, (24, 35, 62), rect.inflate(-8, -8), 1)
-            pygame.draw.rect(sc, WHITE if hovered else col, rect, 3 if hovered else 2)
+            pygame.draw.rect(sc, (3, 6, 11), rect.move(5, 6))
+            pygame.draw.rect(sc, (18, 27, 38) if hovered else (13, 20, 30), rect)
+            pygame.draw.rect(sc, (42, 51, 60), rect.inflate(-8, -8), 1)
+            pygame.draw.rect(sc, WHITE if hovered else col, rect, 2 if hovered else 1)
             pygame.draw.line(sc, dim(col, 0.55), (x + 18, y + 8), (x + card_w - 18, y + 8), 1)
-            text(sc, "ВЫБРАТЬ", self.f_small, col, (rect.centerx, rect.bottom - 18), outline=1)
-            # название + описание
-            text(sc, u["name"], self.f_mid, col, (x + card_w / 2, y + 90), outline=2)
-            # описание с переносом
-            desc = u["desc"]
-            words = desc.split()
-            lines = []
-            cur = ""
-            max_chars = 22
-            for wd in words:
-                if len(cur) + len(wd) + 1 > max_chars:
-                    lines.append(cur)
-                    cur = wd
+            text(sc, u["name"], self.f_mid, col, (rect.centerx, y + 82), outline=1)
+            words, lines, current = u["desc"].split(), [], ""
+            for word in words:
+                if len(current) + len(word) + 1 > 24:
+                    lines.append(current)
+                    current = word
                 else:
-                    cur = (cur + " " + wd).strip()
-            if cur:
-                lines.append(cur)
+                    current = (current + " " + word).strip()
+            if current:
+                lines.append(current)
             for li, line in enumerate(lines):
-                text(sc, line, self.f_small, WHITE,
-                     (x + card_w / 2, y + 140 + li * 22), outline=2)
-
-    # ================= меню / лобби / ошибки =================
+                text(sc, line, self.f_small, WHITE, (rect.centerx, y + 130 + li * 22), outline=1)
+            pygame.draw.line(sc, dim(col, 0.35), (x + 12, y + card_h - 38), (x + card_w - 12, y + card_h - 38), 1)
+            text(sc, "ВЫБРАТЬ  [ЛКМ]", self.f_small, col, (rect.centerx, rect.bottom - 18), outline=1)
     def draw_menu(self, sc):
         cx, cy = W / 2, H / 2 - 140
         for i in range(5):
@@ -1496,7 +1604,7 @@ class Game:
         self.draw_button(sc, pygame.Rect(cx - 210, y + 104, 420, 44), quick,
                          YELLOW, enabled=bool(self.last_ip))
         self.draw_button(sc, pygame.Rect(cx - 210, y + 158, 420, 44),
-                         "ИМЯ ИГРОКА: " + self.name_input, PURPLE)
+                         "ИМЯ ИГРОКА: " + (self.name_input or "НЕ ЗАДАНО"), PURPLE)
         self.draw_button(sc, pygame.Rect(cx - 100, H - 58, 200, 38), "ВЫХОД", RED)
 
     def draw_lobby(self, sc):
@@ -1505,11 +1613,10 @@ class Game:
         if self.is_host:
             text(sc, "ВЫ — ХОСТ", self.f_mid, YELLOW, (cx, 170), outline=2)
             text(sc, "Ваш IP для подключения:", self.f_small, (160, 170, 220), (cx, 215), outline=2)
-            y = 260
-            for ip in self.lan_ips:
-                text(sc, ip, self.f_big, WHITE, (cx, y), outline=3)
-                y += 60
-            text(sc, "Порт: %d" % PORT, self.f_small, (140, 150, 200), (cx, y + 10), outline=2)
+            host_ip = self.lan_ips[0] if self.lan_ips else "IP НЕ НАЙДЕН"
+            text(sc, host_ip, self.f_big, WHITE, (cx, 276), outline=2)
+            text(sc, "Порт: %d" % PORT, self.f_small, (164, 174, 182), (cx, 326), outline=1)
+            text(sc, "Подключайтесь из той же локальной сети", self.f_small, (164, 174, 182), (cx, 356), outline=1)
         else:
             text(sc, "ВЫ — КЛИЕНТ", self.f_mid, YELLOW, (cx, 170), outline=2)
             text(sc, "Подключение: %s" % self.last_ip, self.f_small,
@@ -1589,6 +1696,8 @@ class Game:
         pygame.draw.rect(sc, (5, 12, 28), box)
         pygame.draw.rect(sc, CYAN, box, 2)
         shown = value + ("|" if int(self.t * 2) % 2 == 0 else "")
+        if self.input_mode == "name" and self.first_run:
+            text(sc, "ЭТО ИМЯ УВИДЯТ ДРУГИЕ ИГРОКИ", self.f_small, (164, 174, 182), (W / 2, H / 2 - 72), outline=1)
         text(sc, shown, self.f_big, WHITE, (W / 2, H / 2 - 13), outline=2)
         self.draw_button(sc, pygame.Rect(W / 2 - 115, H / 2 + 32, 230, 38),
                          "ВСТАВИТЬ ИЗ БУФЕРА", PURPLE)
@@ -1602,6 +1711,29 @@ class Game:
              (170, 190, 220), (W / 2, H / 2 + 220), outline=2)
 
     # ================= главный render =================
+    def draw_ambient_background(self, sc):
+        """Медленная параллакс-геометрия для меню, лобби и ошибок."""
+        offset = (self.t * 9.0) % 96
+        for x in range(-96, W + 96, 96):
+            xx = x + offset
+            pygame.draw.line(sc, (18, 25, 34), (xx, 0), (xx - 110, H), 1)
+        for i, color in enumerate((CYAN, PURPLE, MAGENTA)):
+            phase = self.t * (0.18 + i * 0.06) + i * 2.1
+            cx = W * (0.22 + i * 0.28) + math.sin(phase) * 90
+            cy = H * (0.32 + i * 0.17) + math.cos(phase * 0.8) * 55
+            radius = 90 + 18 * math.sin(self.t * 0.7 + i)
+            pygame.draw.circle(sc, dim(color, 0.12), (int(cx), int(cy)), int(radius), 1)
+            pygame.draw.circle(sc, dim(color, 0.08), (int(cx), int(cy)), int(radius * 1.35), 1)
+
+    def draw_mouse_cursor(self, sc):
+        mx, my = self.logical_mouse()
+        points = [(mx, my), (mx + 4, my + 24), (mx + 10, my + 17),
+                  (mx + 17, my + 29), (mx + 22, my + 26), (mx + 15, my + 14),
+                  (mx + 25, my + 12)]
+        pygame.draw.polygon(sc, (8, 12, 18), [(x + 2, y + 2) for x, y in points])
+        pygame.draw.polygon(sc, WHITE, points)
+        pygame.draw.polygon(sc, (35, 48, 54), points, 1)
+
     def render(self):
         sc = self.scene
 
@@ -1614,6 +1746,8 @@ class Game:
         snap = None
         if self.state in ("play", "dead"):
             snap = self.build_snapshot() if self.is_host else self.snap
+            if snap is not None:
+                self.wave = int(snap.get("wave", self.wave))
 
         # мир
         if snap is not None:
@@ -1626,6 +1760,7 @@ class Game:
                 sy = (y - self.camera.y * 0.3 * z) % H
                 c = int(60 + 150 * z)
                 sc.set_at((int(sx), int(sy)), (c // 2, c // 2, c))
+            self.draw_ambient_background(sc)
             if self.state == "menu":
                 cx, cy = W / 2, H / 2 - 140
                 for i in range(5):
@@ -1638,9 +1773,9 @@ class Game:
         if self.flash > 0:
             sc.fill((int(70 * self.flash), 0, int(10 * self.flash)), special_flags=pygame.BLEND_RGB_ADD)
 
-        # Gentle CRT lens + restrained glow. Keep HUD text crisp above the filter.
-        post = fisheye(sc, 0.075)
-        bloom(post, W, H, 0.16)
+        # Мягкий CRT glow без геометрических искажений и размытия интерфейса.
+        post = sc.copy()
+        bloom(post, W, H, 0.08)
 
         # Screen shake is applied to the game image, not to the interface.
         shake_amount = self.shake if self.state == "play" and snap is not None else 0.0
@@ -1683,6 +1818,10 @@ class Game:
             self.screen.blit(panel, (W - 322, H - 138))
             for i, line in enumerate(debug_lines):
                 text(self.screen, line, self.f_small, GREEN, (W - 312, H - 126 + i * 23), "topleft", outline=1)
+
+        # Курсор рисуется последним: он выше карточек, текста и debug-панели.
+        if self.intermission and self.state == "play":
+            self.draw_mouse_cursor(self.screen)
 
     # ================= главный цикл =================
     def run(self):
