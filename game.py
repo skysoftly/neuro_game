@@ -2712,7 +2712,7 @@ class Game:
                              "НЕ ГОТОВ" if is_ready else "ГОТОВ",
                              GREEN if is_ready else CYAN)
             text(sc, "Ожидание запуска хостом...", self.f_small, PURPLE,
-                 (cx, H - 82), outline=2)
+                 (cx, 194), outline=2)
         if self.connect_error:
             text(sc, self.connect_error, self.f_small, RED, (cx, H - 82), outline=2)
         self.draw_button(sc, pygame.Rect(cx - 150, H - 66, 300, 42), "НАЗАД В МЕНЮ", RED)
