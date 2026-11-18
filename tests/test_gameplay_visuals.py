@@ -55,16 +55,16 @@ class UpgradeTests(unittest.TestCase):
 
     def test_damage_upgrade_changes_damage(self):
         apply_upgrade(self.player, "dmg")
-        self.assertAlmostEqual(self.player.dmg, 1.12)
+        self.assertAlmostEqual(self.player.dmg, 1.09)
 
     def test_damage_upgrade_has_a_hard_cap(self):
         for _ in range(8):
             apply_upgrade(self.player, "dmg")
-        self.assertEqual(self.player.upgrades["dmg"], 5)
-        self.assertAlmostEqual(self.player.dmg, 1.6)
+        self.assertEqual(self.player.upgrades["dmg"], 4)
+        self.assertAlmostEqual(self.player.dmg, 1.36)
 
     def test_upgrade_pool_has_many_distinct_build_options(self):
-        self.assertGreaterEqual(len(UPGRADES), 18)
+        self.assertGreaterEqual(len(UPGRADES), 16)
         self.assertIn("pulse_power", {u["id"] for u in UPGRADES})
         self.assertIn("multishot", {u["id"] for u in UPGRADES})
 
@@ -72,9 +72,8 @@ class UpgradeTests(unittest.TestCase):
         self.assertEqual(self.player.shield_t, 0.0)
         self.assertEqual(self.player.shield_hits, 0)
 
-    def test_hunting_contract_increases_score_multiplier(self):
-        apply_upgrade(self.player, "score_gain")
-        self.assertAlmostEqual(self.player.score_gain, 1.2)
+    def test_score_only_upgrade_is_removed(self):
+        self.assertNotIn("score_gain", {upgrade["id"] for upgrade in UPGRADES})
 
     def test_new_combat_upgrades_change_stats(self):
         apply_upgrade(self.player, "pulse_power")
@@ -85,21 +84,21 @@ class UpgradeTests(unittest.TestCase):
         self.assertEqual(self.player.multishot, 1)
 
     def test_roll_excludes_upgrades_at_their_cap(self):
-        self.player.upgrades["dmg"] = 5
+        self.player.upgrades["dmg"] = 4
         result = roll_upgrades(random.Random(2), 3, self.player)
         self.assertNotIn("dmg", result)
 
-    def test_lifesteal_has_two_stack_cap(self):
+    def test_lifesteal_has_one_stack_cap(self):
         for _ in range(3):
             apply_upgrade(self.player, "lifesteal")
-        self.assertEqual(self.player.lifesteal, 2)
-        self.assertEqual(self.player.upgrades["lifesteal"], 2)
+        self.assertEqual(self.player.lifesteal, 1)
+        self.assertEqual(self.player.upgrades["lifesteal"], 1)
 
-    def test_pierce_has_three_stack_cap(self):
+    def test_pierce_has_two_stack_cap(self):
         for _ in range(3):
             apply_upgrade(self.player, "pierce")
-        self.assertEqual(self.player.pierce, 3)
-        self.assertEqual(self.player.upgrades["pierce"], 3)
+        self.assertEqual(self.player.pierce, 2)
+        self.assertEqual(self.player.upgrades["pierce"], 2)
 
 
 class RetroRenderTests(unittest.TestCase):
