@@ -1467,7 +1467,7 @@ class Game:
         col = PICK_COL[kind]
         self.rings.append(Ring(pk[0], 8, 120, 450, col, 3))
         self.burst(pk[0], col, 20, 350)
-        self.pops.append([V(pk[0]), {"rapid": "БЫСТРЫЙ ОГОНЬ", "spread": "ТРОЙНОЙ ВЫСТРЕЛ", "heal": "+1 HP"}[kind], 1.2, col])
+        self.pops.append([V(pk[0]), {"rapid": "БЫСТРЫЙ ОГОНЬ", "spread": "ТРОЙНОЙ ВЫСТРЕЛ", "heal": "+1 HP"}[kind], 1.2, col, p.pid])
         if p.pid == self.my_id:
             self.audio.play("heal" if kind == "heal" else "pickup")
 
@@ -1497,6 +1497,8 @@ class Game:
                 if src.lifesteal_progress >= 18:
                     src.lifesteal_progress -= 18
                     src.hp = min(src.max_hp, src.hp + 1)
+                    if src.pid == self.my_id:
+                        self.audio.play("heal")
                     self.pops.append([V(src.p), "+1 HP", 0.9, GREEN, src.pid])
             src.charge = min(100.0, src.charge + (26 if e.kind.startswith("boss") else 14 if e.kind == "tank" else 7) * src.pulse_gain)
             self.pops.append([V(e.p), "+%d" % pts, 0.8, e.col, src.pid])
@@ -1562,28 +1564,38 @@ class Game:
             self.shake = 40
 
     def collide(self):
-        # пули игрока -> враги
+        # Пространственная сетка: пуля проверяет только ближайшие клетки,
+        # а не каждого врага на арене.
+        cell_size = 112
+        enemy_grid = {}
+        for enemy in self.enemies:
+            if not enemy.dead and enemy.age >= 0.7:
+                key = (int(enemy.p.x // cell_size), int(enemy.p.y // cell_size))
+                enemy_grid.setdefault(key, []).append(enemy)
         keep_b = []
-        for b in self.bullets:
+        for bullet in self.bullets:
             hit = False
-            for e in list(self.enemies):
-                if e.dead or e.age < 0.7:
+            gx, gy = int(bullet.p.x // cell_size), int(bullet.p.y // cell_size)
+            candidates = []
+            for ox in (-1, 0, 1):
+                for oy in (-1, 0, 1):
+                    candidates.extend(enemy_grid.get((gx + ox, gy + oy), ()))
+            for enemy in candidates:
+                if enemy.dead or id(enemy) in bullet.hit_ids:
                     continue
-                if id(e) in b.hit_ids:
-                    continue
-                rr = e.r + 5 * b.size
-                if (b.p - e.p).length_squared() < rr * rr:
-                    src = self.players.get(b.owner)
-                    self.damage(e, b.dmg, src)
-                    self.burst(b.p, e.col, 5, 260, (0.1, 0.3), 2)
-                    b.hit_ids.add(id(e))
-                    if b.pierce > 0:
-                        b.pierce -= 1
+                rr = enemy.r + 5 * bullet.size
+                if (bullet.p - enemy.p).length_squared() < rr * rr:
+                    source = self.players.get(bullet.owner)
+                    self.damage(enemy, bullet.dmg, source)
+                    self.burst(bullet.p, enemy.col, 5, 260, (0.1, 0.3), 2)
+                    bullet.hit_ids.add(id(enemy))
+                    if bullet.pierce > 0:
+                        bullet.pierce -= 1
                     else:
                         hit = True
                     break
             if not hit:
-                keep_b.append(b)
+                keep_b.append(bullet)
         self.bullets = keep_b
 
         # пули врагов -> игроки
@@ -1761,7 +1773,8 @@ class Game:
                                (int(sx), int(sy)), int(r + 5 + tier * 2), 1)
         fill = dim(base_col, 0.12)
         kind = e["k"]
-        draw_glow(sc, (sx, sy), base_col, int(r * 2.2 + 12), 22)
+        if kind not in ("chaser", "swarm"):
+            draw_glow(sc, (sx, sy), base_col, int(r * 2.2 + 12), 22)
         if kind in ("chaser", "dasher"):
             pts = shape(DIAMOND, e["ang"], (sx, sy), r)
         elif kind in ("swarm", "splitter"):
@@ -1779,7 +1792,7 @@ class Game:
         pygame.draw.polygon(sc, col, pts, 2)
         max_hp = max(1, e.get("max_hp", 1))
         hp_ratio = max(0.0, min(1.0, e.get("hp", max_hp) / max_hp))
-        if max_hp > 1:
+        if max_hp >= 5:
             bar_w = max(24, int(r * 2.2))
             bar = pygame.Rect(int(sx - bar_w / 2), int(sy - r - 12), bar_w, 4)
             pygame.draw.rect(sc, (18, 18, 22), bar)
@@ -2240,14 +2253,14 @@ class Game:
         mvp_pid = players[0]["pid"] if players else -1
 
         # заголовки
-        hdr_y = 220
+        hdr_y = 192
         text(sc, "N", self.f_small, (150, 160, 200), (W / 2 - 380, hdr_y), "midleft", outline=2)
         text(sc, "ИМЯ", self.f_small, (150, 160, 200), (W / 2 - 320, hdr_y), "midleft", outline=2)
         text(sc, "ОЧКИ", self.f_small, (150, 160, 200), (W / 2 + 60, hdr_y), "midleft", outline=2)
         text(sc, "УБИЙСТВА", self.f_small, (150, 160, 200), (W / 2 + 200, hdr_y), "midleft", outline=2)
         text(sc, "ВОЛНЫ", self.f_small, (150, 160, 200), (W / 2 + 340, hdr_y), "midleft", outline=2)
 
-        y = 260
+        y = 228
         for i, pl in enumerate(players):
             col = PLAYER_COLORS[(pl["pid"] - 1) % len(PLAYER_COLORS)]
             is_mvp = pl["pid"] == mvp_pid
@@ -2259,7 +2272,7 @@ class Game:
             text(sc, str(pl["score"]), self.f_mid, WHITE, (W / 2 + 60, y), "midleft", outline=2)
             text(sc, str(pl.get("kills", 0)), self.f_mid, WHITE, (W / 2 + 200, y), "midleft", outline=2)
             text(sc, str(snap.get("wave", 0)), self.f_mid, WHITE, (W / 2 + 340, y), "midleft", outline=2)
-            y += 44
+            y += 34
 
         if mvp_pid >= 0:
             mvp_name = next((p["name"] for p in players if p["pid"] == mvp_pid), "?")
@@ -2284,7 +2297,7 @@ class Game:
         shown = value + ("|" if int(self.t * 2) % 2 == 0 else "")
         if self.input_mode == "name" and self.first_run:
             text(sc, "ЭТО ИМЯ УВИДЯТ ДРУГИЕ ИГРОКИ", self.f_small, (164, 174, 182), (W / 2, H / 2 - 72), outline=1)
-        text(sc, shown, self.f_big, WHITE, (W / 2, H / 2 - 13), outline=2)
+        self.draw_fit_text(sc, shown, WHITE, pygame.Rect(W / 2 - 260, H / 2 - 43, 520, 60), 52, 18)
         self.draw_button(sc, pygame.Rect(W / 2 - 115, H / 2 + 32, 230, 38),
                          "ВСТАВИТЬ ИЗ БУФЕРА", PURPLE)
         self.draw_button(sc, pygame.Rect(W / 2 - 135, H / 2 + 80, 270, 46),
