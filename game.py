@@ -319,6 +319,7 @@ class Game:
         self.client = None
         self.my_id = 0
         self.lobby_players = []
+        self.lobby_ready = set()
         self.input_mode = None
         self.connect_error = ""
 
@@ -467,6 +468,7 @@ class Game:
         self.my_id = 0
         self.lobby_players = [(0, self.name_input or "Хост", self.local_color_index,
                                self.local_skin_index, self.local_hat_index)]
+        self.lobby_ready = {0}
         self.state = "lobby"
 
     def join_server(self, ip):
@@ -490,6 +492,7 @@ class Game:
                            "hat": self.local_hat_index})
         self.state = "lobby"
         self.lobby_players = []
+        self.lobby_ready = set()
 
     def set_error(self, msg):
         log.error("Состояние ошибки: %s", msg.replace("\n", " | "))
@@ -507,6 +510,10 @@ class Game:
         self.is_host = False
         self.my_id = 0
         self.lobby_players = []
+        self.lobby_ready = set()
+        self.tutorial_active = False
+        self.tutorial_ready = False
+        self.input_mode = None
         self.players = {}
         self.bullets, self.ebullets, self.enemies = [], [], []
         self.parts, self.rings, self.pickups, self.pops = [], [], [], []
@@ -525,7 +532,10 @@ class Game:
         pygame.mouse.set_visible(True)
 
     def host_start_game(self):
-        if not self.is_host:
+        if not self.is_host or self.state != "lobby":
+            return
+        required = {entry[0] for entry in self.lobby_players}
+        if not required.issubset(self.lobby_ready):
             return
         self.players = {}
         for pid, name, color_index, skin_index, hat_index in self.lobby_players:
@@ -589,8 +599,10 @@ class Game:
             skin_index = max(0, min(len(PLAYER_SKINS) - 1, int(m.get("skin", 0))))
             hat_index = max(0, min(9, int(m.get("hat", 0))))
             self.lobby_players.append((cid, name, color_index, skin_index, hat_index))
+            self.lobby_ready.discard(cid)
             self.server.send(cid, {"t": "welcome", "id": cid})
             self.server.broadcast({"t": "lobby", "players": self.lobby_players})
+            self.server.broadcast({"t": "ready", "players": sorted(self.lobby_ready)})
         elif t == "customize" and self.state == "lobby":
             for index, entry in enumerate(self.lobby_players):
                 if entry[0] != cid:
@@ -603,6 +615,13 @@ class Game:
                 self.lobby_players[index] = (cid, entry[1], color_index, skin_index, hat_index)
                 self.server.broadcast({"t": "lobby", "players": self.lobby_players})
                 break
+        elif t == "ready" and self.state == "lobby":
+            if any(entry[0] == cid for entry in self.lobby_players):
+                if bool(m.get("ready", False)):
+                    self.lobby_ready.add(cid)
+                else:
+                    self.lobby_ready.discard(cid)
+                self.server.broadcast({"t": "ready", "players": sorted(self.lobby_ready)})
         elif t == "tutorial_ready" and self.state == "play" and self.tutorial_active:
             p = self.players.get(cid)
             if p:
@@ -632,10 +651,21 @@ class Game:
                     p.upgrade_ready = True
         elif t == "disconnect":
             self.lobby_players = [x for x in self.lobby_players if x[0] != cid]
+            self.lobby_ready.discard(cid)
             if self.players:
                 self.players.pop(cid, None)
             self.server.broadcast({"t": "lobby", "players": self.lobby_players})
+            self.server.broadcast({"t": "ready", "players": sorted(self.lobby_ready)})
             self.check_tutorial_ready()
+
+    def toggle_lobby_ready(self):
+        if self.is_host or not self.client or self.state != "lobby":
+            return
+        ready = self.my_id not in self.lobby_ready
+        self.client.send({"t": "ready", "ready": ready})
+
+    def lobby_all_ready(self):
+        return all(entry[0] in self.lobby_ready for entry in self.lobby_players)
 
     def handle_host_disconnect(self):
         log.warning("Соединение с хостом потеряно")
@@ -645,7 +675,11 @@ class Game:
         self.snap = None
         self.local_choices = []
         self.lobby_players = []
+        self.lobby_ready = set()
         self.players = {}
+        self.tutorial_active = False
+        self.tutorial_ready = False
+        self.input_mode = None
         self.paused = False
         self.is_host = False
         self.my_id = 0
@@ -672,6 +706,8 @@ class Game:
             if mine:
                 self.local_color_index, self.local_skin_index, self.local_hat_index = mine[2], mine[3], mine[4]
                 self.persist()
+        elif t == "ready":
+            self.lobby_ready = {int(pid) for pid in m.get("players", [])}
         elif t == "full":
             if self.client:
                 self.client.stop()
@@ -921,6 +957,8 @@ class Game:
                         self.leave_net()
                     elif e.key == pygame.K_RETURN and self.is_host:
                         self.host_start_game()
+                    elif e.key == pygame.K_RETURN and not self.is_host and self.client:
+                        self.toggle_lobby_ready()
                 elif self.state == "play":
                     if e.key in (pygame.K_p, pygame.K_ESCAPE) and self.is_host:
                         self.set_paused(not self.paused)
@@ -942,6 +980,8 @@ class Game:
                         self.leave_net()
                 elif self.state == "error":
                     if e.key in (pygame.K_RETURN, pygame.K_ESCAPE):
+                        self.tutorial_active = False
+                        self.input_mode = None
                         self.state = "menu"
             elif e.type == pygame.MOUSEWHEEL:
                 mx, my = self.logical_mouse()
@@ -949,7 +989,7 @@ class Game:
                     visible = max(1, (350 - 62) // 34)
                     self.lobby_scroll = max(0, min(max(0, len(self.lobby_players) - visible), self.lobby_scroll - e.y))
             elif e.type == pygame.MOUSEBUTTONDOWN:
-                if self.tutorial_active and e.button == 1:
+                if self.tutorial_active and self.state == "play" and e.button == 1:
                     self.confirm_tutorial()
                     continue
                 mx, my = self.logical_mouse(e.pos)
@@ -1030,8 +1070,11 @@ class Game:
                     elif pygame.Rect(cx - 150, H - 76, 300, 46).collidepoint(mx, my):
                         self.state = "menu"
                 elif self.state == "lobby" and e.button == 1:
-                    if self.is_host and pygame.Rect(W / 2 - 190, H - 136, 380, 52).collidepoint(mx, my):
-                        self.host_start_game()
+                    if pygame.Rect(W / 2 - 190, H - 136, 380, 52).collidepoint(mx, my):
+                        if self.is_host:
+                            self.host_start_game()
+                        else:
+                            self.toggle_lobby_ready()
                     elif pygame.Rect(W / 2 - 150, H - 66, 300, 42).collidepoint(mx, my):
                         self.leave_net()
                     else:
@@ -1096,6 +1139,8 @@ class Game:
                         self.leave_net()
                 elif self.state == "error" and e.button == 1:
                     if pygame.Rect(W / 2 - 150, H - 102, 300, 46).collidepoint(mx, my):
+                        self.tutorial_active = False
+                        self.input_mode = None
                         self.state = "menu"
                 elif e.button == 3 and self.state == "play":
                     p = self.players.get(self.my_id)
@@ -2597,10 +2642,13 @@ class Game:
             col = PLAYER_COLORS[color_index]
             mark = "  ·  ВЫ" if pid == self.my_id else ""
             role_mark = "  ·  ХОСТ" if pid == 0 else ""
+            ready_mark = "ГОТОВ" if pid in self.lobby_ready else "ЖДЁТ"
             row_y = list_rect.y + 62 + i * 34
             pygame.draw.circle(sc, col, (list_rect.x + 22, row_y), 7)
             text(sc, "%02d  %s%s%s" % (self.lobby_scroll + i + 1, name, role_mark, mark),
                  self.f_small, col, (list_rect.x + 42, row_y), "midleft", outline=1)
+            text(sc, ready_mark, font(13), GREEN if pid in self.lobby_ready else (145, 150, 165),
+                 (list_rect.right - 18, row_y), "midright", outline=1)
         sc.set_clip(old_clip)
         if len(self.lobby_players) > visible:
             text(sc, "ПРОКРУТКА: КОЛЁСИКО МЫШИ", font(12), (145, 165, 180),
@@ -2650,11 +2698,18 @@ class Game:
             self.draw_hat(sc, cell.centerx, cell.centery + 3, idx, PLAYER_COLORS[current_color], 0.52)
             text(sc, str(idx + 1), font(10), WHITE, (cell.right - 5, cell.centery), "midright", outline=1)
 
+        action_rect = pygame.Rect(cx - 190, H - 136, 380, 52)
         if self.is_host:
-            self.draw_button(sc, pygame.Rect(cx - 190, H - 136, 380, 52), "НАЧАТЬ ИГРУ", CYAN)
+            all_ready = self.lobby_all_ready()
+            label = "НАЧАТЬ ИГРУ" if all_ready else "ЖДЁМ ГОТОВНОСТИ ИГРОКОВ"
+            self.draw_button(sc, action_rect, label, CYAN, enabled=all_ready)
         else:
-            text(sc, "Ожидание, пока хост начнёт игру...", self.f_small, PURPLE,
-                 (cx, H - 110), outline=2)
+            is_ready = self.my_id in self.lobby_ready
+            self.draw_button(sc, action_rect,
+                             "НЕ ГОТОВ" if is_ready else "ГОТОВ",
+                             GREEN if is_ready else CYAN)
+            text(sc, "Ожидание запуска хостом...", self.f_small, PURPLE,
+                 (cx, H - 82), outline=2)
         if self.connect_error:
             text(sc, self.connect_error, self.f_small, RED, (cx, H - 82), outline=2)
         self.draw_button(sc, pygame.Rect(cx - 150, H - 66, 300, 42), "НАЗАД В МЕНЮ", RED)
