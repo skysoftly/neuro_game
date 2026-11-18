@@ -1344,7 +1344,7 @@ class Game:
                     shot_damage = p.dmg * (2.0 if random.random() < p.crit else 1.0)
                     size_damage = 1.0 + 0.08 * p.upgrades.get("bullet_size", 0)
                     self.bullets.append(Bullet(p.p + d * 22, d * (1100 * p.bullet_speed),
-                                               p.pid, shot_damage * size_damage, p.pierce, p.bullet_size))
+                                               p.pid, shot_damage * 0.55 * size_damage, p.pierce, p.bullet_size))
             fwd = V(math.cos(p.ang), math.sin(p.ang))
             p.v -= fwd * 25
             self.burst(p.p + fwd * 24, CYAN, 3, 260, (0.08, 0.2), 2)
@@ -1455,7 +1455,7 @@ class Game:
         player_count = max(1, sum(1 for p in self.players.values() if p.alive))
         # Рост количества врагов заметно плавнее: к 16-й волне толпа
         # становится плотнее, но не превращается в стену из противников.
-        n = min(64, int((7 + self.wave * 1.9) * (1.0 + 0.12 * (player_count - 1))))
+        n = min(64, int((8 + self.wave * 2.2) * (1.0 + 0.12 * (player_count - 1))))
         q = []
 
         # Новые архетипы вводятся по одному, с интервалом в одну-две волны.
