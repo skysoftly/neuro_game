@@ -1987,7 +1987,7 @@ class Game:
         pygame.draw.polygon(sc, CYAN, shape(HEX, self.t * 0.7, (cx, cy - 25), 88), 2)
         pygame.draw.polygon(sc, MAGENTA, shape(SQ, -self.t * 0.45, (cx, cy - 25), 120), 1)
         draw_glow(sc, (cx, cy - 25), CYAN, 160, 20)
-        text(sc, "NEURO VOID", self.f_huge, dim(WHITE, pulse), (cx, cy - 25), outline=3)
+        text(sc, "NEON VOID", self.f_huge, dim(WHITE, pulse), (cx, cy - 25), outline=3)
         text(sc, "INITIALIZING ARENA SYSTEM", self.f_small, CYAN, (cx, cy + 92), outline=1)
         progress = min(1.0, self.loading_t / 2.8)
         pygame.draw.rect(sc, (18, 30, 42), (cx - 180, cy + 128, 360, 8))
