@@ -2102,22 +2102,22 @@ class Game:
             crystal_w, crystal_gap = 19, 8
             total_w = me["max_hp"] * crystal_w + max(0, me["max_hp"] - 1) * crystal_gap
             start_x = (W - total_w) / 2
-            panel = pygame.Rect(int(start_x - 24), H - 61, int(total_w + 48), 48)
+            panel = pygame.Rect(int(start_x - 24), H - 75, int(total_w + 48), 70)
             pygame.draw.rect(sc, (7, 13, 23), panel)
             pygame.draw.rect(sc, dim(hp_color, 0.48), panel, 1)
-            text(sc, "ЗДОРОВЬЕ", self.f_small, hp_color, (W / 2, H - 51), outline=1)
+            text(sc, "ЗДОРОВЬЕ", self.f_small, hp_color, (W / 2, H - 64), outline=1)
             for crystal in range(me["max_hp"]):
                 x = int(start_x + crystal * (crystal_w + crystal_gap))
-                points = [(x + 9, H - 43), (x + 17, H - 32),
-                          (x + 9, H - 21), (x + 1, H - 32)]
+                points = [(x + 9, H - 53), (x + 17, H - 42),
+                          (x + 9, H - 31), (x + 1, H - 42)]
                 active = crystal < me["hp"]
                 fill = hp_color if active else (25, 32, 45)
                 pygame.draw.polygon(sc, fill, points)
                 pygame.draw.polygon(sc, WHITE if active else (65, 75, 92), points, 1)
                 if active:
-                    pygame.draw.line(sc, (245, 252, 255), (x + 9, H - 40), (x + 9, H - 25), 1)
+                    pygame.draw.line(sc, (245, 252, 255), (x + 9, H - 50), (x + 9, H - 35), 1)
             text(sc, "%d / %d" % (me["hp"], me["max_hp"]), self.f_small, WHITE,
-                 (W / 2, H - 8), outline=1)
+                 (W / 2, H - 14), outline=1)
 
         # правый верх: волна
         wave = max(0, int(snap.get("wave", 0)))
