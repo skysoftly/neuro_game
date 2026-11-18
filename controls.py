@@ -254,6 +254,10 @@ class ControlsMixin:
                             self.toggle_lobby_ready()
                     elif pygame.Rect(W / 2 - 150, H - 66, 300, 42).collidepoint(mx, my):
                         self.leave_net()
+                    elif self.is_host and pygame.Rect(W / 2 - 190, 174, 380, 34).collidepoint(mx, my):
+                        from config import DIFFICULTIES
+                        self.difficulty = DIFFICULTIES[(DIFFICULTIES.index(self.difficulty) + 1) % len(DIFFICULTIES)]
+                        self.server.broadcast({"t": "lobby", "players": self.lobby_players, "difficulty": self.difficulty})
                     else:
                         own = next((entry for entry in self.lobby_players if entry[0] == self.my_id), None)
                         current_color = own[2] if own else self.local_color_index
@@ -294,7 +298,7 @@ class ControlsMixin:
                                 for index, entry in enumerate(self.lobby_players):
                                     if entry[0] == self.my_id:
                                         self.lobby_players[index] = (self.my_id, entry[1], current_color, current_skin, current_hat)
-                                        self.server.broadcast({"t": "lobby", "players": self.lobby_players})
+                                        self.server.broadcast({"t": "lobby", "players": self.lobby_players, "difficulty": self.difficulty})
                                         break
                             elif self.client:
                                 self.client.send({"t": "customize", "color": current_color,
