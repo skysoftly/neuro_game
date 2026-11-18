@@ -58,8 +58,6 @@ class Player:
         self.armor_hits = 0
         self.pulse_power = 1.0
         self.dash_damage = 1.0
-        self.score_gain = 1.0
-        self.pulse_boost = 0.0
         self.shield_t = 0.0
         self.shield_hits = 0
         self.hurt_t = 0.0
