@@ -2358,11 +2358,13 @@ class Game:
             label = "ЗДОРОВЬЕ"
             label_font = self.f_small
             label_y = panel.bottom - 19
-            label_x = panel.centerx - (label_font.size(label)[0] +
-                                       label_font.size("%d / %d" % (hp, max_hp))[0] + 12) / 2
+            label_width = label_font.render(label, True, hp_color).get_width()
+            count_label = "%d / %d" % (hp, max_hp)
+            count_width = label_font.render(count_label, True, WHITE).get_width()
+            label_x = panel.centerx - (label_width + count_width + 12) / 2
             text(sc, label, label_font, hp_color, (label_x, label_y), "midleft", outline=1)
-            count_x = label_x + label_font.size(label)[0] + 12
-            text(sc, "%d / %d" % (hp, max_hp), label_font, WHITE,
+            count_x = label_x + label_width + 12
+            text(sc, count_label, label_font, WHITE,
                  (count_x, label_y), "midleft", outline=1)
 
         # правый верх: волна
