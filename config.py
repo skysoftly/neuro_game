@@ -41,11 +41,11 @@ KINDS = {
     "mine": dict(hp=4, r=12, spd=75, col=(255, 112, 45), score=18),
     "orbiter": dict(hp=7, r=17, spd=132, col=(55, 220, 220), score=42),
     "bruiser": dict(hp=24, r=31, spd=48, col=(195, 105, 65), score=85),
-    "boss": dict(hp=620, r=54, spd=72, col=(245, 100, 190), score=500),
-    "boss_storm": dict(hp=760, r=58, spd=82, col=(110, 190, 255), score=650),
-    "boss_hunter": dict(hp=880, r=62, spd=96, col=(255, 145, 90), score=800),
-    "boss_void": dict(hp=1020, r=66, spd=68, col=(165, 120, 245), score=950),
-    "boss_siege": dict(hp=1250, r=72, spd=48, col=(240, 185, 95), score=1200),
+    "boss": dict(hp=500, r=54, spd=72, col=(245, 100, 190), score=500),
+    "boss_storm": dict(hp=610, r=58, spd=82, col=(110, 190, 255), score=650),
+    "boss_hunter": dict(hp=700, r=62, spd=96, col=(255, 145, 90), score=800),
+    "boss_void": dict(hp=820, r=66, spd=68, col=(165, 120, 245), score=950),
+    "boss_siege": dict(hp=1000, r=72, spd=48, col=(240, 185, 95), score=1200),
     "boss_minor": dict(hp=100, r=34, spd=58, col=(115, 225, 175), score=180),
 }
 
