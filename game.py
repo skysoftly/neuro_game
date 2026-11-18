@@ -261,7 +261,7 @@ class Game:
             self.client = ClientConn(ip)
         except Exception as e:
             log.exception("Не удалось подключиться к %s:%d", ip, PORT)
-            self.set_error("Не удалось подключиться к %s:%d\\n%s" % (ip, PORT, e))
+            self.set_error("Не удалось подключиться к %s:%d\n%s" % (ip, PORT, e))
             return
         self.is_host = False
         self.last_ip = ip
