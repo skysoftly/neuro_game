@@ -54,17 +54,17 @@ class UpgradeTests(unittest.TestCase):
         self.assertEqual(self.player.multishot, 1)
 
     def test_roll_excludes_upgrades_at_their_cap(self):
-        self.player.upgrades["dmg"] = 3
+        self.player.upgrades["dmg"] = 5
         result = roll_upgrades(random.Random(2), 3, self.player)
         self.assertNotIn("dmg", result)
 
-    def test_lifesteal_is_limited_to_one_stack(self):
+    def test_lifesteal_has_two_stack_cap(self):
         for _ in range(3):
             apply_upgrade(self.player, "lifesteal")
-        self.assertEqual(self.player.lifesteal, 1)
-        self.assertEqual(self.player.upgrades["lifesteal"], 1)
+        self.assertEqual(self.player.lifesteal, 2)
+        self.assertEqual(self.player.upgrades["lifesteal"], 2)
 
-    def test_pierce_is_limited_to_one_extra_enemy(self):
+    def test_pierce_has_three_stack_cap(self):
         for _ in range(3):
             apply_upgrade(self.player, "pierce")
         self.assertEqual(self.player.pierce, 3)
