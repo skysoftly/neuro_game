@@ -2131,7 +2131,7 @@ class Game:
             hp_ratio = max(0.0, min(1.0, hp / max_hp))
             hp_color = GREEN if hp_ratio > 0.55 else ORANGE if hp_ratio > 0.25 else RED
             slots = min(10, max_hp)
-            special_slots = max(0, slots - 9) if max_hp > 10 else 0
+            special_slots = min(slots, max(0, max_hp - 10))
             crystal_w, crystal_gap = 17, 7
             total_w = slots * crystal_w + max(0, slots - 1) * crystal_gap
             panel_w, panel_h = max(250, total_w + 30), 76
