@@ -370,13 +370,26 @@ class Game:
                      "player_hat": self.local_hat_index})
 
     def set_display_mode(self, fullscreen):
-        """Keep the 1280x720 render surface; SDL scales it to the desktop."""
-        flags = pygame.SCALED
+        """Use a desktop-sized borderless window while keeping 1280x720 logical rendering."""
         if fullscreen:
-            flags |= pygame.FULLSCREEN
+            self.screen = pygame.display.set_mode(
+                (W, H), pygame.SCALED | pygame.NOFRAME, vsync=1
+            )
+            try:
+                sizes = pygame.display.get_desktop_sizes()
+                desktop_w, desktop_h = sizes[0] if sizes else (0, 0)
+                if desktop_w <= 0 or desktop_h <= 0:
+                    info = pygame.display.Info()
+                    desktop_w, desktop_h = info.current_w, info.current_h
+                if desktop_w > 0 and desktop_h > 0:
+                    pygame.display.set_window_size(desktop_w, desktop_h)
+                    pygame.display.set_window_position(0, 0)
+            except (AttributeError, pygame.error):
+                log.exception("Не удалось развернуть безрамочное окно на весь экран")
         else:
-            flags |= pygame.RESIZABLE
-        self.screen = pygame.display.set_mode((W, H), flags, vsync=1)
+            self.screen = pygame.display.set_mode(
+                (W, H), pygame.SCALED | pygame.RESIZABLE, vsync=1
+            )
 
     def toggle_borderless_fullscreen(self):
         self.borderless_fullscreen = not self.borderless_fullscreen
@@ -944,6 +957,9 @@ class Game:
             if e.type == pygame.QUIT:
                 self.quit()
                 continue
+            if e.type == pygame.KEYDOWN and e.key == pygame.K_F11:
+                self.toggle_borderless_fullscreen()
+                continue
             if self.paused and self.state == "play":
                 if e.type == pygame.KEYDOWN and e.key in (pygame.K_ESCAPE, pygame.K_p):
                     if self.is_host:
@@ -957,9 +973,6 @@ class Game:
                         self.leave_net()
                 continue
             elif e.type == pygame.KEYDOWN:
-                if e.key == pygame.K_F11:
-                    self.toggle_borderless_fullscreen()
-                    continue
                 if e.key == pygame.K_F3 and not self.input_mode:
                     self.debug_overlay = not self.debug_overlay
                     continue
@@ -2701,7 +2714,7 @@ class Game:
         self.draw_button(sc, pygame.Rect(cx - 210, 514, 420, 48),
                          "ЛИМИТ FPS: " + fps_label, PURPLE)
         self.draw_button(sc, pygame.Rect(cx - 210, 584, 420, 48),
-                         "БЕЗРАМОЧНЫЙ ЭКРАН: " + ("ВКЛ" if self.borderless_fullscreen else "ВЫКЛ"),
+                         "ПОЛНОЭКРАННЫЙ РЕЖИМ: " + ("ВКЛ" if self.borderless_fullscreen else "ВЫКЛ"),
                          CYAN if self.borderless_fullscreen else RED)
         text(sc, "F11 — переключить в любой момент", font(13), (135, 155, 175),
              (cx, 642), outline=1)
