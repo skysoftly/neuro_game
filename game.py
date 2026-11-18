@@ -241,6 +241,16 @@ class Game:
         self.f_hint = font(20)
 
         self.overlay = make_overlay(W, H)
+        vignette_small = pygame.Surface((64, 36), pygame.SRCALPHA)
+        for vy in range(36):
+            for vx in range(64):
+                dx = (vx - 31.5) / 31.5
+                dy = (vy - 17.5) / 17.5
+                distance = math.sqrt(dx * dx + dy * dy)
+                edge = max(0.0, min(1.0, (distance - 0.28) / 0.82))
+                alpha = int(150 * edge * edge)
+                vignette_small.set_at((vx, vy), (155, 8, 24, alpha))
+        self.red_vignette = pygame.transform.smoothscale(vignette_small, (W, H)).convert_alpha()
         self.stars = [[random.uniform(0, W), random.uniform(0, H), random.uniform(0.2, 1.0)] for _ in range(200)]
         self.t = 0.0
         self.state = "loading"
@@ -252,7 +262,7 @@ class Game:
         self.paused = False
         self.snapshot_timer = 0.0
         self.input_send_timer = 0.0
-        self.target_fps = int(cfg_fps) if False else 120
+        self.target_fps = 120
         self.screen_shake_enabled = True
         self.shake = 0.0
         self.spectator_speed = 620.0
@@ -275,6 +285,7 @@ class Game:
         self.target_fps = int(cfg.get("target_fps", 120))
         if self.target_fps not in (60, 120, 144, 0):
             self.target_fps = 120
+        self.audio.set_volumes(self.music_volume, self.sfx_volume)
         self.first_run = not bool(str(cfg.get("name", "")).strip())
         self.name_input = str(cfg.get("name", "")).strip() if not self.first_run else ""
         self.ip_input = self.last_ip
@@ -791,11 +802,14 @@ class Game:
                         self.input_mode = "ip"
                         self.ip_input = self.last_ip
                     elif e.key == pygame.K_3:
+                        self.state = "settings"
+                    elif e.key == pygame.K_4:
                         self.input_mode = "name"
-                    elif e.key == pygame.K_4 and self.last_ip:
-                        self.join_server(self.last_ip)
                     elif e.key == pygame.K_ESCAPE:
                         self.quit()
+                elif self.state == "settings":
+                    if e.key == pygame.K_ESCAPE:
+                        self.state = "menu"
                 elif self.state == "lobby":
                     if e.key == pygame.K_ESCAPE:
                         self.leave_net()
@@ -821,9 +835,6 @@ class Game:
                 if self.state == "lobby" and pygame.Rect(245, 360, 790, H - 520).collidepoint(mx, my):
                     visible = max(1, (H - 532) // 34)
                     self.lobby_scroll = max(0, min(max(0, len(self.lobby_players) - visible), self.lobby_scroll - e.y))
-                elif self.state in ("play", "dead") and pygame.Rect(14, 16, 238, min(H - 180, 340)).collidepoint(mx, my):
-                    roster = self.players if self.is_host else ((self.snap or {}).get("players", []))
-                    self.hud_scroll = max(0, min(max(0, len(roster) - 6), self.hud_scroll - e.y))
             elif e.type == pygame.MOUSEBUTTONDOWN:
                 if self.tutorial_active and e.button == 1:
                     self.confirm_tutorial()
@@ -855,10 +866,38 @@ class Game:
                     elif pygame.Rect(cx - 210, y + 42, 420, 52).collidepoint(mx, my):
                         self.input_mode = "ip"
                         self.ip_input = self.last_ip
-                    elif pygame.Rect(cx - 210, y + 104, 420, 44).collidepoint(mx, my) and self.last_ip:
-                        self.join_server(self.last_ip)
-                    elif pygame.Rect(cx - 210, y + 158, 420, 44).collidepoint(mx, my):
+                    elif pygame.Rect(cx - 210, y + 104, 420, 44).collidepoint(mx, my):
                         self.input_mode = "name"
+                    elif pygame.Rect(cx - 210, y + 158, 420, 44).collidepoint(mx, my):
+                        self.state = "settings"
+                elif self.state == "settings" and e.button == 1:
+                    cx = W / 2
+                    if pygame.Rect(cx - 205, 244, 70, 48).collidepoint(mx, my):
+                        self.music_volume = max(0.0, self.music_volume - 0.05)
+                        self.audio.set_volumes(music=self.music_volume)
+                        self.persist()
+                    elif pygame.Rect(cx + 135, 244, 70, 48).collidepoint(mx, my):
+                        self.music_volume = min(1.0, self.music_volume + 0.05)
+                        self.audio.set_volumes(music=self.music_volume)
+                        self.persist()
+                    elif pygame.Rect(cx - 205, 344, 70, 48).collidepoint(mx, my):
+                        self.sfx_volume = max(0.0, self.sfx_volume - 0.05)
+                        self.audio.set_volumes(sfx=self.sfx_volume)
+                        self.persist()
+                    elif pygame.Rect(cx + 135, 344, 70, 48).collidepoint(mx, my):
+                        self.sfx_volume = min(1.0, self.sfx_volume + 0.05)
+                        self.audio.set_volumes(sfx=self.sfx_volume)
+                        self.audio.play("ui_click")
+                        self.persist()
+                    elif pygame.Rect(cx - 210, 444, 420, 48).collidepoint(mx, my):
+                        self.screen_shake_enabled = not self.screen_shake_enabled
+                        self.persist()
+                    elif pygame.Rect(cx - 210, 514, 420, 48).collidepoint(mx, my):
+                        options = (60, 120, 144, 0)
+                        self.target_fps = options[(options.index(self.target_fps) + 1) % len(options)]
+                        self.persist()
+                    elif pygame.Rect(cx - 150, H - 76, 300, 46).collidepoint(mx, my):
+                        self.state = "menu"
                 elif self.state == "lobby" and e.button == 1:
                     if self.is_host and pygame.Rect(W / 2 - 190, H - 136, 380, 52).collidepoint(mx, my):
                         self.host_start_game()
@@ -999,10 +1038,6 @@ class Game:
                 p.hp = min(p.max_hp, p.hp + 1)
         p.rapid = max(0.0, p.rapid - dt)
         p.spread = max(0.0, p.spread - dt)
-        p.combo_t -= dt
-        if p.combo_t <= 0:
-            p.chain = 0
-
         if p.want_dash:
             p.want_dash = False
             if p.dash_cd <= 0:
@@ -1431,9 +1466,7 @@ class Game:
         self.rings.append(Ring(e.p, e.r, e.r * 4 + 30, 520, e.col, 3))
         self.shake = max(self.shake, 5 + e.r * 0.4)
         if src:
-            src.chain += 1
-            src.combo_t = 2.5 + 0.6 * src.combo_bonus
-            pts = int(d["score"] * src.mult() * src.score_gain)
+            pts = int(d["score"] * src.score_gain)
             src.score += pts
             src.kills += 1
             if src.lifesteal:
@@ -1488,7 +1521,6 @@ class Game:
             return
         p.hp -= 1
         p.inv = 0.58
-        p.chain = 0
         self.shake = max(self.shake, 24)
         p.hurt_t = 0.52
         self.hitstop = 0.07
@@ -1599,7 +1631,6 @@ class Game:
                 "dash_cd": round(p.dash_cd, 2), "charge": round(p.charge, 1),
                 "rapid": round(p.rapid, 1), "spread": round(p.spread, 1),
                 "score": p.score, "kills": p.kills,
-                "chain": p.chain, "combo_t": round(p.combo_t, 2),
                 "alive": p.alive, "inv": round(p.inv, 2), "dash_t": round(p.dash_t, 2),
                 "shield_t": round(p.shield_t, 1), "shield_hits": p.shield_hits,
                 "hurt_t": round(p.hurt_t, 2),
@@ -1969,12 +2000,6 @@ class Game:
                     text(sc, "%s  %.1fс" % (label, value), self.f_small, col,
                          (panel.x + 10, panel.y + 10 + i * 24), "midleft", outline=1)
 
-            if me["chain"] >= 5:
-                text(sc, "x%d" % min(10, 1 + me["chain"] // 5), self.f_mid, YELLOW,
-                     (W / 2, 100), outline=2)
-                pygame.draw.rect(sc, YELLOW, (W / 2 - 50, 120,
-                                              int(100 * max(0, me["combo_t"]) / 2.5), 3))
-
         if me and me.get("shield_t", 0) > 0:
             sx, sy = self.camera.to_screen(me["x"], me["y"])
             pygame.draw.circle(sc, CYAN, (int(sx), int(sy)), 31 + int(2 * math.sin(self.t * 9)), 2)
@@ -2088,12 +2113,29 @@ class Game:
         y = cy + 160
         self.draw_button(sc, pygame.Rect(cx - 210, y - 20, 420, 52), "СОЗДАТЬ ЛОББИ", CYAN)
         self.draw_button(sc, pygame.Rect(cx - 210, y + 42, 420, 52), "ПОДКЛЮЧИТЬСЯ ПО IP", MAGENTA)
-        quick = "ПОДКЛЮЧИТЬСЯ: " + (self.last_ip if self.last_ip else "НЕТ СОХРАНЁННОГО IP")
-        self.draw_button(sc, pygame.Rect(cx - 210, y + 104, 420, 44), quick,
-                         YELLOW, enabled=bool(self.last_ip))
-        self.draw_button(sc, pygame.Rect(cx - 210, y + 158, 420, 44),
+        self.draw_button(sc, pygame.Rect(cx - 210, y + 104, 420, 44),
                          "ИМЯ ИГРОКА: " + (self.name_input or "НЕ ЗАДАНО"), PURPLE)
+        self.draw_button(sc, pygame.Rect(cx - 210, y + 158, 420, 44), "НАСТРОЙКИ", YELLOW)
         self.draw_button(sc, pygame.Rect(cx - 100, H - 58, 200, 38), "ВЫХОД", RED)
+
+    def draw_settings(self, sc):
+        cx = W / 2
+        text(sc, "НАСТРОЙКИ", self.f_huge, CYAN, (cx, 112), outline=3)
+        text(sc, "МУЗЫКА", self.f_mid, WHITE, (cx, 220), outline=1)
+        self.draw_button(sc, pygame.Rect(cx - 205, 244, 70, 48), "-", RED)
+        self.draw_button(sc, pygame.Rect(cx + 135, 244, 70, 48), "+", CYAN)
+        text(sc, "%d%%" % round(self.music_volume * 100), self.f_big, YELLOW, (cx, 268), outline=2)
+        text(sc, "ЗВУКОВЫЕ ЭФФЕКТЫ", self.f_mid, WHITE, (cx, 320), outline=1)
+        self.draw_button(sc, pygame.Rect(cx - 205, 344, 70, 48), "-", RED)
+        self.draw_button(sc, pygame.Rect(cx + 135, 344, 70, 48), "+", CYAN)
+        text(sc, "%d%%" % round(self.sfx_volume * 100), self.f_big, YELLOW, (cx, 368), outline=2)
+        self.draw_button(sc, pygame.Rect(cx - 210, 444, 420, 48),
+                         "ТРЯСКА ЭКРАНА: " + ("ВКЛ" if self.screen_shake_enabled else "ВЫКЛ"),
+                         CYAN if self.screen_shake_enabled else RED)
+        fps_label = "БЕЗ ЛИМИТА" if self.target_fps == 0 else str(self.target_fps)
+        self.draw_button(sc, pygame.Rect(cx - 210, 514, 420, 48),
+                         "ЛИМИТ FPS: " + fps_label, PURPLE)
+        self.draw_button(sc, pygame.Rect(cx - 150, H - 76, 300, 46), "НАЗАД", RED)
 
     def draw_lobby(self, sc):
         cx = W / 2
@@ -2371,6 +2413,8 @@ class Game:
             self.draw_splash(self.screen)
         elif self.state == "menu":
             self.draw_menu(self.screen)
+        elif self.state == "settings":
+            self.draw_settings(self.screen)
         elif self.state == "lobby":
             self.draw_lobby(self.screen)
         elif self.state == "error":
