@@ -2149,36 +2149,58 @@ class Game:
                 active = crystal < hp
                 special = crystal < special_slots
                 if special:
-                    # Особое сердце состоит из пяти вложенных цветовых слоёв.
+                    # Каждый бонусный слот получает свой цветовой уровень.
+                    # После десятого уровня палитра повторяется со сдвигом оттенка.
                     points = [(x + 8, heart_y + 1), (x + 14, heart_y - 1),
                               (x + 17, heart_y + 5), (x + 8, heart_y + 18),
                               (x, heart_y + 5), (x + 3, heart_y - 1)]
+                    palette = (
+                        "#ffb52e", "#ff7138", "#ff4d68", "#ed55b5", "#ad65ff",
+                        "#687cff", "#42b9ff", "#39dfd0", "#72df70", "#d0df48",
+                    )
+                    bonus_level = max(1, max_hp - 10 - (slots - 1 - crystal))
+                    cycle = (bonus_level - 1) // 10
+                    base = pygame.Color(palette[(bonus_level - 1) % 10])
+                    hue, saturation, value, _ = base.hsva
+                    base.hsva = ((hue + cycle * 17) % 360,
+                                 min(100, saturation + cycle * 2),
+                                 max(48, value - cycle * 3), 100)
+                    hue, saturation, value, _ = base.hsva
                     if active:
-                        pygame.draw.polygon(sc, (105, 54, 18),
-                                            [(px, py + 2) for px, py in points])
-                        pygame.draw.polygon(sc, (255, 177, 48), points)
-                        layers = [
-                            (0.82, (255, 218, 105)),
-                            (0.64, (255, 239, 165)),
-                            (0.46, (255, 190, 75)),
-                            (0.28, (255, 247, 205)),
-                        ]
+                        shadow = pygame.Color(0, 0, 0)
+                        shadow.hsva = (hue, saturation, max(18, value * 0.38), 100)
+                        outer = tuple(base)
+                        layer_specs = (
+                            (0.82, (hue, max(25, saturation * 0.78), min(100, value + 8))),
+                            (0.64, (hue, max(15, saturation * 0.48), min(100, value + 15))),
+                            (0.46, (hue, max(10, saturation * 0.68), min(100, value - 3))),
+                            (0.28, (hue, max(5, saturation * 0.25), 100)),
+                        )
+                        pygame.draw.polygon(sc, tuple(shadow), [(px, py + 2) for px, py in points])
+                        pygame.draw.polygon(sc, outer, points)
                     else:
-                        pygame.draw.polygon(sc, (37, 29, 25), points)
-                        layers = [
-                            (0.82, (91, 68, 43)),
-                            (0.64, (116, 87, 52)),
-                            (0.46, (78, 61, 43)),
-                            (0.28, (139, 107, 63)),
-                        ]
+                        shadow = pygame.Color(37, 29, 25)
+                        outer = pygame.Color(base)
+                        outer.hsva = (hue, min(100, saturation * 0.55), 25, 100)
+                        layer_specs = (
+                            (0.82, (hue, saturation * 0.45, 38)),
+                            (0.64, (hue, saturation * 0.35, 48)),
+                            (0.46, (hue, saturation * 0.50, 32)),
+                            (0.28, (hue, saturation * 0.20, 58)),
+                        )
+                        pygame.draw.polygon(sc, tuple(shadow), points)
+                        pygame.draw.polygon(sc, tuple(outer), points)
                     cx, cy = x + 8.5, heart_y + 8.5
-                    for scale, layer_color in layers:
+                    for scale, (layer_hue, layer_sat, layer_value) in layer_specs:
+                        layer_color = pygame.Color(0, 0, 0)
+                        layer_color.hsva = (layer_hue, layer_sat, layer_value, 100)
                         layer = [(round(cx + (px - cx) * scale),
                                   round(cy + (py - cy) * scale))
                                  for px, py in points]
-                        pygame.draw.polygon(sc, layer_color, layer)
-                    pygame.draw.polygon(sc, (255, 246, 205) if active else (155, 126, 86),
-                                        points, 1)
+                        pygame.draw.polygon(sc, tuple(layer_color), layer)
+                    outline = pygame.Color(base)
+                    outline.hsva = (hue, min(100, saturation * 0.35), 100 if active else 55, 100)
+                    pygame.draw.polygon(sc, tuple(outline), points, 1)
                 else:
                     # Обычные кристаллы здоровья.
                     points = [(x + 8, heart_y + 1), (x + 15, heart_y + 9),
