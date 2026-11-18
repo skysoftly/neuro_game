@@ -145,14 +145,14 @@ class SimulationMixin:
 
         if p.shoot and p.cool <= 0:
             p.cool = p.fire_rate if p.rapid <= 0 else p.fire_rate * 0.55
-            angs = (-0.22, 0.0, 0.22) if p.spread > 0 else (0.0,)
-            for a in angs:
+            angs = ((-0.22, 0.33), (0.0, 1.0), (0.22, 0.33)) if p.spread > 0 else ((0.0, 1.0),)
+            for a, damage_ratio in angs:
                 aa = p.ang + a + random.uniform(-0.025, 0.025)
                 d = V(math.cos(aa), math.sin(aa))
                 shot_damage = p.dmg * (2.0 if random.random() < p.crit else 1.0)
                 size_damage = 1.0 + 0.08 * p.upgrades.get("bullet_size", 0)
                 self.bullets.append(Bullet(p.p + d * 22, d * (1100 * p.bullet_speed), p.pid,
-                                           shot_damage * size_damage, p.pierce, p.bullet_size))
+                                           shot_damage * damage_ratio * size_damage, p.pierce, p.bullet_size))
             for i in range(p.multishot):
                 spread = 0.12 * (i + 1)
                 for sign in (-1, 1):
@@ -267,7 +267,7 @@ class SimulationMixin:
         self.wave_started = True
         self.play_sound("wave_start")
         self.wave_delay = 0.0
-        self.spawn_t = 1.25
+        self.spawn_t = 1.0
         self.banner_t = 2.2
         player_count = max(1, sum(1 for p in self.players.values() if p.alive))
         # Лимит 64 относится к размеру одной очереди, а не к номеру волны.
@@ -692,9 +692,7 @@ class SimulationMixin:
                     self.damage(enemy, bullet.dmg, source)
                     self.burst(bullet.p, enemy.col, 5, 260, (0.1, 0.3), 2)
                     bullet.hit_ids.add(id(enemy))
-                    if bullet.pierce > 0:
-                        bullet.pierce -= 1
-                    else:
+                    if not bullet.register_hit():
                         hit = True
                     break
             if not hit:
