@@ -16,7 +16,7 @@ from config import (
     BG, CYAN, MAGENTA, YELLOW, RED, ORANGE, GREEN, PURPLE, PINK, WHITE,
     SHIP, DIAMOND, TRI, HEX, SQ,
     KINDS, PICK_COL, PICK_LET, PLAYER_COLORS, PLAYER_SKINS,
-    wave_enemy_count, boss_kind_for_wave,
+    wave_enemy_count, boss_kind_for_wave, SIDE_SHOT_DAMAGE_RATIO,
 )
 from fonts import font, text
 from draw_utils import shape, dim, make_overlay, bloom, read_clipboard
@@ -145,7 +145,7 @@ class SimulationMixin:
 
         if p.shoot and p.cool <= 0:
             p.cool = p.fire_rate if p.rapid <= 0 else p.fire_rate * 0.55
-            angs = ((-0.22, 0.33), (0.0, 1.0), (0.22, 0.33)) if p.spread > 0 else ((0.0, 1.0),)
+            angs = ((-0.22, SIDE_SHOT_DAMAGE_RATIO), (0.0, 1.0), (0.22, SIDE_SHOT_DAMAGE_RATIO)) if p.spread > 0 else ((0.0, 1.0),)
             for a, damage_ratio in angs:
                 aa = p.ang + a + random.uniform(-0.025, 0.025)
                 d = V(math.cos(aa), math.sin(aa))
@@ -202,7 +202,7 @@ class SimulationMixin:
             if self.spawn_t <= 0:
                 next_kind = self.queue[-1]
                 # При заполненной арене ждём свободное место, не теряя мобов из очереди.
-                if len(self.enemies) < 90 or next_kind.startswith("boss"):
+                if len(self.enemies) < 110 or next_kind.startswith("boss"):
                     self.spawn(self.queue.pop())
                     player_count = max(1, sum(1 for player in self.players.values() if player.alive))
                     self.spawn_t = max(0.16, (0.72 - 0.012 * self.wave) /
