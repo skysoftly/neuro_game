@@ -66,5 +66,4 @@ def recompute(p):
     p.armor=min(3,u.get("armor",0))
     p.pulse_power=1.0+0.35*min(4,u.get("pulse_power",0))
     p.dash_damage=1.0+0.65*min(3,u.get("dash_damage",0))
-    p.xp_gain=1.0+0.20*min(4,u.get("score_gain",0))
     p.score_gain=1.0+0.20*min(4,u.get("score_gain",0))
