@@ -1,5 +1,6 @@
 """Основной класс игры: логика, рендер, сеть, состояния."""
 import json
+import logging
 import math
 import os
 import random
@@ -16,11 +17,13 @@ from config import (
     KINDS, PICK_COL, PICK_LET, PLAYER_COLORS,
 )
 from fonts import font, text
-from draw_utils import shape, dim, make_overlay, bloom, fisheye, read_clipboard
+from draw_utils import shape, dim, make_overlay, read_clipboard
 from camera import Camera
 from entities import Player, Enemy, Particle, Ring, Bullet
 from upgrades import UPGRADES_BY_ID, apply_upgrade, roll_upgrades
 from network import HostServer, ClientConn
+
+log = logging.getLogger("neuro_game")
 
 
 # ---------- конфиг ----------
@@ -133,7 +136,8 @@ class Game:
         self.hitstop = 0.0
         self.show_help = True
         self.help_t = 10.0
-        self.fisheye_on = True
+        self.debug_overlay = False
+        self.debug_timer = 0.0
 
         cfg = load_config()
         self.last_ip = cfg.get("last_ip", "")
@@ -175,6 +179,7 @@ class Game:
 
     # ================= сеть =================
     def start_host(self):
+        log.info("Запуск лобби хоста")
         try:
             self.server = HostServer()
         except Exception as e:
@@ -186,6 +191,7 @@ class Game:
         self.state = "lobby"
 
     def join_server(self, ip):
+        log.info("Подключение к хосту %s:%d", ip, PORT)
         self.connect_error = ""
         ip = ip.strip()
         if not ip:
@@ -194,6 +200,7 @@ class Game:
         try:
             self.client = ClientConn(ip)
         except Exception as e:
+            log.exception("Не удалось подключиться к %s:%d", ip, PORT)
             self.connect_error = "Ошибка: %s" % e
             return
         self.is_host = False
@@ -204,6 +211,7 @@ class Game:
         self.lobby_players = []
 
     def set_error(self, msg):
+        log.error("Состояние ошибки: %s", msg.replace("\n", " | "))
         self.error_msg = msg
         self.state = "error"
         pygame.mouse.set_visible(True)
@@ -288,10 +296,24 @@ class Game:
                 self.players.pop(cid, None)
             self.server.broadcast({"t": "lobby", "players": self.lobby_players})
 
+    def handle_host_disconnect(self):
+        log.warning("Соединение с хостом потеряно")
+        if self.client:
+            self.client.stop()
+            self.client = None
+        self.snap = None
+        self.local_choices = []
+        self.lobby_players = []
+        self.players = {}
+        self.is_host = False
+        self.my_id = 0
+        self.set_error("Связь с хостом потеряна.\\nХост закрыл игру или соединение оборвалось.")
+
     def on_client_msg(self, m):
         t = m.get("t")
         if t == "welcome":
             self.my_id = int(m.get("id", 0))
+            log.info("Подключено к хосту, client_id=%d", self.my_id)
         elif t == "lobby":
             self.lobby_players = [(int(a), b) for a, b in m.get("players", [])]
         elif t == "start":
@@ -313,7 +335,7 @@ class Game:
             self.state = "dead"
             pygame.mouse.set_visible(True)
         elif t == "disconnect":
-            self.set_error("Соединение с хостом потеряно.")
+            self.handle_host_disconnect()
 
     def send_input(self):
         if self.is_host or not self.client or self.state != "play":
@@ -397,8 +419,8 @@ class Game:
                 if e.key == pygame.K_F11:
                     pygame.display.toggle_fullscreen()
                     continue
-                if e.key == pygame.K_f and not self.input_mode:
-                    self.fisheye_on = not self.fisheye_on
+                if e.key == pygame.K_F3 and not self.input_mode:
+                    self.debug_overlay = not self.debug_overlay
                     continue
                 if self.input_mode:
                     self._handle_input_event(e)
@@ -451,7 +473,20 @@ class Game:
                     if e.key in (pygame.K_RETURN, pygame.K_ESCAPE):
                         self.state = "menu"
             elif e.type == pygame.MOUSEBUTTONDOWN:
-                if e.button == 3 and self.state == "play":
+                if e.button == 1 and self.state == "play" and self.local_choices:
+                    sw, sh = self.screen.get_size()
+                    mx = e.pos[0] * W / max(1, sw)
+                    my = e.pos[1] * H / max(1, sh)
+                    card_w, card_h, gap = 320, 220, 30
+                    total = len(self.local_choices) * card_w + (len(self.local_choices) - 1) * gap
+                    x0 = (W - total) / 2
+                    card_y = H / 2 - card_h / 2 + 40
+                    for i, upgrade_id in enumerate(self.local_choices):
+                        card = pygame.Rect(x0 + i * (card_w + gap), card_y, card_w, card_h)
+                        if card.collidepoint(mx, my):
+                            self.pick_upgrade(upgrade_id)
+                            break
+                elif e.button == 3 and self.state == "play":
                     p = self.players.get(self.my_id)
                     if p:
                         p.want_pulse = True
@@ -1015,6 +1050,10 @@ class Game:
                 pygame.draw.circle(sc, WHITE, (int(sx), int(sy)), int(r + 8), 2)
 
     def draw_world(self, sc, snap, cam):
+        # Полная очистка буфера обязательна каждый кадр: иначе старые позиции
+        # объектов остаются на экране и создают эффект бесконечных копий.
+        sc.fill(BG)
+
         # звёзды с параллаксом от камеры
         for x, y, z in self.stars:
             sx = (x - cam.x * 0.3 * z) % W
@@ -1094,7 +1133,7 @@ class Game:
         alpha = 255 if self.help_t > 2.0 else int(255 * self.help_t / 2.0)
         hint = [
             "WASD — движение   мышь — прицел   ЛКМ — огонь",
-            "SPACE — рывок   E / ПКМ — импульс   F — рыбий глаз   H — скрыть",
+            "SPACE — рывок   E / ПКМ — импульс   1/2/3 — улучшения   H — скрыть",
         ]
         box = pygame.Surface((820, 76), pygame.SRCALPHA)
         box.fill((0, 0, 0, int(150 * alpha / 255)))
@@ -1387,20 +1426,17 @@ class Game:
         if self.flash > 0:
             sc.fill((int(70 * self.flash), 0, int(10 * self.flash)), special_flags=pygame.BLEND_RGB_ADD)
 
-        # рыбий глаз
-        if self.fisheye_on and self.state in ("play", "dead"):
-            sc = fisheye(sc, 0.25)
-
-        # bloom
-        bloom(sc, W, H)
+        # Чёткий рендер без рыбьего глаза и размытого bloom.
+        # Сканлайны и лёгкая виньетка остаются в overlay для ретро-атмосферы.
 
         # тряска
         ox = random.uniform(-self.shake, self.shake) if self.shake > 0.5 else 0
         oy = random.uniform(-self.shake, self.shake) if self.shake > 0.5 else 0
         self.screen.fill((0, 0, 0))
         self.screen.blit(sc, (ox, oy))
+        self.screen.blit(self.overlay, (0, 0))
 
-        # UI поверх (чёткий текст, без блума)
+        # UI поверх игрового слоя: текст и кнопки остаются контрастными.
         if self.state == "menu":
             self.draw_menu(self.screen)
         elif self.state == "lobby":
@@ -1417,13 +1453,36 @@ class Game:
                     text(self.screen, "ПАУЗА", self.f_huge, WHITE, (W / 2, H / 2), outline=3)
 
         self.draw_input_overlay(self.screen)
-        self.screen.blit(self.overlay, (0, 0))
+
+        if self.debug_overlay:
+            snap_players = snap.get("players", []) if snap else []
+            snap_enemies = snap.get("enemies", []) if snap else []
+            debug_lines = [
+                "DEBUG  F3: hide",
+                "FPS: %.1f   STATE: %s" % (self.clock.get_fps(), self.state),
+                "PLAYERS: %d   ENEMIES: %d" % (len(snap_players) if snap else len(self.players), len(snap_enemies) if snap else len(self.enemies)),
+                "BULLETS: %d   PARTICLES: %d" % (len(snap.get("bullets", [])) if snap else len(self.bullets), len(self.parts)),
+                "NETWORK: %s" % ("HOST" if self.is_host else ("CLIENT" if self.client else "OFFLINE")),
+            ]
+            panel = pygame.Surface((310, 126), pygame.SRCALPHA)
+            panel.fill((4, 8, 18, 220))
+            self.screen.blit(panel, (W - 322, H - 138))
+            for i, line in enumerate(debug_lines):
+                text(self.screen, line, self.f_small, GREEN, (W - 312, H - 126 + i * 23), "topleft", outline=1)
 
     # ================= главный цикл =================
     def run(self):
+        log.info("Игра запущена | разрешение=%dx%d | порт=%d", W, H, PORT)
         while True:
             real_dt = min(self.clock.tick(60) / 1000.0, 1 / 20)
             self.t += real_dt
+            self.debug_timer += real_dt
+            if self.debug_timer >= 5.0:
+                self.debug_timer = 0.0
+                enemy_count = len(self.enemies) if self.is_host else len(self.snap.get("enemies", [])) if self.snap else 0
+                player_count = len(self.players) if self.is_host else len(self.snap.get("players", [])) if self.snap else 0
+                client_count = len(self.server.clients) if self.server else (1 if self.client else 0)
+                log.info("FPS=%.1f state=%s players=%d enemies=%d bullets=%d particles=%d net_clients=%d", self.clock.get_fps(), self.state, player_count, enemy_count, len(self.bullets), len(self.parts), client_count)
             self.handle_events()
             self.poll_network()
 
