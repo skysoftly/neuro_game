@@ -764,8 +764,9 @@ class Game:
                         self.state = "menu"
             elif e.type == pygame.MOUSEWHEEL:
                 mx, my = self.logical_mouse()
-                if self.state == "lobby" and pygame.Rect(245, 430, 790, H - 590).collidepoint(mx, my):
-                    self.lobby_scroll = max(0, min(max(0, len(self.lobby_players) - 3), self.lobby_scroll - e.y))
+                if self.state == "lobby" and pygame.Rect(245, 360, 790, H - 520).collidepoint(mx, my):
+                    visible = max(1, (H - 532) // 34)
+                    self.lobby_scroll = max(0, min(max(0, len(self.lobby_players) - visible), self.lobby_scroll - e.y))
                 elif self.state in ("play", "dead") and pygame.Rect(14, 16, 238, min(H - 180, 340)).collidepoint(mx, my):
                     roster = self.players if self.is_host else ((self.snap or {}).get("players", []))
                     self.hud_scroll = max(0, min(max(0, len(roster) - 6), self.hud_scroll - e.y))
@@ -1958,14 +1959,14 @@ class Game:
         else:
             ready_count = sum(1 for p in roster if p.get("alive", True) and p.get("upgrade_ready", False))
             alive_count = sum(1 for p in roster if p.get("alive", True))
-        text(sc, "INTERMISSION", self.f_big, YELLOW, (W / 2, 88), outline=2)
+        text(sc, "ПЕРЕДЫШКА МЕЖДУ ВОЛНАМИ", self.f_big, YELLOW, (W / 2, 88), outline=2)
         if self.local_choices:
-            text(sc, "CHOOSE ONE UPGRADE", self.f_mid, WHITE, (W / 2, 145), outline=1)
-            text(sc, "The next wave starts when everyone is ready", self.f_small,
+            text(sc, "ВЫБЕРИ ОДНО УЛУЧШЕНИЕ", self.f_mid, WHITE, (W / 2, 145), outline=1)
+            text(sc, "СЛЕДУЮЩАЯ ВОЛНА НАЧНЕТСЯ, КОГДА ВСЕ ВЫБЕРУТ", self.f_small,
                  (184, 195, 194), (W / 2, 180), outline=1)
         else:
-            text(sc, "CHOICE LOCKED", self.f_mid, CYAN, (W / 2, 145), outline=1)
-            text(sc, "WAITING FOR PLAYERS  -  %d / %d" % (ready_count, alive_count),
+            text(sc, "ВЫБОР ПРИНЯТ", self.f_mid, CYAN, (W / 2, 145), outline=1)
+            text(sc, "ЖДИТЕ ОСТАЛЬНЫХ  -  %d / %d" % (ready_count, alive_count),
                  self.f_small, WHITE, (W / 2, 180), outline=1)
         card_w, card_h, gap = 320, 238, 30
         total = len(self.local_choices) * card_w + max(0, len(self.local_choices) - 1) * gap
@@ -1992,7 +1993,7 @@ class Game:
             pygame.draw.polygon(sc, dim(col, 0.9 if hovered else 0.58), pts, 2 if hovered else 1)
             pygame.draw.line(sc, dim(col, 0.48), (card.x + 24, card.y + 8),
                              (card.right - 24, card.y + 8), 2)
-            text(sc, "MODULE %02d" % (i + 1), self.f_small, dim(col, 0.9),
+            text(sc, "МОДУЛЬ %02d" % (i + 1), self.f_small, dim(col, 0.9),
                  (card.centerx, card.y + 29), outline=1)
             self.draw_wrapped_text(sc, u["name"], self.f_mid, col,
                                    pygame.Rect(card.x + 18, card.y + 48, card.w - 36, 72), 2)
@@ -2000,7 +2001,7 @@ class Game:
                                    pygame.Rect(card.x + 24, card.y + 126, card.w - 48, 66), 3)
             pygame.draw.line(sc, dim(col, 0.35), (card.x + 18, card.bottom - 34),
                              (card.right - 18, card.bottom - 34), 1)
-            text(sc, "SELECT  -  LEFT CLICK", self.f_small, col,
+            text(sc, "ВЫБРАТЬ  -  ЛКМ", self.f_small, col,
                  (card.centerx, card.bottom - 17), outline=1)
 
     def draw_menu(self, sc):
@@ -2030,14 +2031,14 @@ class Game:
         cx = W / 2
         text(sc, "ЛОББИ", self.f_huge, CYAN, (cx, 90), outline=3)
         if self.is_host:
-            role, shown_ip = "YOU - HOST", (self.lan_ips[0] if self.lan_ips else "IP NOT FOUND")
+            role, shown_ip = "ВЫ - ХОСТ", (self.lan_ips[0] if self.lan_ips else "IP НЕ НАЙДЕН")
         else:
-            role, shown_ip = "YOU - CLIENT", (self.last_ip or "UNKNOWN")
+            role, shown_ip = "ВЫ - КЛИЕНТ", (self.last_ip or "НЕИЗВЕСТНО")
         text(sc, role, self.f_mid, YELLOW, (cx - 175, 190), outline=2)
         text(sc, "IP: " + shown_ip, self.f_mid, WHITE, (cx + 190, 190), outline=2)
 
         py0 = 330
-        text(sc, "PLAYERS IN LOBBY  -  %d" % len(self.lobby_players), self.f_mid, WHITE, (cx, py0), outline=2)
+        text(sc, "ИГРОКИ В ЛОББИ  -  %d" % len(self.lobby_players), self.f_mid, WHITE, (cx, py0), outline=2)
         list_rect = pygame.Rect(245, 360, 790, H - 520)
         pygame.draw.rect(sc, (5, 10, 18), list_rect)
         pygame.draw.rect(sc, (48, 72, 82), list_rect, 1)
@@ -2047,8 +2048,8 @@ class Game:
         sc.set_clip(list_rect.inflate(-4, -4))
         for i, (pid, name) in enumerate(self.lobby_players[self.lobby_scroll:self.lobby_scroll + visible]):
             col = PLAYER_COLORS[(pid - 1) % len(PLAYER_COLORS)] if pid > 0 else YELLOW
-            mark = " - YOU" if pid == self.my_id else ""
-            role = " - HOST" if pid == 0 else ""
+            mark = " - ВЫ" if pid == self.my_id else ""
+            role = " - ХОСТ" if pid == 0 else ""
             text(sc, "%02d  %s%s%s" % (self.lobby_scroll + i + 1, name, role, mark),
                  self.f_small, col, (list_rect.x + 18, list_rect.y + 17 + i * 34), "midleft", outline=1)
         sc.set_clip(old_clip)
@@ -2088,14 +2089,14 @@ class Game:
         pygame.draw.polygon(sc, (60, 85, 98), pts, 1)
         pygame.draw.line(sc, CYAN, (panel.x + 28, panel.y + 70),
                          (panel.right - 28, panel.y + 70), 2)
-        text(sc, "PAUSE", self.f_huge, WHITE, (W / 2, panel.y + 42), outline=2)
-        text(sc, "THE ARENA IS FROZEN", self.f_small, (155, 183, 192),
+        text(sc, "ПАУЗА", self.f_huge, WHITE, (W / 2, panel.y + 42), outline=2)
+        text(sc, "АРЕНА ОСТАНОВЛЕНА", self.f_small, (155, 183, 192),
              (W / 2, panel.y + 98), outline=1)
         if self.is_host:
-            self.draw_button(sc, pygame.Rect(W / 2 - 175, H / 2 + 42, 350, 52), "CONTINUE", CYAN)
+            self.draw_button(sc, pygame.Rect(W / 2 - 175, H / 2 + 42, 350, 52), "ПРОДОЛЖИТЬ", CYAN)
         else:
-            text(sc, "WAITING FOR HOST", self.f_mid, YELLOW, (W / 2, H / 2 + 68), outline=1)
-        self.draw_button(sc, pygame.Rect(W / 2 - 175, H / 2 + 108, 350, 48), "LEAVE SESSION", RED)
+            text(sc, "ОЖИДАНИЕ ХОСТА", self.f_mid, YELLOW, (W / 2, H / 2 + 68), outline=1)
+        self.draw_button(sc, pygame.Rect(W / 2 - 175, H / 2 + 108, 350, 48), "ПОКИНУТЬ СЕССИЮ", RED)
 
     def draw_dead(self, sc, snap):
         text(sc, "СЕССИЯ ЗАВЕРШЕНА", self.f_huge, RED, (W / 2, 100), outline=3)
@@ -2312,12 +2313,12 @@ class Game:
                 self.draw_upgrade_overlay(self.screen)
                 if self.tutorial_active and self.state == "play":
                     self.draw_tutorial_overlay(self.screen)
-                if self.state == "dead":
-                    self.draw_dead(self.screen, snap)
                 if self.state == "dead" and self.is_host:
                     end_tint = pygame.Surface((W, H), pygame.SRCALPHA)
                     end_tint.fill((135, 10, 22, 112))
                     self.screen.blit(end_tint, (0, 0))
+                if self.state == "dead":
+                    self.draw_dead(self.screen, snap)
                 if self.paused:
                     self.draw_pause_overlay(self.screen)
 
