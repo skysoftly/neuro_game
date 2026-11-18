@@ -36,8 +36,6 @@ class Player:
         self.want_dash = False
         self.want_pulse = False
         # прокачка
-        self.xp = 0
-        self.level = 1
         self.upgrades = {}
         self.upgrade_choices = []
         self.pending_upgrades = 0
@@ -52,12 +50,26 @@ class Player:
         self.lifesteal_progress = 0
         self.magnet = 1.0
         self.pulse_gain = 1.0
+        self.crit = 0.0
+        self.multishot = 0
+        self.bullet_speed = 1.0
+        self.bullet_size = 1.0
+        self.regen = 0.0
+        self.regen_timer = 0.0
+        self.armor = 0
+        self.armor_hits = 0
+        self.pulse_power = 1.0
+        self.dash_damage = 1.0
+        self.score_gain = 1.0
+        self.combo_bonus = 0
+        self.pulse_boost = 0.0
+        self.shield_t = 0.0
+        self.shield_hits = 0
+        self.hurt_t = 0.0
+        self.tutorial_ready = False
 
     def mult(self):
-        return min(10, 1 + self.chain // 5)
-
-    def xp_to_next(self):
-        return 10 + (self.level - 1) * 8
+        return min(10 + self.combo_bonus * 2, 1 + self.chain // max(2, 5 - self.combo_bonus))
 
 
 class Enemy:
@@ -66,7 +78,7 @@ class Enemy:
         self.kind = kind
         self.p = V(pos)
         self.v = V()
-        hp_scale = 1.0 + 0.11 * max(0, wave - 1)
+        hp_scale = 1.0 + 0.14 * max(0, wave - 1)
         self.hp = max(1, math.ceil(d["hp"] * hp_scale))
         self.max_hp = self.hp
         self.r = d["r"]
@@ -78,6 +90,11 @@ class Enemy:
         self.ang = random.uniform(0, math.tau)
         self.side = random.choice((-1, 1))
         self.dead = False
+        self.stun = 0.0
+        self.windup = 0.0
+        self.charge_t = 0.0
+        self.charge_dir = V()
+        self.phase = 0
 
 
 class Particle:
@@ -115,9 +132,9 @@ class Ring:
 
 class Bullet:
     """Пуля игрока. pierce — сколько ещё врагов может пробить."""
-    __slots__ = ("p", "v", "life", "owner", "dmg", "pierce", "hit_ids")
+    __slots__ = ("p", "v", "life", "owner", "dmg", "pierce", "hit_ids", "size")
 
-    def __init__(self, p, v, owner, dmg, pierce):
+    def __init__(self, p, v, owner, dmg, pierce, size=1.0):
         self.p = V(p)
         self.v = V(v)
         self.life = 0.8
@@ -125,6 +142,7 @@ class Bullet:
         self.dmg = dmg
         self.pierce = pierce
         self.hit_ids = set()
+        self.size = size
 
     def update(self, dt):
         self.p += self.v * dt
