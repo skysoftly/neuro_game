@@ -1181,20 +1181,31 @@ class Game:
         if self.intermission or not any(player.alive for player in self.players.values()):
             return
         alive = any(not e.dead for e in self.enemies)
+
+        # Первая волна начинается только после короткой подготовки.
         if self.wave == 0 and not self.queue and not alive:
-            self.wave_delay -= dt
+            self.wave_delay = max(0.0, self.wave_delay - dt)
             if self.wave_delay <= 0:
                 self.next_wave()
-        elif not self.queue and not alive:
+            return
+
+        # Между волнами не перескакиваем, пока есть живые враги или очередь спавна.
+        if not self.queue and not alive:
             self.begin_intermission()
-        elif self.queue:
-            self.spawn_t -= dt
+            return
+
+        if self.queue:
+            self.spawn_t = max(0.0, self.spawn_t - dt)
             if self.spawn_t <= 0:
-                player_count = max(1, sum(1 for player in self.players.values() if player.alive))
-                self.spawn_t = max(0.12, (0.7 - 0.018 * self.wave) / (1.0 + 0.08 * (player_count - 1)))
                 next_kind = self.queue[-1]
+                # При заполненной арене ждём свободное место, не теряя мобов из очереди.
                 if len(self.enemies) < 90 or next_kind.startswith("boss"):
                     self.spawn(self.queue.pop())
+                    player_count = max(1, sum(1 for player in self.players.values() if player.alive))
+                    self.spawn_t = max(0.16, (0.72 - 0.012 * self.wave) /
+                                        (1.0 + 0.06 * (player_count - 1)))
+                else:
+                    self.spawn_t = 0.20
 
     def begin_intermission(self):
         if self.intermission:
@@ -1248,7 +1259,8 @@ class Game:
     def next_wave(self):
         self.wave += 1
         self.play_sound("wave_start")
-        self.wave_delay = 2.0
+        self.wave_delay = 0.0
+        self.spawn_t = 1.25
         self.banner_t = 2.2
         player_count = max(1, sum(1 for p in self.players.values() if p.alive))
         n = min(80, int((7 + self.wave * 2.7) * (1.0 + 0.15 * (player_count - 1))))
@@ -1864,6 +1876,32 @@ class Game:
             pts = shape(SQ, e["ang"], (sx, sy), r)
         pygame.draw.polygon(sc, fill, pts)
         pygame.draw.polygon(sc, col, pts, 2)
+
+        # Контрастные внутренние метки помогают различать архетипы даже в толпе.
+        accent = {
+            "chaser": (255, 225, 190), "swarm": (255, 245, 180),
+            "shooter": (225, 205, 255), "tank": (255, 245, 180),
+            "dasher": (255, 225, 235), "splitter": (205, 255, 220),
+            "mine": (255, 235, 175), "orbiter": (190, 255, 250),
+            "bruiser": (255, 215, 180), "boss": (255, 215, 245),
+            "boss_storm": (210, 240, 255), "boss_hunter": (255, 225, 195),
+            "boss_void": (230, 210, 255), "boss_siege": (255, 245, 195),
+        }.get(kind, WHITE)
+        if kind == "chaser":
+            pygame.draw.circle(sc, accent, (int(sx), int(sy)), max(2, int(r * 0.22)))
+        elif kind == "swarm":
+            pygame.draw.line(sc, accent, (sx - r * 0.28, sy), (sx + r * 0.38, sy), 2)
+        elif kind == "dasher":
+            pygame.draw.line(sc, accent, (sx - r * 0.55, sy), (sx + r * 0.45, sy), 3)
+        elif kind == "splitter":
+            pygame.draw.circle(sc, accent, (int(sx), int(sy)), max(3, int(r * 0.3)), 2)
+        elif kind in ("shooter", "orbiter", "mine"):
+            pygame.draw.circle(sc, accent, (int(sx), int(sy)), max(3, int(r * 0.24)), 2)
+        elif kind in ("tank", "bruiser"):
+            pygame.draw.polygon(sc, accent, shape(DIAMOND, -e["ang"], (sx, sy), r * 0.34), 2)
+        elif kind.startswith("boss"):
+            pygame.draw.circle(sc, accent, (int(sx), int(sy)), max(5, int(r * 0.34)), 2)
+            pygame.draw.circle(sc, accent, (int(sx), int(sy)), max(2, int(r * 0.12)))
         max_hp = max(1, e.get("max_hp", 1))
         hp_ratio = max(0.0, min(1.0, e.get("hp", max_hp) / max_hp))
         if max_hp >= 5:
@@ -2038,34 +2076,53 @@ class Game:
                 me = pl
                 break
 
-        # Компактный топ-4 без непрозрачной панели и чужих индикаторов здоровья.
+        # Таблица лидеров: отдельная колонка очков не заезжает на длинные ники.
         roster = sorted(snap.get("players", []), key=lambda player: player.get("score", 0), reverse=True)[:4]
         for rank, player in enumerate(roster):
             y = 24 + rank * 25
-            color = YELLOW if player["pid"] == self.my_id else PLAYER_COLORS[(player["pid"] - 1) % len(PLAYER_COLORS)]
-            label = "%d. %s" % (rank + 1, player["name"])
-            if player["pid"] == self.my_id:
-                label += "  ВЫ"
-            self.draw_fit_text(sc, label, color, pygame.Rect(18, y - 10, 172, 22), 16, 11)
-            text(sc, str(player.get("score", 0)), self.f_small, WHITE, (202, y + 1), "midright", outline=1)
+            is_me = player["pid"] == self.my_id
+            color = YELLOW if is_me else PLAYER_COLORS[(player["pid"] - 1) % len(PLAYER_COLORS)]
+            name_rect = pygame.Rect(18, y - 10, 148, 22)
+            name = "%d. %s" % (rank + 1, player["name"])
+            self.draw_fit_text(sc, name, color, name_rect, 16, 10)
+            if is_me:
+                name_font = font(16)
+                while name_font.size(name)[0] > name_rect.width and name_font.get_height() > 11:
+                    name_font = font(name_font.get_height() - 1)
+                underline_width = min(name_rect.width - 4, name_font.size(name)[0])
+                pygame.draw.line(sc, color, (name_rect.x + 2, y + 9),
+                                 (name_rect.x + 2 + underline_width, y + 9), 2)
+            score_rect = pygame.Rect(172, y - 10, 62, 22)
+            self.draw_fit_text(sc, str(player.get("score", 0)), WHITE, score_rect, 16, 10)
 
-        # Здоровье показываем только владельцу экрана.
+        # Кристаллы здоровья по центру снизу; цвет по-прежнему зависит от оставшегося HP.
         if me:
             hp_ratio = max(0.0, min(1.0, me["hp"] / max(1, me["max_hp"])))
             hp_color = GREEN if hp_ratio > 0.55 else ORANGE if hp_ratio > 0.25 else RED
-            text(sc, "ЗДОРОВЬЕ", self.f_small, hp_color, (430, 19), "midleft", outline=1)
+            crystal_w, crystal_gap = 19, 8
+            total_w = me["max_hp"] * crystal_w + max(0, me["max_hp"] - 1) * crystal_gap
+            start_x = (W - total_w) / 2
+            panel = pygame.Rect(int(start_x - 24), H - 61, int(total_w + 48), 48)
+            pygame.draw.rect(sc, (7, 13, 23), panel)
+            pygame.draw.rect(sc, dim(hp_color, 0.48), panel, 1)
+            text(sc, "ЗДОРОВЬЕ", self.f_small, hp_color, (W / 2, H - 51), outline=1)
             for crystal in range(me["max_hp"]):
-                x = 438 + crystal * 22
-                points = [(x, 43), (x + 8, 31), (x + 16, 43), (x + 8, 55)]
-                fill = hp_color if crystal < me["hp"] else (25, 32, 45)
+                x = int(start_x + crystal * (crystal_w + crystal_gap))
+                points = [(x + 9, H - 43), (x + 17, H - 32),
+                          (x + 9, H - 21), (x + 1, H - 32)]
+                active = crystal < me["hp"]
+                fill = hp_color if active else (25, 32, 45)
                 pygame.draw.polygon(sc, fill, points)
-                pygame.draw.polygon(sc, WHITE if crystal < me["hp"] else (65, 75, 92), points, 1)
-                if crystal < me["hp"]:
-                    pygame.draw.line(sc, (235, 250, 255), (x + 8, 34), (x + 8, 50), 1)
+                pygame.draw.polygon(sc, WHITE if active else (65, 75, 92), points, 1)
+                if active:
+                    pygame.draw.line(sc, (245, 252, 255), (x + 9, H - 40), (x + 9, H - 25), 1)
+            text(sc, "%d / %d" % (me["hp"], me["max_hp"]), self.f_small, WHITE,
+                 (W / 2, H - 8), outline=1)
 
         # правый верх: волна
-        wave = snap.get("wave", 1)
-        text(sc, "ВОЛНА %d" % wave, self.f_mid, PURPLE, (W - 30, 34), "midright", outline=2)
+        wave = max(0, int(snap.get("wave", 0)))
+        wave_label = "ПОДГОТОВКА" if wave == 0 else "ВОЛНА %d" % wave
+        text(sc, wave_label, self.f_mid, PURPLE, (W - 30, 34), "midright", outline=2)
         remaining = snap.get("enemies_left", 0)
         text(sc, "УГРОЗ: %d" % remaining, self.f_small, WHITE, (W - 30, 62), "midright", outline=1)
         boss_in = snap.get("boss_in", 5)
@@ -2486,7 +2543,12 @@ class Game:
                 ty = self.camera_target_previous[1] + (self.camera_target_current[1] - self.camera_target_previous[1]) * alpha
             else:
                 tx, ty = self._player_screen_pos()
-            self.camera.follow(tx, ty, self.clock.get_time() / 1000.0)
+            if not self.is_host and self.camera_target_current is not None:
+                # Клиентская цель уже интерполирована между сетевыми снимками.
+                # Второе сильное сглаживание создавало заметное запаздывание/рывки.
+                self.camera.follow(tx, ty, self.clock.get_time() / 1000.0, snap=True)
+            else:
+                self.camera.follow(tx, ty, self.clock.get_time() / 1000.0)
 
         snap = None
         if self.state in ("play", "dead"):
@@ -2532,11 +2594,12 @@ class Game:
         vignette_strength = max(low_hp, damage_flash)
         shake_amount = 0.0
         if self.state == "play" and snap is not None and not self.paused and self.screen_shake_enabled:
-            shake_amount = self.shake
+            # Не используем случайное смещение каждый кадр: оно выглядит как дрожание камеры.
+            shake_amount = min(4.0, self.shake * 0.16)
             if hurt_t > 0:
-                shake_amount = max(shake_amount, 14.0 * min(1.0, hurt_t / 0.52))
-        ox = random.uniform(-shake_amount, shake_amount) if shake_amount > 0.5 else 0
-        oy = random.uniform(-shake_amount, shake_amount) if shake_amount > 0.5 else 0
+                shake_amount = max(shake_amount, 5.0 * min(1.0, hurt_t / 0.52))
+        ox = math.sin(self.t * 47.0) * shake_amount if shake_amount > 0.15 else 0
+        oy = math.cos(self.t * 39.0) * shake_amount * 0.72 if shake_amount > 0.15 else 0
         self.screen.fill((0, 0, 0))
         self.screen.blit(sc, (ox, oy))
         self.screen.blit(self.overlay, (0, 0))
