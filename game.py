@@ -539,15 +539,15 @@ class Game:
             elif e.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = self.logical_mouse(e.pos)
                 if self.input_mode and e.button == 1:
-                    if pygame.Rect(W / 2 - 115, H / 2 + 112, 230, 38).collidepoint(mx, my):
+                    if pygame.Rect(W / 2 - 115, H / 2 + 32, 230, 38).collidepoint(mx, my):
                         self._paste_input()
-                    elif pygame.Rect(W / 2 - 135, H / 2 + 160, 270, 46).collidepoint(mx, my):
+                    elif pygame.Rect(W / 2 - 135, H / 2 + 80, 270, 46).collidepoint(mx, my):
                         mode = self.input_mode
                         self.input_mode = None
                         self.persist()
                         if mode == "ip" and self.ip_input.strip():
                             self.join_server(self.ip_input)
-                    elif pygame.Rect(W / 2 - 135, H / 2 + 216, 270, 40).collidepoint(mx, my):
+                    elif pygame.Rect(W / 2 - 135, H / 2 + 136, 270, 40).collidepoint(mx, my):
                         self.input_mode = None
                 elif self.state == "menu" and e.button == 1:
                     cx, cy = W / 2, H / 2 - 140
@@ -1298,7 +1298,7 @@ class Game:
             pygame.draw.rect(sc, (20, 20, 40), (bx, by, bar_w, 10))
             pygame.draw.rect(sc, YELLOW, (bx, by, int(bar_w * cur / need), 10))
             pygame.draw.rect(sc, (60, 60, 100), (bx, by, bar_w, 10), 1)
-            text(sc, "УР. %d" % me["level"], self.f_mid, YELLOW, (W / 2, by + 26), outline=2)
+            text(sc, "УР. %d  •  ДО СЛЕДУЮЩЕГО: %d/%d" % (me["level"], cur, need), self.f_mid, YELLOW, (W / 2, by + 26), outline=2)
 
             def bar(x, y, w, frac, col, label):
                 pygame.draw.rect(sc, (20, 20, 40), (x, y, w, 12))
@@ -1366,13 +1366,13 @@ class Game:
             y = H / 2 - card_h / 2 + 40
             rect = pygame.Rect(x, y, card_w, card_h)
             col = u["color"]
-            draw_glow(sc, (rect.centerx, rect.centery), col, 150, 12)
-            pygame.draw.rect(sc, (5, 12, 28), rect)
+            hovered = rect.collidepoint(self.logical_mouse())
+            draw_glow(sc, (rect.centerx, rect.centery), col, 150, 20 if hovered else 12)
+            pygame.draw.rect(sc, (8, 16, 34) if hovered else (5, 12, 28), rect)
             pygame.draw.rect(sc, (24, 35, 62), rect.inflate(-8, -8), 1)
-            pygame.draw.rect(sc, col, rect, 2)
+            pygame.draw.rect(sc, WHITE if hovered else col, rect, 3 if hovered else 2)
             pygame.draw.line(sc, dim(col, 0.55), (x + 18, y + 8), (x + card_w - 18, y + 8), 1)
-            # номер
-            text(sc, str(i + 1), self.f_huge, dim(col, 0.8), (x + 40, y + 40), outline=3)
+            text(sc, "ВЫБРАТЬ", self.f_small, col, (rect.centerx, rect.bottom - 18), outline=1)
             # название + описание
             text(sc, u["name"], self.f_mid, col, (x + card_w / 2, y + 90), outline=2)
             # описание с переносом
