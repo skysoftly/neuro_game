@@ -130,6 +130,7 @@ class NetworkingMixin:
         self.paused = False
         self.wave = 0
         self.wave_started = False
+        self.last_boss_kind = None
         self.wave_delay = 1.5
         self.spawn_t = 0.0
         self.intermission = False
@@ -143,7 +144,7 @@ class NetworkingMixin:
         pygame.mouse.set_visible(False)
         self.camera.follow(self.players[self.my_id].p.x, self.players[self.my_id].p.y, 0, snap=True)
         pygame.mouse.set_visible(True)
-        self.server.broadcast({"t": "start"})
+        self.server.broadcast({"t": "start", "difficulty": self.difficulty})
 
     def poll_network(self):
         if self.is_host and self.server:
@@ -181,7 +182,7 @@ class NetworkingMixin:
             self.lobby_players.append((cid, name, color_index, skin_index, hat_index))
             self.lobby_ready.discard(cid)
             self.server.send(cid, {"t": "welcome", "id": cid})
-            self.server.broadcast({"t": "lobby", "players": self.lobby_players})
+            self.server.broadcast({"t": "lobby", "players": self.lobby_players, "difficulty": self.difficulty})
             self.server.broadcast({"t": "ready", "players": sorted(self.lobby_ready)})
         elif t == "customize" and self.state == "lobby":
             for index, entry in enumerate(self.lobby_players):
@@ -193,7 +194,7 @@ class NetworkingMixin:
                 skin_index = max(0, min(len(PLAYER_SKINS) - 1, int(m.get("skin", entry[3]))))
                 hat_index = max(0, min(9, int(m.get("hat", entry[4]))))
                 self.lobby_players[index] = (cid, entry[1], color_index, skin_index, hat_index)
-                self.server.broadcast({"t": "lobby", "players": self.lobby_players})
+                self.server.broadcast({"t": "lobby", "players": self.lobby_players, "difficulty": self.difficulty})
                 break
         elif t == "ready" and self.state == "lobby":
             if any(entry[0] == cid for entry in self.lobby_players):
@@ -234,7 +235,7 @@ class NetworkingMixin:
             self.lobby_ready.discard(cid)
             if self.players:
                 self.players.pop(cid, None)
-            self.server.broadcast({"t": "lobby", "players": self.lobby_players})
+            self.server.broadcast({"t": "lobby", "players": self.lobby_players, "difficulty": self.difficulty})
             self.server.broadcast({"t": "ready", "players": sorted(self.lobby_ready)})
             self.check_tutorial_ready()
 
@@ -282,6 +283,7 @@ class NetworkingMixin:
                                max(0, min(len(PLAYER_SKINS) - 1, skin_index)),
                                max(0, min(9, hat_index))))
             self.lobby_players = parsed
+            self.difficulty = m.get("difficulty", self.difficulty) if m.get("difficulty") in ("easy", "normal", "hard", "impossible") else "normal"
             mine = next((entry for entry in parsed if entry[0] == self.my_id), None)
             if mine:
                 self.local_color_index, self.local_skin_index, self.local_hat_index = mine[2], mine[3], mine[4]
@@ -302,6 +304,7 @@ class NetworkingMixin:
             self.lobby_ready = set()
             self.set_error("ИГРА УЖЕ ЗАПУЩЕНА\\nПодключиться можно будет после завершения текущей игры.")
         elif t == "start":
+            self.difficulty = m.get("difficulty", "normal") if m.get("difficulty") in ("easy", "normal", "hard", "impossible") else "normal"
             self.snap = None
             self.camera_target_previous = None
             self.camera_target_current = None
