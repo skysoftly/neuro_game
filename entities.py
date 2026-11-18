@@ -3,7 +3,7 @@ import math
 import random
 from pygame import Vector2 as V
 
-from config import KINDS, PLAYER_COLORS, WORLD_W, WORLD_H
+from config import KINDS, PLAYER_COLORS, WORLD_W, WORLD_H, enemy_scaling
 
 
 class Player:
@@ -69,20 +69,17 @@ class Player:
 
 
 class Enemy:
-    def __init__(self, kind, pos, wave):
+    def __init__(self, kind, pos, wave, player_count=1):
         d = KINDS[kind]
         self.kind = kind
         self.p = V(pos)
         self.v = V()
-        # Враги усиливаются постепенно: к 16-й волне HP примерно в 1.6 раза,
-        # скорость — максимум на 12% выше базовой.
-        wave_steps = max(0, wave - 1)
-        hp_scale = (1.0 + min(0.30, 0.02 * wave_steps) if kind.startswith("boss")
-                     else 1.0 + min(0.60, 0.04 * wave_steps))
+        # Рост HP продолжается и после сотой волны; онлайн учитывается сразу.
+        hp_scale, speed_scale = enemy_scaling(wave, player_count, kind.startswith("boss"))
         self.hp = max(1, math.ceil(d["hp"] * hp_scale))
         self.max_hp = self.hp
         self.r = d["r"]
-        self.spd = d["spd"] * min(1.12, 1.0 + 0.008 * wave_steps)
+        self.spd = d["spd"] * speed_scale
         self.col = d["col"]
         self.age = 0.0
         self.cool = random.uniform(0.8, 2.0)
