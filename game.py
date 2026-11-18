@@ -359,9 +359,10 @@ class Game:
 
     def draw_wrapped_text(self, surface, value, f, color, rect, max_lines=2):
         words = str(value).split()
-        size = f.get_height()
-        lines = []
-        while size > 12:
+        chosen_font = font(10)
+        chosen_lines = []
+        start_size = min(f.get_height(), 36)
+        for size in range(start_size, 9, -1):
             candidate_font = font(size)
             lines, current = [], ""
             for word in words:
@@ -373,25 +374,26 @@ class Game:
                     current = candidate
             if current:
                 lines.append(current)
+            chosen_font, chosen_lines = candidate_font, lines
             if len(lines) <= max_lines and all(candidate_font.size(line)[0] <= rect.width for line in lines):
-                f = candidate_font
                 break
-            size -= 1
-        if len(lines) > max_lines:
-            lines = lines[:max_lines]
-            last = lines[-1]
-            while last and f.size(last + "...")[0] > rect.width:
-                last = last[:-1].rstrip()
-            lines[-1] = last + "..."
+        chosen_lines = chosen_lines[:max_lines]
+        for index, line in enumerate(chosen_lines):
+            if chosen_font.size(line)[0] <= rect.width:
+                continue
+            suffix = "..." if len(line) > 3 else ""
+            while line and chosen_font.size(line + suffix)[0] > rect.width:
+                line = line[:-1].rstrip()
+            chosen_lines[index] = line + suffix
         old_clip = surface.get_clip()
         surface.set_clip(rect)
-        line_h = f.get_linesize()
-        if line_h * len(lines) > rect.height:
-            f = font(max(10, rect.height // max(1, len(lines))))
-            line_h = f.get_linesize()
-        y = rect.centery - len(lines) * line_h / 2 + line_h / 2
-        for line in lines:
-            text(surface, line, f, color, (rect.centerx, y), outline=1)
+        line_h = chosen_font.get_linesize()
+        if line_h * len(chosen_lines) > rect.height:
+            chosen_font = font(max(9, rect.height // max(1, len(chosen_lines)) - 2))
+            line_h = chosen_font.get_linesize()
+        y = rect.centery - len(chosen_lines) * line_h / 2 + line_h / 2
+        for line in chosen_lines:
+            text(surface, line, chosen_font, color, (rect.centerx, y), outline=1)
             y += line_h
         surface.set_clip(old_clip)
 
@@ -1569,6 +1571,7 @@ class Game:
             for r, s in ((500, 500), (800, 800)):
                 self.rings.append(Ring(p.p, 10, r, s, p.color, 6))
             if p.pid == self.my_id:
+                if p.pid == self.my_id:
                 self.shake = 40
 
     def collide(self):
@@ -2516,7 +2519,7 @@ class Game:
     def run(self):
         log.info("Игра запущена | разрешение=%dx%d | порт=%d", W, H, PORT)
         while True:
-            real_dt = min(self.clock.tick(self.target_fps) / 1000.0, 1 / 30)
+            real_dt = min(self.clock.tick(self.target_fps) / 1000.0, 1 / 20)
             self.t += real_dt
             self.debug_timer += real_dt
             if self.debug_timer >= 5.0:
