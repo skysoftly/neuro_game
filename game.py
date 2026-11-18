@@ -292,7 +292,8 @@ class Game:
         self.banner_t = 0.0
         self.intermission = False
         self.local_upgrade_waiting = False
-        self.wave = 0
+        self.wave = 1
+        self.wave_started = False
         self.debug_overlay = False
         self.debug_timer = 0.0
 
@@ -529,7 +530,8 @@ class Game:
         self.snapshot_timer = 0.0
         self.snap = None
         self.paused = False
-        self.wave = 0
+        self.wave = 1
+        self.wave_started = False
         self.wave_delay = 1.5
         self.spawn_t = 0.0
         self.intermission = False
@@ -1182,14 +1184,15 @@ class Game:
             return
         alive = any(not e.dead for e in self.enemies)
 
-        # Первая волна начинается только после короткой подготовки.
-        if self.wave == 0 and not self.queue and not alive:
+        # Номер первой волны уже равен 1; до её старта идёт короткая подготовка.
+        if not self.wave_started:
             self.wave_delay = max(0.0, self.wave_delay - dt)
             if self.wave_delay <= 0:
                 self.next_wave()
             return
 
-        # Между волнами не перескакиваем, пока есть живые враги или очередь спавна.
+        # Улучшение выдаётся только после полного завершения волны:
+        # очередь спавна пуста и на арене не осталось живых врагов.
         if not self.queue and not alive:
             self.begin_intermission()
             return
@@ -1208,8 +1211,9 @@ class Game:
                     self.spawn_t = 0.20
 
     def begin_intermission(self):
-        if self.intermission:
+        if self.intermission or not self.wave_started:
             return
+        # За одну завершённую волну каждому живому игроку полагается ровно один выбор.
         self.intermission = True
         self.queue.clear()
         self.play_sound("wave_clear")
@@ -1257,7 +1261,11 @@ class Game:
         pygame.mouse.set_visible(True)
 
     def next_wave(self):
-        self.wave += 1
+        if self.wave_started:
+            self.wave += 1
+        else:
+            self.wave = 1
+            self.wave_started = True
         self.play_sound("wave_start")
         self.wave_delay = 0.0
         self.spawn_t = 1.25
@@ -1737,11 +1745,12 @@ class Game:
             "pickups": [],
             "pops": [],
             "wave": self.wave,
+            "wave_started": self.wave_started,
             "intermission": self.intermission,
             "banner": round(self.banner_t, 2),
             "shake": round(self.shake, 1),
             "enemies_left": len(self.queue) + sum(1 for e in self.enemies if not e.dead),
-            "boss_in": 5 if self.wave == 0 else (5 - ((self.wave + (1 if self.intermission else 0)) % 5)) % 5,
+            "boss_in": 5 if not self.wave_started else (5 - ((self.wave + (1 if self.intermission else 0)) % 5)) % 5,
         }
         for p in self.players.values():
             snap["players"].append({
@@ -2122,8 +2131,8 @@ class Game:
                     pygame.draw.line(sc, (245, 252, 255), (x + 8, H - 50), (x + 8, H - 36), 1)
 
         # правый верх: волна
-        wave = max(0, int(snap.get("wave", 0)))
-        wave_label = "ПОДГОТОВКА" if wave == 0 else "ВОЛНА %d" % wave
+        wave = max(1, int(snap.get("wave", 1)))
+        wave_label = "ПОДГОТОВКА К ВОЛНЕ 1" if not snap.get("wave_started", False) else "ВОЛНА %d" % wave
         text(sc, wave_label, self.f_mid, PURPLE, (W - 30, 34), "midright", outline=2)
         remaining = snap.get("enemies_left", 0)
         text(sc, "УГРОЗ: %d" % remaining, self.f_small, WHITE, (W - 30, 62), "midright", outline=1)
@@ -2199,8 +2208,8 @@ class Game:
         # Баннер волны всегда помещается в экран независимо от номера волны.
         if snap.get("banner", 0) > 0 and self.state == "play":
             k = min(1.0, snap["banner"])
-            current_wave = max(0, int(snap.get("wave", 0)))
-            banner_label = "ПОДГОТОВКА" if current_wave == 0 else "ВОЛНА %d" % current_wave
+            current_wave = max(1, int(snap.get("wave", 1)))
+            banner_label = "ПОДГОТОВКА К ВОЛНЕ 1" if not snap.get("wave_started", False) else "ВОЛНА %d" % current_wave
             self.draw_fit_text(sc, banner_label, dim(WHITE, k),
                                pygame.Rect(180, H / 2 - 205, W - 360, 130), 88, 48)
 
