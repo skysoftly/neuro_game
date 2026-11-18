@@ -17,7 +17,7 @@ from config import (
     KINDS, PICK_COL, PICK_LET, PLAYER_COLORS,
 )
 from fonts import font, text
-from draw_utils import shape, dim, make_overlay, read_clipboard
+from draw_utils import shape, dim, make_overlay, bloom, fisheye, read_clipboard
 from camera import Camera
 from entities import Player, Enemy, Particle, Ring, Bullet
 from upgrades import UPGRADES_BY_ID, apply_upgrade, roll_upgrades
@@ -71,20 +71,21 @@ class Audio:
         if not pygame.mixer.get_init():
             return
         try:
+            # Softer, more varied synth tones; avoid harsh square-wave blasts.
             self.s = {
-                "shoot": self.make(900, 300, 0.07, 0.10, "sq", 0.1),
-                "hit": self.make(300, 120, 0.05, 0.12, "sq", 0.5),
-                "boom": self.make(180, 30, 0.35, 0.35, "sq", 0.8),
-                "dash": self.make(300, 1200, 0.15, 0.18, "sin", 0.2),
-                "pickup": self.make(600, 1400, 0.18, 0.20, "sin", 0.0),
-                "pulse": self.make(900, 60, 0.60, 0.40, "sin", 0.4),
-                "hurt": self.make(400, 50, 0.40, 0.40, "sq", 0.6),
-                "levelup": self.make(500, 1600, 0.35, 0.25, "sin", 0.0),
+                "shoot": self.make(760, 520, 0.055, 0.035, "tri", 0.0),
+                "hit": self.make(260, 170, 0.075, 0.055, "sin", 0.08),
+                "boom": self.make(115, 42, 0.24, 0.10, "sin", 0.12),
+                "dash": self.make(260, 920, 0.19, 0.065, "sin", 0.0),
+                "pickup": self.make(520, 1040, 0.16, 0.055, "tri", 0.0),
+                "pulse": self.make(520, 90, 0.42, 0.12, "sin", 0.04),
+                "hurt": self.make(220, 85, 0.20, 0.10, "tri", 0.05),
+                "levelup": self.make(440, 1320, 0.32, 0.085, "sin", 0.0),
             }
             self.ok = True
             self.music = self.make_music()
             self.music_channel = pygame.mixer.Channel(7)
-            self.music_channel.set_volume(0.16)
+            self.music_channel.set_volume(0.10)
             self.music_channel.play(self.music, loops=-1)
         except Exception:
             self.ok = False
@@ -92,37 +93,50 @@ class Audio:
 
     @staticmethod
     def make_music():
-        """Небольшой оригинальный чиптюн-луп без внешних аудиофайлов."""
+        """Original mellow chiptune loop with a melody, bass and soft pulse."""
         rate = 44100
-        notes = (220, 277, 330, 440, 330, 277, 247, 330,
-                 196, 247, 294, 392, 294, 247, 220, 277)
-        beat = 0.16
+        melody = (440, 523, 659, 523, 392, 494, 587, 494,
+                  349, 440, 523, 440, 330, 392, 494, 392)
+        bass = (110, 110, 130.81, 130.81, 87.31, 87.31, 98, 98)
+        beat = 0.22
+        count = int(rate * beat)
         buf = array.array("h")
-        phase = 0.0
-        for note in notes:
-            count = int(rate * beat)
+        for step, note in enumerate(melody):
+            base_phase = 0.0
+            bass_phase = 0.0
             for i in range(count):
-                phase += note / rate
-                square = 1.0 if phase % 1.0 < 0.5 else -1.0
-                envelope = min(1.0, i / 180) * min(1.0, (count - i) / 300)
-                buf.append(int(square * envelope * 2300))
+                t = i / count
+                base_phase += note / rate
+                bass_phase += bass[(step // 2) % len(bass)] / rate
+                tri = 1.0 - 4.0 * abs(round(base_phase) - base_phase)
+                lead_env = min(1.0, i / 500) * min(1.0, (count - i) / 1800)
+                bass_env = min(1.0, i / 900) * min(1.0, (count - i) / 2500)
+                lead = tri * lead_env * 0.075
+                low = math.sin(bass_phase * math.tau) * bass_env * 0.045
+                pulse = 0.0
+                if step % 4 == 0 and i < int(rate * 0.055):
+                    pulse = math.sin((75 - 35 * t) * math.tau * i / rate) * (1 - t / 0.25) * 0.035
+                buf.append(int(max(-1.0, min(1.0, lead + low + pulse)) * 32767))
         return pygame.mixer.Sound(buffer=buf.tobytes())
 
     @staticmethod
     def make(f0, f1, dur, vol, wave, noise):
         rate = 44100
-        n = int(rate * dur)
+        n = max(1, int(rate * dur))
         buf = array.array("h")
-        ph = 0.0
+        phase = 0.0
         for i in range(n):
             t = i / n
-            ph += (f0 + (f1 - f0) * t) / rate
+            phase += (f0 + (f1 - f0) * t) / rate
             if wave == "sq":
-                s = 1.0 if (ph % 1.0) < 0.5 else -1.0
+                sample = 1.0 if phase % 1.0 < 0.5 else -1.0
+            elif wave == "tri":
+                sample = 1.0 - 4.0 * abs(round(phase) - phase)
             else:
-                s = math.sin(ph * math.tau)
-            s = s * (1 - noise) + random.uniform(-1, 1) * noise
-            buf.append(int(s * (1 - t) ** 2 * vol * 32767))
+                sample = math.sin(phase * math.tau)
+            sample = sample * (1 - noise) + random.uniform(-1, 1) * noise
+            envelope = min(1.0, i / max(1, int(rate * 0.008))) * (1 - t) ** 1.6
+            buf.append(int(sample * envelope * vol * 32767))
         return pygame.mixer.Sound(buffer=buf.tobytes())
 
     def play(self, name):
@@ -1481,14 +1495,15 @@ class Game:
         if self.flash > 0:
             sc.fill((int(70 * self.flash), 0, int(10 * self.flash)), special_flags=pygame.BLEND_RGB_ADD)
 
-        # Чёткий рендер без рыбьего глаза и размытого bloom.
-        # Сканлайны и лёгкая виньетка остаются в overlay для ретро-атмосферы.
+        # Gentle CRT lens + restrained glow. Keep HUD text crisp above the filter.
+        post = fisheye(sc, 0.075)
+        bloom(post, W, H, 0.16)
 
-        # тряска
+        # Screen shake is applied to the game image, not to the interface.
         ox = random.uniform(-self.shake, self.shake) if self.shake > 0.5 else 0
         oy = random.uniform(-self.shake, self.shake) if self.shake > 0.5 else 0
         self.screen.fill((0, 0, 0))
-        self.screen.blit(sc, (ox, oy))
+        self.screen.blit(post, (ox, oy))
         self.screen.blit(self.overlay, (0, 0))
 
         # UI поверх игрового слоя: текст и кнопки остаются контрастными.
