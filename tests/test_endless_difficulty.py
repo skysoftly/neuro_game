@@ -1,12 +1,24 @@
 import unittest
 
 from config import (
-    MAX_PLAYERS, boss_kind_for_wave, enemy_scaling, wave_enemy_count,
+    MAX_PLAYERS, boss_kind_for_wave, enemy_scaling, wave_enemy_count, DIFFICULTIES,
 )
 from entities import Enemy
 
 
 class EndlessDifficultyTests(unittest.TestCase):
+    def test_difficulty_profiles_change_enemy_count_and_strength(self):
+        self.assertEqual(DIFFICULTIES, ("easy", "normal", "hard", "impossible"))
+        self.assertLess(wave_enemy_count(5, 1, "easy"), wave_enemy_count(5, 1, "normal"))
+        self.assertGreater(wave_enemy_count(5, 1, "impossible"), wave_enemy_count(5, 1, "normal"))
+        easy_hp, _ = enemy_scaling(10, 1, False, "easy")
+        normal_hp, _ = enemy_scaling(10, 1, False, "normal")
+        hard_hp, _ = enemy_scaling(10, 1, False, "hard")
+        impossible_hp, _ = enemy_scaling(10, 1, False, "impossible")
+        self.assertLess(easy_hp, normal_hp)
+        self.assertGreater(hard_hp, normal_hp)
+        self.assertGreater(impossible_hp, hard_hp)
+
     def test_wave_scaling_keeps_growing_past_old_soft_cap(self):
         early = Enemy("chaser", (0, 0), 10)
         late = Enemy("chaser", (0, 0), 100)
