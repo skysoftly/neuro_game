@@ -40,6 +40,8 @@ KINDS = {
     "splitter": dict(hp=5, r=21, spd=105, col=(120, 220, 150), score=35, xp=10),
     "mine": dict(hp=2, r=12, spd=75, col=(255, 180, 80), score=18, xp=6),
     "boss": dict(hp=110, r=54, spd=72, col=(245, 100, 190), score=500, xp=100),
+    "boss_storm": dict(hp=145, r=58, spd=82, col=(110, 190, 255), score=650, xp=125),
+    "boss_hunter": dict(hp=175, r=62, spd=96, col=(255, 145, 90), score=800, xp=150),
 }
 
 # ---------- подбираемое ----------
