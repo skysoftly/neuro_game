@@ -263,6 +263,7 @@ class Game:
         self.snapshot_timer = 0.0
         self.input_send_timer = 0.0
         self.target_fps = 120
+        self.audio_scene = "menu"
         self.screen_shake_enabled = True
         self.shake = 0.0
         self.spectator_speed = 620.0
@@ -1140,7 +1141,7 @@ class Game:
             return
         self.intermission = True
         self.queue.clear()
-        self.audio.play("wave")
+        self.audio.play("wave_clear")
         for p in self.players.values():
             if not p.alive:
                 p.upgrade_choices = []
@@ -1170,6 +1171,7 @@ class Game:
 
     def next_wave(self):
         self.wave += 1
+        self.audio.play("wave_start")
         self.wave_delay = 2.0
         self.banner_t = 2.2
         player_count = max(1, sum(1 for p in self.players.values() if p.alive))
@@ -2371,7 +2373,7 @@ class Game:
 
         snap = None
         if self.state in ("play", "dead"):
-            snap = self.build_snapshot() if self.is_host else self.snap
+            snap = self.snap
             if snap is not None:
                 self.wave = int(snap.get("wave", self.wave))
 
@@ -2398,26 +2400,32 @@ class Game:
         # flash
         # Hit feedback is rendered locally from the local player's snapshot.
 
-        # Мягкий CRT glow без геометрических искажений и размытия интерфейса.
-        post = sc.copy()
-        bloom(post, W, H, 0.08)
+        # Low-cost bloom works directly on the scene buffer; no full-screen copy.
+        bloom(sc, W, H, 0.055)
 
-        # Screen shake is applied to the game image, not to the interface.
-        shake_amount = self.shake if self.state == "play" and snap is not None else 0.0
-        ox = random.uniform(-shake_amount, shake_amount) if shake_amount > 0.5 else 0
-        oy = random.uniform(-shake_amount, shake_amount) if shake_amount > 0.5 else 0
-        self.screen.fill((0, 0, 0))
-        self.screen.blit(post, (ox, oy))
-        self.screen.blit(self.overlay, (0, 0))
-
+        local_player = None
         if snap is not None and self.state == "play":
             local_player = next((p for p in snap.get("players", [])
                                  if p.get("pid") == self.my_id), None)
-            hurt_t = local_player.get("hurt_t", 0.0) if local_player else 0.0
+        hurt_t = local_player.get("hurt_t", 0.0) if local_player else 0.0
+        health_ratio = (local_player.get("hp", 1) / max(1, local_player.get("max_hp", 1))
+                        if local_player else 1.0)
+        low_hp = max(0.0, min(1.0, (0.42 - health_ratio) / 0.42))
+        damage_flash = min(1.0, hurt_t / 0.52) * 0.68
+        vignette_strength = max(low_hp, damage_flash)
+        shake_amount = 0.0
+        if self.state == "play" and snap is not None and not self.paused and self.screen_shake_enabled:
+            shake_amount = self.shake
             if hurt_t > 0:
-                hurt_layer = pygame.Surface((W, H), pygame.SRCALPHA)
-                hurt_layer.fill((155, 12, 24, int(105 * min(1.0, hurt_t / 0.52))))
-                self.screen.blit(hurt_layer, (0, 0))
+                shake_amount = max(shake_amount, 14.0 * min(1.0, hurt_t / 0.52))
+        ox = random.uniform(-shake_amount, shake_amount) if shake_amount > 0.5 else 0
+        oy = random.uniform(-shake_amount, shake_amount) if shake_amount > 0.5 else 0
+        self.screen.fill((0, 0, 0))
+        self.screen.blit(sc, (ox, oy))
+        self.screen.blit(self.overlay, (0, 0))
+        if vignette_strength > 0.01 and self.state == "play":
+            self.red_vignette.set_alpha(int(175 * vignette_strength))
+            self.screen.blit(self.red_vignette, (0, 0))
 
         # UI поверх игрового слоя: текст и кнопки остаются контрастными.
         if self.state == "loading":
@@ -2471,7 +2479,7 @@ class Game:
     def run(self):
         log.info("Игра запущена | разрешение=%dx%d | порт=%d", W, H, PORT)
         while True:
-            real_dt = min(self.clock.tick(60) / 1000.0, 1 / 20)
+            real_dt = min(self.clock.tick(self.target_fps) / 1000.0, 1 / 30)
             self.t += real_dt
             self.debug_timer += real_dt
             if self.debug_timer >= 5.0:
@@ -2501,10 +2509,23 @@ class Game:
                         self.hitstop -= real_dt
                     elif not self.tutorial_active:
                         self.host_update(real_dt)
-                    snap = self.build_snapshot()
-                    self.server.broadcast(snap)
+                    self.snapshot_timer += real_dt
+                    if self.snap is None or self.snapshot_timer >= 1.0 / 30.0 or self.state == "dead":
+                        self.snap = self.build_snapshot()
+                        self.server.broadcast(self.snap)
+                        self.snapshot_timer %= 1.0 / 30.0
                 else:
-                    self.send_input()
+                    self.input_send_timer += real_dt
+                    if self.input_send_timer >= 1.0 / 60.0:
+                        self.send_input()
+                        self.input_send_timer %= 1.0 / 60.0
+
+            scene = "dead" if self.state == "dead" else "play" if self.state == "play" else "menu"
+            if scene != self.audio_scene:
+                self.audio_scene = scene
+                self.audio.set_scene(scene)
+                if scene != "dead":
+                    self.audio.play("scene")
 
             self.render()
             pygame.display.flip()
