@@ -822,7 +822,6 @@ class Game:
                 if self.input_mode:
                     self._handle_input_event(e)
                     continue
-                if e.key == pygame.K_h:
                 if self.state == "loading":
                     continue
                 if self.tutorial_active and e.key in (pygame.K_RETURN, pygame.K_SPACE):
