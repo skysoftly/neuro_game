@@ -142,9 +142,12 @@ class ClientConn:
     def __init__(self, ip, connect_timeout=4.0):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.settimeout(connect_timeout)
-        self.sock.connect((ip, PORT))
-        # КРИТИЧЕСКИ ВАЖНО: после connect — блокирующий режим,
-        # иначе 0.5s таймауты вызывают ложный "разрыв".
+        try:
+            self.sock.connect((ip, PORT))
+        except OSError:
+            self.sock.close()
+            raise
+        # After connect use blocking mode; short timeouts can corrupt partial frames.
         self.sock.settimeout(None)
         self.inbox = []
         self.lock = threading.Lock()
