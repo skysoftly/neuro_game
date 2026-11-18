@@ -1,39 +1,41 @@
 # NEON VOID
 
-NEON VOID is a fast top-down co-op arena shooter for 1-4 players. Host a session, invite friends by IP, survive increasingly dangerous waves, defeat bosses and build your loadout between rounds.
+NEON VOID - кооперативный top-down arena shooter по локальной сети. Создавайте лобби, приглашайте друзей по IP, переживайте волны врагов, побеждайте боссов и собирайте сборку из улучшений.
 
-## Features
+## Что есть в игре
 
-- LAN multiplayer over TCP
-- Nine regular enemy archetypes with different movement and attack patterns
-- Five boss encounters with distinct attack patterns
-- Enemy health and pressure scale with wave number and party size
-- One upgrade choice after each wave
-- Boss rewards are generated separately for every living player
-- Player-local damage feedback and score notifications
-- Shared pause controlled by the host
-- Animated CRT-inspired presentation, custom UI, sound effects and original chiptune soundtrack
+- Сетевая игра по LAN через TCP
+- 9 обычных типов врагов с разным поведением и атаками
+- 5 боссов с отдельными паттернами атак
+- Здоровье и давление врагов растут с номером волны и количеством игроков
+- Одно улучшение после каждой волны
+- Отдельная награда за босса для каждого выжившего игрока
+- Эффекты получения урона и уведомления об очках показываются только нужному игроку
+- Общая пауза, которой управляет хост
+- Анимированный ретро-интерфейс, CRT-эффекты, звуковые эффекты и оригинальный динамичный чиптюн
 
-## Run from source
+## Запуск из исходников
 
-Requires Python 3.10+ and Windows, Linux or macOS with a working Pygame display/audio environment.
+Нужен Python 3.10+ и установленный Pygame.
 
 ```bash
 python -m pip install -r requirements.txt
 python main.py
 ```
 
-## Build a Windows EXE
+## Сборка Windows EXE
 
-The easiest way is to double-click `build.bat` from the project folder.
+Самый простой вариант - запустить `build.bat` из папки проекта.
 
-It installs the build dependencies, creates the application icon and packages a standalone executable with PyInstaller. The result is:
+Скрипт установит зависимости для сборки, сгенерирует иконку и соберет самостоятельный EXE через PyInstaller.
+
+Готовый файл появится здесь:
 
 ```
 dist/NEON VOID.exe
 ```
 
-You can also run the commands manually:
+Команды вручную:
 
 ```powershell
 python -m pip install -r requirements.txt
@@ -42,47 +44,47 @@ python make_icon.py
 python -m PyInstaller --noconfirm --clean --onefile --windowed --name "NEON VOID" --icon "icon.ico" --add-data "icon.ico;." main.py
 ```
 
-## Play with friends
+## Игра с друзьями
 
-1. All players should be on the same local network.
-2. One player selects **Create lobby**.
-3. The host shares the IP shown in the lobby.
-4. Other players select **Connect by IP** and enter the host IP.
-5. The host starts the game after everyone has joined.
+1. Все игроки должны быть подключены к одной локальной сети.
+2. Один игрок нажимает "Создать лобби".
+3. Хост отправляет друзьям IP, который показан в лобби.
+4. Остальные выбирают "Подключиться по IP" и вводят адрес хоста.
+5. Когда все подключились, хост запускает игру.
 
-The game uses TCP port **5555**. The host may need to allow the game through the operating system firewall. The port is fixed and does not need to be entered by players.
+Используется TCP-порт **5555**. Если Windows Firewall спросит разрешение для игры, разрешите входящие подключения в частной сети. Порт фиксированный - вводить его вручную не нужно.
 
-## Controls
+## Управление
 
-| Action | Control |
+| Действие | Клавиши |
 |---|---|
-| Move | WASD / Arrow keys |
-| Aim | Mouse |
-| Shoot | Left mouse button |
-| Dash | Space / Left Shift |
-| Shield | Right mouse button / E |
-| Pause / resume | P / Escape (host) |
-| Fullscreen | F11 |
-| Debug overlay | F3 |
+| Движение | WASD / стрелки |
+| Прицел | Мышь |
+| Стрельба | Левая кнопка мыши |
+| Рывок | Space / Left Shift |
+| Щит | Правая кнопка мыши / E |
+| Пауза и продолжение | P / Escape (только хост) |
+| Полный экран | F11 |
+| Отладочная панель | F3 |
 
-During the intermission, click one upgrade card. The next wave starts after all living players have chosen.
+Во время передышки между волнами выберите одну карточку улучшения. Следующая волна начнется после выбора всеми живыми игроками.
 
-## Project layout
+## Структура проекта
 
-- `main.py` - application entry point
-- `game.py` - game loop, simulation, rendering and lobby
-- `entities.py` - player, enemy, projectile and effect entities
-- `network.py` - TCP host/client transport
-- `config.py` - arena dimensions, colors and enemy stats
-- `upgrades.py` - upgrade definitions and stat recalculation
-- `draw_utils.py`, `visuals.py`, `fonts.py` - rendering helpers
-- `tests/` - automated gameplay and rendering tests
+- `main.py` - точка входа
+- `game.py` - игровой цикл, симуляция, рендер и лобби
+- `entities.py` - игроки, враги, пули и эффекты
+- `network.py` - TCP-хост и клиент
+- `config.py` - размеры арены, цвета и характеристики врагов
+- `upgrades.py` - улучшения и пересчет характеристик
+- `draw_utils.py`, `visuals.py`, `fonts.py` - инструменты отрисовки
+- `tests/` - автоматические тесты
 
-## Tests
+## Проверки
 
 ```bash
 python -m compileall -q .
 python -m unittest discover -s tests -v
 ```
 
-Multiplayer should still be tested manually with two separate computers. Automated tests do not replace a real LAN session test.
+Автоматические тесты не заменяют реальную проверку сетевой игры. Перед релизом обязательно запустите хост и клиента на двух разных компьютерах в одной сети.
