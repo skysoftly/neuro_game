@@ -1,5 +1,6 @@
 """Геометрия, свечение, сетка, фиш-ай, буфер обмена."""
 import math
+import random
 import sys
 import pygame
 
@@ -15,72 +16,77 @@ def dim(c, k):
 
 
 def make_overlay(W, H):
+    """Subtle CRT glass: vignette, fine scanlines and sparse dust."""
     small = pygame.Surface((64, 36), pygame.SRCALPHA)
     for x in range(64):
         for y in range(36):
             d = min(1.6, math.hypot((x - 31.5) / 32, (y - 17.5) / 18))
-            small.set_at((x, y), (0, 0, 0, int(min(255, 200 * (d / 1.3) ** 2.6))))
+            alpha = int(min(255, 150 * (d / 1.3) ** 2.4))
+            small.set_at((x, y), (0, 0, 0, alpha))
     ov = pygame.transform.smoothscale(small, (W, H)).convert_alpha()
     for y in range(0, H, 3):
-        ov.fill((0, 0, 0, 24), pygame.Rect(0, y, W, 1), pygame.BLEND_RGBA_ADD)
+        ov.fill((0, 0, 0, 18), pygame.Rect(0, y, W, 1))
+    for _ in range((W * H) // 18000):
+        x, y = random.randrange(W), random.randrange(H)
+        alpha = random.randrange(5, 15)
+        ov.set_at((x, y), (120, 150, 190, alpha))
+    for _ in range(8):
+        x, y = random.randrange(W), random.randrange(H)
+        pygame.draw.line(ov, (120, 150, 180, 12), (x, y), (x + 18, y + 1), 1)
     return ov
 
-
-def bloom(src, W, H, strength=0.16):
-    """Soft CRT bloom: bright pixels glow while silhouettes stay readable."""
+def bloom(src, W, H, strength=0.22):
+    """Bloom only bright pixels, leaving text and silhouettes mostly crisp."""
     if strength <= 0:
         return
-    small_size = (max(1, W // 6), max(1, H // 6))
-    glow = pygame.transform.smoothscale(src, small_size)
+    sw, sh = max(1, W // 6), max(1, H // 6)
+    glow = pygame.transform.smoothscale(src, (sw, sh))
+    for y in range(sh):
+        for x in range(sw):
+            r, g, b, *_ = glow.get_at((x, y))
+            peak = max(r, g, b)
+            if peak < 82:
+                glow.set_at((x, y), (0, 0, 0, 255))
+            else:
+                scale = min(1.0, (peak - 55) / 150.0)
+                glow.set_at((x, y), (int(r * scale), int(g * scale), int(b * scale), 255))
     glow = pygame.transform.smoothscale(glow, (W, H))
     glow.set_alpha(max(1, min(255, int(255 * strength))))
     src.blit(glow, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
 
-def fisheye(src, strength=0.35):
-    """Радиальное искажение через сетку 40x24 — быстрый псевдо-fisheye."""
-    if strength <= 0.01:
+def fisheye(src, strength=0.075):
+    """Very mild lens curvature, processed at half resolution."""
+    if strength <= 0.001:
         return src
     W, H = src.get_size()
-    out = pygame.Surface((W, H))
-    nx, ny = 40, 24
-    cxp, cyp = W / 2, H / 2
-    maxr = math.hypot(cxp, cyp)
-    # вершины UV-сетки в исходной поверхности
+    ww, wh = max(2, W // 2), max(2, H // 2)
+    work = pygame.transform.smoothscale(src, (ww, wh))
+    out = pygame.Surface((ww, wh))
+    nx, ny = 24, 14
+    cx, cy = ww / 2, wh / 2
+    maxr = math.hypot(cx, cy)
     uv = []
     for j in range(ny + 1):
         row = []
         for i in range(nx + 1):
-            sx = i / nx * W
-            sy = j / ny * H
-            dx, dy = sx - cxp, sy - cyp
+            px, py = i / nx * ww, j / ny * wh
+            dx, dy = px - cx, py - cy
             r = math.hypot(dx, dy) / maxr
-            k = 1 - strength * (r ** 2)
-            ux = max(0, min(W - 1, cxp + dx * k))
-            uy = max(0, min(H - 1, cyp + dy * k))
-            row.append((ux, uy))
+            k = 1 - strength * r * r
+            row.append((max(0, min(ww - 1, cx + dx * k)),
+                        max(0, min(wh - 1, cy + dy * k))))
         uv.append(row)
     for j in range(ny):
         for i in range(nx):
-            x0 = int(i / nx * W)
-            x1 = int((i + 1) / nx * W)
-            y0 = int(j / ny * H)
-            y1 = int((j + 1) / ny * H)
-            ux0 = int(uv[j][i][0])
-            uy0 = int(uv[j][i][1])
-            ux1 = int(uv[j][i + 1][0])
-            uy1 = int(uv[j + 1][i][1])
-            uw = max(2, ux1 - ux0)
-            uh = max(2, uy1 - uy0)
-            if uw <= 0 or uh <= 0 or x1 <= x0 or y1 <= y0:
-                continue
-            try:
-                piece = src.subsurface(pygame.Rect(ux0, uy0, uw, uh)).copy()
-                piece = pygame.transform.scale(piece, (x1 - x0, y1 - y0))
-                out.blit(piece, (x0, y0))
-            except Exception:
-                pass
-    return out
-
+            x0, x1 = int(i / nx * ww), int((i + 1) / nx * ww)
+            y0, y1 = int(j / ny * wh), int((j + 1) / ny * wh)
+            ux0, uy0 = map(int, uv[j][i])
+            ux1, uy1 = int(uv[j][i + 1][0]), int(uv[j + 1][i][1])
+            sw, sh = min(max(1, ux1 - ux0), ww - ux0), min(max(1, uy1 - uy0), wh - uy0)
+            if x1 > x0 and y1 > y0 and sw > 0 and sh > 0:
+                tile = work.subsurface((ux0, uy0, sw, sh))
+                out.blit(pygame.transform.scale(tile, (x1 - x0, y1 - y0)), (x0, y0))
+    return pygame.transform.smoothscale(out, (W, H))
 
 def read_clipboard():
     """Read Unicode text from the Windows clipboard, with a tkinter fallback."""
