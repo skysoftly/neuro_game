@@ -36,20 +36,11 @@ def make_overlay(W, H):
     return ov
 
 def bloom(src, W, H, strength=0.22):
-    """Bloom only bright pixels, leaving text and silhouettes mostly crisp."""
-    if strength <= 0:
+    """Low-cost soft bloom: two hardware-accelerated scale operations, no Python pixel loops."""
+    if strength <= 0.001:
         return
-    sw, sh = max(1, W // 6), max(1, H // 6)
+    sw, sh = max(1, W // 8), max(1, H // 8)
     glow = pygame.transform.smoothscale(src, (sw, sh))
-    for y in range(sh):
-        for x in range(sw):
-            r, g, b, *_ = glow.get_at((x, y))
-            peak = max(r, g, b)
-            if peak < 82:
-                glow.set_at((x, y), (0, 0, 0, 255))
-            else:
-                scale = min(1.0, (peak - 55) / 150.0)
-                glow.set_at((x, y), (int(r * scale), int(g * scale), int(b * scale), 255))
     glow = pygame.transform.smoothscale(glow, (W, H))
     glow.set_alpha(max(1, min(255, int(255 * strength))))
     src.blit(glow, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
