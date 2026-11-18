@@ -792,6 +792,12 @@ class Game:
         p.dash_cd = max(0.0, p.dash_cd - dt)
         p.inv = max(0.0, p.inv - dt)
         p.cool = max(0.0, p.cool - dt)
+        p.pulse_boost = max(0.0, p.pulse_boost - dt)
+        if p.regen > 0 and p.hp < p.max_hp:
+            p.regen_timer += dt
+            if p.regen_timer >= 1.0 / p.regen:
+                p.regen_timer = 0.0
+                p.hp = min(p.max_hp, p.hp + 1)
         p.rapid = max(0.0, p.rapid - dt)
         p.spread = max(0.0, p.spread - dt)
         p.combo_t -= dt
@@ -802,9 +808,11 @@ class Game:
             p.want_dash = False
             if p.dash_cd <= 0:
                 d = p.inp if p.inp.length_squared() > 0 else V(math.cos(p.ang), math.sin(p.ang))
-                p.v = d * 1150
-                p.dash_t = 0.18
-                p.inv = max(p.inv, 0.16)
+                # Dash always adds a strong burst, even when already moving fast.
+                current_speed = p.v.length()
+                p.v = d * max(1350.0, current_speed + 950.0)
+                p.dash_t = 0.22
+                p.inv = max(p.inv, 0.20)
                 p.dash_cd = p.dash_cd_max
                 self.audio.play("dash")
                 self.rings.append(Ring(p.p, 10, 90, 400, CYAN, 3))
@@ -837,7 +845,17 @@ class Game:
             for a in angs:
                 aa = p.ang + a + random.uniform(-0.025, 0.025)
                 d = V(math.cos(aa), math.sin(aa))
-                self.bullets.append(Bullet(p.p + d * 22, d * 1100, p.pid, p.dmg, p.pierce))
+                shot_damage = p.dmg * (2.0 if random.random() < p.crit else 1.0)
+                self.bullets.append(Bullet(p.p + d * 22, d * (1100 * p.bullet_speed), p.pid,
+                                           shot_damage * p.bullet_size, p.pierce))
+            for i in range(p.multishot):
+                spread = 0.12 * (i + 1)
+                for sign in (-1, 1):
+                    aa = p.ang + spread * sign
+                    d = V(math.cos(aa), math.sin(aa))
+                    shot_damage = p.dmg * (2.0 if random.random() < p.crit else 1.0)
+                    self.bullets.append(Bullet(p.p + d * 22, d * (1100 * p.bullet_speed),
+                                               p.pid, shot_damage * p.bullet_size, p.pierce))
             fwd = V(math.cos(p.ang), math.sin(p.ang))
             p.v -= fwd * 25
             self.burst(p.p + fwd * 24, CYAN, 3, 260, (0.08, 0.2), 2)
@@ -845,16 +863,25 @@ class Game:
 
     def do_pulse(self, p):
         p.charge = 0
-        self.shake = max(self.shake, 28)
-        self.flash = 0.6
+        self.shake = max(self.shake, 34)
+        self.flash = 0.85
+        p.inv = max(p.inv, 0.85)
+        p.pulse_boost = 3.5
+        p.rapid = max(p.rapid, 3.5)
         self.audio.play("pulse")
-        for i, (r, s, w) in enumerate(((420, 900, 6), (520, 700, 3), (300, 1100, 2))):
-            self.rings.append(Ring(p.p, 5, r + 120, s, MAGENTA if i != 2 else WHITE, w))
-        self.burst(p.p, MAGENTA, 60, 700, (0.4, 1.0), 3)
+        radius = 560 * (1.0 + 0.12 * (p.pulse_power - 1.0))
+        for i, (r, speed, width) in enumerate(((radius * 0.72, 1100, 7), (radius, 850, 4), (radius * 0.48, 1250, 3))):
+            self.rings.append(Ring(p.p, 5, r, speed, MAGENTA if i != 2 else WHITE, width))
+        self.burst(p.p, MAGENTA, 110, 820, (0.35, 1.15), 4)
         self.ebullets = []
         for e in list(self.enemies):
-            if not e.dead and (e.p - p.p).length_squared() < 440 ** 2:
-                self.damage(e, 6 * p.dmg, p)
+            delta = e.p - p.p
+            dist = delta.length()
+            if not e.dead and dist < radius:
+                self.damage(e, 12 * p.dmg * p.pulse_power, p)
+                if dist > 0:
+                    e.v += delta.normalize() * (900 * p.pulse_power * (1.0 - dist / radius * 0.35))
+                    e.stun = max(e.stun, 0.45 if e.kind != "boss" else 0.18)
 
     def update_waves(self, dt):
         if self.intermission:
@@ -909,25 +936,34 @@ class Game:
         self.wave += 1
         self.wave_delay = 2.0
         self.banner_t = 2.2
-        n = min(42, 6 + int(self.wave * 2.2))
+        n = min(64, 7 + int(self.wave * 2.7))
         q = []
         for _ in range(n):
             r = random.random()
-            if self.wave >= 3 and r < 0.12:
+            if self.wave >= 3 and r < 0.09:
                 q.append("tank")
-            elif self.wave >= 2 and r < 0.35:
+            elif self.wave >= 4 and r < 0.19:
+                q.append("splitter")
+            elif self.wave >= 3 and r < 0.29:
+                q.append("dasher")
+            elif self.wave >= 5 and r < 0.38:
+                q.append("mine")
+            elif self.wave >= 2 and r < 0.52:
                 q.append("shooter")
-            elif self.wave >= 2 and r < 0.5:
+            elif self.wave >= 2 and r < 0.66:
                 q.append("swarm")
             else:
                 q.append("chaser")
+        # Every fifth wave ends with a unique-feeling arena boss encounter.
+        if self.wave % 5 == 0:
+            q.append("boss")
         self.queue = q
         if self.wave % 4 == 0:
             self.pickups.append([V(WORLD_W / 2, WORLD_H / 2), "heal", 12.0])
 
     def spawn(self, kind):
         alive_players = [p for p in self.players.values() if p.alive]
-        if not alive_players:
+        if not alive_players or len(self.enemies) >= 90:
             return
         tgt = random.choice(alive_players)
         ang = random.uniform(0, math.tau)
@@ -943,16 +979,37 @@ class Game:
             return
         e.age += dt
         e.flash = max(0.0, e.flash - dt)
-        e.ang += dt * (2.5 if e.kind != "tank" else 1.0)
+        e.stun = max(0.0, e.stun - dt)
+        e.ang += dt * (1.2 if e.kind in ("tank", "boss") else 2.5)
         if e.age < 0.7:
+            return
+        if e.stun > 0:
+            e.v *= math.exp(-2.5 * dt)
+            e.p += e.v * dt
             return
         target = min(alive_players, key=lambda pl: (pl.p - e.p).length_squared())
         to = target.p - e.p
         dist = to.length() or 1.0
         d = to / dist
         k = e.kind
-        if k in ("chaser", "swarm"):
+        if k in ("chaser", "swarm", "splitter"):
             e.v = e.v.lerp(d * e.spd, min(1.0, 3 * dt))
+        elif k == "dasher":
+            e.cool -= dt
+            if e.cool <= 0:
+                e.cool = 2.0
+                e.v = d * (e.spd * 5.2)
+                self.rings.append(Ring(e.p, 8, 95, 500, e.col, 3))
+            else:
+                e.v = e.v.lerp(d * e.spd * 0.75, min(1.0, 2 * dt))
+        elif k == "mine":
+            e.v = e.v.lerp(d * (e.spd if dist > 230 else 0), min(1.0, 1.5 * dt))
+            e.cool -= dt
+            if e.cool <= 0 and dist < 560:
+                e.cool = 2.8
+                for i in range(8):
+                    a = i * math.tau / 8 + e.ang
+                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 270, 5.5])
         elif k == "shooter":
             if dist > 400:
                 tgt = d * e.spd
@@ -970,6 +1027,21 @@ class Game:
                     a = base + (i - (n - 1) / 2) * 0.25
                     self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * min(430, 300 + self.wave * 8), 6.0])
                 self.audio.play("shoot")
+        elif k == "boss":
+            e.v = e.v.lerp(d * e.spd, min(1.0, 1.4 * dt))
+            e.cool -= dt
+            if e.cool <= 0:
+                e.cool = max(1.25, 2.5 - self.wave * 0.025)
+                count = 18
+                for i in range(count):
+                    a = i * math.tau / count + e.ang
+                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 300, 7.0])
+                base = math.atan2(d.y, d.x)
+                for offset in (-0.42, -0.21, 0, 0.21, 0.42):
+                    a = base + offset
+                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 390, 6.0])
+                self.shake = max(self.shake, 9)
+                self.audio.play("boom")
         else:  # tank
             e.v = e.v.lerp(d * e.spd, min(1.0, 2 * dt))
             e.cool -= dt
@@ -985,19 +1057,32 @@ class Game:
         e.p.y = max(15, min(WORLD_H - 15, e.p.y))
 
     def separate(self):
-        es = [e for e in self.enemies if e.age >= 0.7 and not e.dead]
-        for i in range(len(es)):
-            a = es[i]
-            for j in range(i + 1, len(es)):
-                b = es[j]
-                d = a.p - b.p
-                rr = a.r + b.r
-                l2 = d.length_squared()
-                if 0 < l2 < rr * rr:
-                    l = math.sqrt(l2)
-                    push = d / l * (rr - l) * 0.5
-                    a.p += push
-                    b.p -= push
+        # Spatial hash avoids the old all-pairs O(n^2) pass when waves get dense.
+        cell = 72
+        buckets = {}
+        for e in self.enemies:
+            if e.age < 0.7 or e.dead:
+                continue
+            key = (int(e.p.x // cell), int(e.p.y // cell))
+            buckets.setdefault(key, []).append(e)
+        for (gx, gy), group in buckets.items():
+            nearby = group[:]
+            for ox, oy in ((1,0), (0,1), (1,1), (-1,1)):
+                nearby.extend(buckets.get((gx + ox, gy + oy), ()))
+            for i, a in enumerate(group):
+                for b in nearby:
+                    if a is b:
+                        continue
+                    if b in group and group.index(b) <= i:
+                        continue
+                    d = a.p - b.p
+                    rr = a.r + b.r
+                    l2 = d.length_squared()
+                    if 0 < l2 < rr * rr:
+                        l = math.sqrt(l2)
+                        push = d / l * (rr - l) * 0.5
+                        a.p += push
+                        b.p -= push
 
     def update_bullets(self, dt):
         for b in self.bullets:
@@ -1073,21 +1158,26 @@ class Game:
                     src.lifesteal_progress -= 18
                     src.hp = min(src.max_hp, src.hp + 1)
                     self.pops.append([V(src.p), "+1 HP", 0.9, GREEN])
-            src.charge = min(100.0, src.charge + (12 if e.kind == "tank" else 4) * src.pulse_gain)
+            src.charge = min(100.0, src.charge + (22 if e.kind == "boss" else 12 if e.kind == "tank" else 5) * src.pulse_gain)
             self.pops.append([V(e.p), "+%d" % pts, 0.8, e.col])
             # Уровень растёт сразу, но выбор переносится на перерыв между волнами.
-            src.xp += d["xp"]
+            src.xp += int(d["xp"] * src.xp_gain)
             while src.xp >= src.xp_to_next():
                 src.xp -= src.xp_to_next()
                 src.level += 1
                 src.pending_upgrades += 1
                 self.audio.play("levelup")
         self.audio.play("boom")
-        if e.kind == "tank":
-            for _ in range(4):
+        if e.kind in ("tank", "splitter"):
+            for _ in range(4 if e.kind == "tank" else 3):
                 c = Enemy("swarm", e.p + V(random.uniform(-30, 30), random.uniform(-30, 30)), self.wave)
                 c.age = 0.45
                 self.enemies.append(c)
+        if e.kind == "boss":
+            self.burst(e.p, MAGENTA, 180, 980, (0.5, 1.5), 5)
+            self.rings.append(Ring(e.p, 10, 900, 700, YELLOW, 9))
+            for _ in range(3):
+                self.pickups.append([V(e.p), random.choice(("heal", "rapid", "spread")), 14.0])
         chance = {"shooter": 0.2, "tank": 0.6}.get(e.kind, 0.05)
         if random.random() < chance:
             kinds = ["rapid", "spread"]
@@ -1100,6 +1190,11 @@ class Game:
 
     def hurt(self, p):
         if not p.alive:
+            return
+        p.armor_hits += 1
+        if p.armor > 0 and p.armor_hits % 4 == 0:
+            self.pops.append([V(p.p), "БРОНЯ", 0.8, CYAN])
+            self.rings.append(Ring(p.p, 8, 100, 520, CYAN, 3))
             return
         p.hp -= 1
         p.inv = 0.58
@@ -1168,7 +1263,7 @@ class Game:
                 if (e.p - p.p).length_squared() < rr * rr:
                     if p.dash_t > 0:
                         if e.flash <= 0:
-                            self.damage(e, 4 * p.dmg, p)
+                            self.damage(e, 6 * p.dmg * p.dash_damage, p)
                     elif p.inv <= 0:
                         self.hurt(p)
                         if e.kind in ("chaser", "swarm"):
@@ -1181,7 +1276,7 @@ class Game:
         self.enemies = [e for e in self.enemies if not e.dead]
 
     def burst(self, pos, col, n=20, speed=300, life=(0.3, 0.8), size=3.0):
-        if len(self.parts) > 1800:
+        if len(self.parts) > 950:
             return
         for _ in range(n):
             a = random.uniform(0, math.tau)
@@ -1203,6 +1298,8 @@ class Game:
             "intermission": self.intermission,
             "banner": round(self.banner_t, 2),
             "shake": round(self.shake, 1),
+            "enemies_left": len(self.queue) + sum(1 for e in self.enemies if not e.dead),
+            "boss_in": (5 - (self.wave % 5)) if self.wave % 5 else 5,
         }
         for p in self.players.values():
             snap["players"].append({
@@ -1218,6 +1315,8 @@ class Game:
                 "upgrade_choices": list(p.upgrade_choices),
                 "upgrade_ready": p.upgrade_ready,
                 "pending_upgrades": p.pending_upgrades,
+                "buffs": {"rapid": round(p.rapid,1), "spread": round(p.spread,1),
+                          "pulse_boost": round(p.pulse_boost,1)},
             })
         for b in self.bullets:
             snap["bullets"].append([round(b.p.x, 1), round(b.p.y, 1),
@@ -1310,12 +1409,14 @@ class Game:
         fill = dim(base_col, 0.12)
         kind = e["k"]
         draw_glow(sc, (sx, sy), base_col, int(r * 2.2 + 12), 22)
-        if kind == "chaser":
+        if kind in ("chaser", "dasher"):
             pts = shape(DIAMOND, e["ang"], (sx, sy), r)
-        elif kind == "swarm":
+        elif kind in ("swarm", "splitter"):
             pts = shape(TRI, e["ang"], (sx, sy), r)
-        elif kind == "shooter":
+        elif kind in ("shooter", "mine"):
             pts = shape(HEX, e["ang"] * 0.4, (sx, sy), r)
+        elif kind == "boss":
+            pts = shape(HEX, e["ang"] * 0.3, (sx, sy), r * 1.35)
         else:
             pts = shape(SQ, e["ang"], (sx, sy), r)
         pygame.draw.polygon(sc, fill, pts)
@@ -1329,6 +1430,9 @@ class Game:
             hp_color = GREEN if hp_ratio > 0.55 else ORANGE if hp_ratio > 0.25 else RED
             pygame.draw.rect(sc, hp_color, (bar.x, bar.y, int(bar.w * hp_ratio), bar.h))
             pygame.draw.rect(sc, (8, 10, 14), bar, 1)
+        if kind == "boss":
+            pygame.draw.circle(sc, dim(col, 0.25), (int(sx), int(sy)), int(r * 0.72), 5)
+            pygame.draw.circle(sc, WHITE, (int(sx), int(sy)), max(5, int(r * 0.24)), 2)
         if kind == "shooter":
             pygame.draw.circle(sc, col, (int(sx), int(sy)), max(2, int(r * 0.3)))
             if k >= 1 and e["cool"] < 0.35:
@@ -1427,11 +1531,13 @@ class Game:
             "WASD — движение   мышь — прицел   ЛКМ — огонь",
             "SPACE — рывок   ПКМ — импульс   улучшения выбираются мышью   H — скрыть",
         ]
-        box = pygame.Surface((820, 76), pygame.SRCALPHA)
-        box.fill((0, 0, 0, int(150 * alpha / 255)))
-        sc.blit(box, (W / 2 - 410, H - 94))
+        box = pygame.Surface((min(760, W - 32), 64), pygame.SRCALPHA)
+        box.fill((0, 0, 0, int(145 * alpha / 255)))
+        x = (W - box.get_width()) // 2
+        y = H - 78
+        sc.blit(box, (x, y))
         for i, line in enumerate(hint):
-            text(sc, line, self.f_hint, (220, 240, 255), (W / 2, H - 72 + i * 26), outline=2)
+            text(sc, line, self.f_small, (220, 240, 255), (W / 2, y + 18 + i * 25), outline=1)
 
     def draw_hud(self, sc, snap):
         me = None
@@ -1460,8 +1566,14 @@ class Game:
             y += 62
 
         # правый верх: волна
-        text(sc, "ВОЛНА %d" % snap.get("wave", 1), self.f_mid, PURPLE,
-             (W - 30, 40), "midright", outline=2)
+        wave = snap.get("wave", 1)
+        text(sc, "ВОЛНА %d" % wave, self.f_mid, PURPLE, (W - 30, 34), "midright", outline=2)
+        remaining = snap.get("enemies_left", 0)
+        text(sc, "УГРОЗ: %d" % remaining, self.f_small, WHITE, (W - 30, 62), "midright", outline=1)
+        boss_in = snap.get("boss_in", 5)
+        text(sc, ("БОСС НА АРЕНЕ" if any(e.get("k") == "boss" for e in snap.get("enemies", []))
+                  else "БОСС ЧЕРЕЗ %d ВОЛН" % boss_in),
+             self.f_small, MAGENTA, (W - 30, 84), "midright", outline=1)
 
         # XP / level локального игрока
         if me:
@@ -1480,19 +1592,23 @@ class Game:
                 pygame.draw.rect(sc, col, (x, y, int(w * frac), 12))
                 pygame.draw.rect(sc, (60, 60, 100), (x, y, w, 12), 1)
                 text(sc, label, self.f_small, col, (x + w + 12, y + 6), "midleft", outline=2)
-            bar(24, H - 60, 170, 1 - me["dash_cd"] / 0.9, CYAN, "РЫВОК")
+            bar(24, H - 54, 154, 1 - me["dash_cd"] / 0.9, CYAN, "РЫВОК")
             full = me["charge"] >= 100
             pc = WHITE if full and int(self.t * 6) % 2 == 0 else MAGENTA
-            bar(24, H - 36, 170, me["charge"] / 100, pc, "ИМПУЛЬС [E]" if full else "ИМПУЛЬС")
+            bar(24, H - 30, 154, me["charge"] / 100, pc, "ИМПУЛЬС [E]" if full else "ИМПУЛЬС")
 
-            # быстрые усиления
-            x0 = W / 2 - 150
-            for i, (name, val) in enumerate((("rapid", me["rapid"]), ("spread", me["spread"]))):
-                if val > 0:
-                    col = PICK_COL[name]
-                    label = "БЫСТР" if name == "rapid" else "ТРОЙН"
-                    text(sc, label, self.f_small, col, (x0 + i * 130, H - 44), outline=2)
-                    pygame.draw.rect(sc, col, (x0 - 30 + i * 130, H - 28, int(60 * val / 10), 3))
+            # Временные баффы — отдельная компактная панель справа снизу, не под обучением.
+            buffs = me.get("buffs", {})
+            active = [(name, buffs.get(name, 0)) for name in ("rapid", "spread", "pulse_boost") if buffs.get(name, 0) > 0]
+            if active:
+                panel = pygame.Rect(W - 230, H - 48 - len(active) * 24, 206, len(active) * 24 + 18)
+                pygame.draw.rect(sc, (8, 13, 20), panel)
+                pygame.draw.rect(sc, (80, 100, 112), panel, 1)
+                for i, (name, value) in enumerate(active):
+                    label = {"rapid":"СКОРОСТРЕЛЬНОСТЬ","spread":"ТРОЙНОЙ ОГОНЬ","pulse_boost":"ИМПУЛЬСНЫЙ БУСТ"}[name]
+                    col = PICK_COL.get(name, MAGENTA)
+                    text(sc, "%s  %.1fс" % (label, value), self.f_small, col,
+                         (panel.x + 10, panel.y + 10 + i * 24), "midleft", outline=1)
 
             if me["chain"] >= 5:
                 text(sc, "x%d" % min(10, 1 + me["chain"] // 5), self.f_mid, YELLOW,
@@ -1552,8 +1668,9 @@ class Game:
             text(sc, "ВЫБЕРИ ОДНО УЛУЧШЕНИЕ", self.f_mid, WHITE, (W / 2, 148), outline=1)
             text(sc, "Следующая волна начнётся, когда выберут все игроки", self.f_small, (184, 195, 194), (W / 2, 184), outline=1)
         else:
-            text(sc, "ВЫБОР ПРИНЯТ — ОЖИДАНИЕ ОСТАЛЬНЫХ", self.f_mid, CYAN, (W / 2, 150), outline=1)
-            text(sc, "Готово: %d / %d" % (ready_count, alive_count), self.f_small, WHITE, (W / 2, 188), outline=1)
+            text(sc, "ВЫБОР ПРИНЯТ", self.f_mid, CYAN, (W / 2, 150), outline=1)
+            text(sc, "ЖДИТЕ, ПОКА ВСЕ ВЫБЕРУТ СПОСОБНОСТИ  •  %d / %d" % (ready_count, alive_count),
+                 self.f_small, WHITE, (W / 2, 188), outline=1)
         card_w, card_h, gap = 320, 220, 30
         total = len(self.local_choices) * card_w + max(0, len(self.local_choices) - 1) * gap
         x0 = (W - total) / 2
