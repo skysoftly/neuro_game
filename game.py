@@ -276,6 +276,7 @@ class Game:
         self.input_send_timer = 0.0
         self.target_fps = 120
         self.audio_scene = "menu"
+        self.last_ui_state = "loading"
         self.screen_shake_enabled = True
         self.shake = 0.0
         self.spectator_speed = 620.0
@@ -1950,7 +1951,7 @@ class Game:
                         pygame.draw.circle(sc, dim(r.col, k), (int(sx), int(sy)),
                                            int(r.r), max(1, int(r.w * k)))
 
-        # всплывающие надписи +XP
+        # всплывающие очки и локальные уведомления
         for pop in snap.get("pops", []):
             px, py, label, life, col = pop[:5]
             owner_pid = pop[5] if len(pop) > 5 else -1
@@ -2558,7 +2559,9 @@ class Game:
             if scene != self.audio_scene:
                 self.audio_scene = scene
                 self.audio.set_scene(scene)
-                if scene != "dead":
+            if self.state != self.last_ui_state:
+                self.last_ui_state = self.state
+                if self.state != "dead":
                     self.audio.play("scene")
 
             self.render()
