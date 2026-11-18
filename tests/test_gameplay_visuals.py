@@ -32,13 +32,26 @@ class UpgradeTests(unittest.TestCase):
 
     def test_damage_upgrade_changes_damage(self):
         apply_upgrade(self.player, "dmg")
-        self.assertAlmostEqual(self.player.dmg, 1.08)
+        self.assertAlmostEqual(self.player.dmg, 1.12)
 
     def test_damage_upgrade_has_a_hard_cap(self):
         for _ in range(8):
             apply_upgrade(self.player, "dmg")
-        self.assertEqual(self.player.upgrades["dmg"], 3)
-        self.assertAlmostEqual(self.player.dmg, 1.24)
+        self.assertEqual(self.player.upgrades["dmg"], 5)
+        self.assertAlmostEqual(self.player.dmg, 1.6)
+
+    def test_upgrade_pool_has_many_distinct_build_options(self):
+        self.assertGreaterEqual(len(UPGRADES), 18)
+        self.assertIn("pulse_power", {u["id"] for u in UPGRADES})
+        self.assertIn("multishot", {u["id"] for u in UPGRADES})
+
+    def test_new_combat_upgrades_change_stats(self):
+        apply_upgrade(self.player, "pulse_power")
+        apply_upgrade(self.player, "crit")
+        apply_upgrade(self.player, "multishot")
+        self.assertGreater(self.player.pulse_power, 1.0)
+        self.assertGreater(self.player.crit, 0.0)
+        self.assertEqual(self.player.multishot, 1)
 
     def test_roll_excludes_upgrades_at_their_cap(self):
         self.player.upgrades["dmg"] = 3
@@ -54,8 +67,8 @@ class UpgradeTests(unittest.TestCase):
     def test_pierce_is_limited_to_one_extra_enemy(self):
         for _ in range(3):
             apply_upgrade(self.player, "pierce")
-        self.assertEqual(self.player.pierce, 1)
-        self.assertEqual(self.player.upgrades["pierce"], 1)
+        self.assertEqual(self.player.pierce, 3)
+        self.assertEqual(self.player.upgrades["pierce"], 3)
 
 
 class RetroRenderTests(unittest.TestCase):
