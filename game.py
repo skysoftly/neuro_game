@@ -196,6 +196,7 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
         self.wave_delay = 1.5
         self.rng = random.Random()
         self.last_boss_kind = None
+        self.difficulty = "normal"
 
         # у клиента: локальные данные из снапшота
         self.snap = None
