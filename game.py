@@ -588,6 +588,11 @@ class Game:
     def on_host_msg(self, cid, m):
         t = m.get("t")
         if t == "hello":
+            # Подключение разрешено только пока хост находится в лобби.
+            if self.state != "lobby":
+                self.server.send(cid, {"t": "started"})
+                self.server._drop_client(cid)
+                return
             if len(self.lobby_players) >= 12:
                 self.server.send(cid, {"t": "full"})
                 self.server._drop_client(cid)
@@ -714,6 +719,14 @@ class Game:
                 self.client.stop()
                 self.client = None
             self.set_error("Лобби заполнено. Максимум игроков: 12.")
+        elif t == "started":
+            if self.client:
+                self.client.stop()
+                self.client = None
+            self.is_host = False
+            self.lobby_players = []
+            self.lobby_ready = set()
+            self.set_error("ИГРА УЖЕ ЗАПУЩЕНА\\nПодключиться можно будет после завершения текущей игры.")
         elif t == "start":
             self.snap = None
             self.camera_target_previous = None
