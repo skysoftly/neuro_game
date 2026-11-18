@@ -188,6 +188,7 @@ class Game:
         self.error_msg = ""
         self.paused = False
         self.shake = 0.0
+        self.spectator_speed = 620.0
         self.flash = 0.0
         self.banner_t = 0.0
         self.wave = 0
@@ -242,21 +243,33 @@ class Game:
         return (pos[0] * W / max(1, sw), pos[1] * H / max(1, sh))
 
     def draw_button(self, surface, rect, label, color=CYAN, enabled=True):
+        # Старая панельная кнопка: тёмная эмаль, двойная рамка и светлая грань.
         mouse = self.logical_mouse()
         hovered = enabled and rect.collidepoint(mouse)
-        fill = (12, 24, 42) if not hovered else (20, 43, 66)
-        border = color if enabled else (65, 75, 95)
-        pygame.draw.rect(surface, (2, 7, 18), rect.inflate(6, 6))
-        pygame.draw.rect(surface, fill, rect)
-        pygame.draw.rect(surface, border, rect, 2)
-        pygame.draw.line(surface, dim(border, 0.5), (rect.x + 10, rect.y + 5),
-                         (rect.right - 10, rect.y + 5), 1)
+        fill = (25, 37, 52) if not hovered else (39, 57, 72)
+        edge = color if enabled else (75, 82, 94)
+        shadow = pygame.Rect(rect.x + 4, rect.y + 5, rect.w, rect.h)
+        pygame.draw.rect(surface, (3, 7, 15), shadow)
+        pygame.draw.rect(surface, (9, 15, 26), rect)
+        inner = rect.inflate(-4, -4)
+        pygame.draw.rect(surface, fill, inner)
+        light = dim(edge, 0.82 if hovered else 0.52)
+        dark = dim(edge, 0.28)
+        pygame.draw.line(surface, light, (rect.left + 2, rect.top + 2),
+                         (rect.right - 3, rect.top + 2), 2)
+        pygame.draw.line(surface, light, (rect.left + 2, rect.top + 2),
+                         (rect.left + 2, rect.bottom - 3), 2)
+        pygame.draw.line(surface, dark, (rect.left + 2, rect.bottom - 2),
+                         (rect.right - 2, rect.bottom - 2), 2)
+        pygame.draw.line(surface, dark, (rect.right - 2, rect.top + 2),
+                         (rect.right - 2, rect.bottom - 2), 2)
+        pygame.draw.rect(surface, edge, rect, 1)
         if hovered:
-            pygame.draw.rect(surface, color, (rect.x + 5, rect.y + 5, 3, rect.height - 10))
+            pygame.draw.rect(surface, dim(edge, 0.35), inner, 1)
+        label_color = WHITE if enabled else (112, 120, 132)
         text(surface, label, self.f_mid if rect.height >= 50 else self.f_small,
-             WHITE if enabled else (100, 110, 130), rect.center, outline=1)
+             label_color, (rect.centerx, rect.centery - (1 if hovered else 0)), outline=1)
         return hovered
-
     # ================= сеть =================
     def start_host(self):
         log.info("Запуск лобби хоста")
@@ -315,6 +328,10 @@ class Game:
         self.snap = None
         self.paused = False
         self.hitstop = 0.0
+        self.shake = 0.0
+        self.flash = 0.0
+        self.camera.x = max(0, (WORLD_W - W) / 2)
+        self.camera.y = max(0, (WORLD_H - H) / 2)
         self.state = "menu"
         pygame.mouse.set_visible(True)
 
@@ -486,9 +503,32 @@ class Game:
             my = my * H / sh
         return self.camera.to_world(mx, my)
 
+    def is_spectating(self):
+        if self.is_host:
+            p = self.players.get(self.my_id)
+            return p is not None and not p.alive
+        if self.snap:
+            return any(pl.get("pid") == self.my_id and not pl.get("alive", True)
+                       for pl in self.snap.get("players", []))
+        return False
+
+    def update_spectator_camera(self, dt):
+        if self.state not in ("play", "dead") or not self.is_spectating():
+            return
+        keys = pygame.key.get_pressed()
+        x = int(keys[pygame.K_d] or keys[pygame.K_RIGHT]) - int(keys[pygame.K_a] or keys[pygame.K_LEFT])
+        y = int(keys[pygame.K_s] or keys[pygame.K_DOWN]) - int(keys[pygame.K_w] or keys[pygame.K_UP])
+        direction = V(x, y)
+        if direction.length_squared() > 0:
+            direction.normalize_ip()
+            self.camera.x += direction.x * self.spectator_speed * dt
+            self.camera.y += direction.y * self.spectator_speed * dt
+            self.camera.x = max(0, min(WORLD_W - W, self.camera.x))
+            self.camera.y = max(0, min(WORLD_H - H, self.camera.y))
+
     def gather_local_input(self):
         p = self.players.get(self.my_id)
-        if p is None:
+        if p is None or not p.alive:
             return
         k = pygame.key.get_pressed()
         x = int(k[pygame.K_d] or k[pygame.K_RIGHT]) - int(k[pygame.K_a] or k[pygame.K_LEFT])
@@ -1378,6 +1418,13 @@ class Game:
                 pygame.draw.line(sc, WHITE, (mx + dx * 16, my + dy * 16),
                                  (mx + dx * 22, my + dy * 22), 2)
 
+        if self.is_spectating() and self.state == "play":
+            panel = pygame.Rect(W / 2 - 190, 142, 380, 38)
+            pygame.draw.rect(sc, (8, 15, 26), panel)
+            pygame.draw.rect(sc, (90, 145, 165), panel, 1)
+            text(sc, "РЕЖИМ НАБЛЮДАТЕЛЯ  •  WASD — КАМЕРА",
+                 self.f_small, (185, 215, 225), panel.center, outline=1)
+
         self.draw_hint(sc)
 
     def draw_upgrade_overlay(self, sc):
@@ -1558,9 +1605,11 @@ class Game:
     def render(self):
         sc = self.scene
 
-        # обновляем камеру
-        tx, ty = self._player_screen_pos()
-        self.camera.follow(tx, ty, self.clock.get_time() / 1000.0)
+        # Живой игрок ведёт камеру за собой. В режиме наблюдателя камера
+        # свободная и перемещается WASD/стрелками.
+        if not self.is_spectating():
+            tx, ty = self._player_screen_pos()
+            self.camera.follow(tx, ty, self.clock.get_time() / 1000.0)
 
         snap = None
         if self.state in ("play", "dead"):
@@ -1594,8 +1643,9 @@ class Game:
         bloom(post, W, H, 0.16)
 
         # Screen shake is applied to the game image, not to the interface.
-        ox = random.uniform(-self.shake, self.shake) if self.shake > 0.5 else 0
-        oy = random.uniform(-self.shake, self.shake) if self.shake > 0.5 else 0
+        shake_amount = self.shake if self.state == "play" and snap is not None else 0.0
+        ox = random.uniform(-shake_amount, shake_amount) if shake_amount > 0.5 else 0
+        oy = random.uniform(-shake_amount, shake_amount) if shake_amount > 0.5 else 0
         self.screen.fill((0, 0, 0))
         self.screen.blit(post, (ox, oy))
         self.screen.blit(self.overlay, (0, 0))
@@ -1653,6 +1703,8 @@ class Game:
             for s in self.stars:
                 s[0] = (s[0] - 12 * s[2] * real_dt) % W
                 s[1] = (s[1] - 6 * s[2] * real_dt) % H
+
+            self.update_spectator_camera(real_dt)
 
             if self.state == "play" and not self.paused:
                 if self.is_host:
