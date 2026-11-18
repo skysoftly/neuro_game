@@ -9,6 +9,7 @@ WORLD_W, WORLD_H = 3000, 2000
 # Сетевой порт и единый лимит игроков (включая хоста).
 PORT = 5555
 MAX_PLAYERS = 12
+SIDE_SHOT_DAMAGE_RATIO = 0.33
 
 
 def enemy_scaling(wave, player_count=1, boss=False):
