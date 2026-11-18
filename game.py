@@ -233,7 +233,7 @@ class Game:
                          (rect.right - 10, rect.y + 5), 1)
         if hovered:
             pygame.draw.rect(surface, color, (rect.x + 5, rect.y + 5, 3, rect.height - 10))
-        text(surface, label, self.f_mid if rect.height >= 44 else self.f_small,
+        text(surface, label, self.f_mid if rect.height >= 50 else self.f_small,
              WHITE if enabled else (100, 110, 130), rect.center, outline=1)
         return hovered
 
@@ -255,13 +255,13 @@ class Game:
         self.connect_error = ""
         ip = ip.strip()
         if not ip:
-            self.connect_error = "Пустой IP"
+            self.set_error("Не указан IP-адрес хоста.")
             return
         try:
             self.client = ClientConn(ip)
         except Exception as e:
             log.exception("Не удалось подключиться к %s:%d", ip, PORT)
-            self.connect_error = "Ошибка: %s" % e
+            self.set_error("Не удалось подключиться к %s:%d\\n%s" % (ip, PORT, e))
             return
         self.is_host = False
         self.last_ip = ip
@@ -545,12 +545,14 @@ class Game:
                         mode = self.input_mode
                         self.input_mode = None
                         self.persist()
-                        if mode == "ip" and self.ip_input.strip():
+                        if mode == "ip":
                             self.join_server(self.ip_input)
                     elif pygame.Rect(W / 2 - 135, H / 2 + 136, 270, 40).collidepoint(mx, my):
                         self.input_mode = None
                 elif self.state == "menu" and e.button == 1:
                     cx, cy = W / 2, H / 2 - 140
+                    if pygame.Rect(cx - 100, H - 58, 200, 38).collidepoint(mx, my):
+                        self.quit()
                     y = cy + 160
                     if pygame.Rect(cx - 210, y - 20, 420, 52).collidepoint(mx, my):
                         self.start_host()
@@ -1425,7 +1427,7 @@ class Game:
                          YELLOW, enabled=bool(self.last_ip))
         self.draw_button(sc, pygame.Rect(cx - 210, y + 158, 420, 44),
                          "ИМЯ ИГРОКА: " + self.name_input, PURPLE)
-        text(sc, "Esc — выход", self.f_small, (130, 140, 190), (cx, H - 28), outline=2)
+        self.draw_button(sc, pygame.Rect(cx - 100, H - 58, 200, 38), "ВЫХОД", RED)
 
     def draw_lobby(self, sc):
         cx = W / 2
@@ -1524,8 +1526,10 @@ class Game:
                          "ПОДТВЕРДИТЬ", CYAN)
         self.draw_button(sc, pygame.Rect(W / 2 - 135, H / 2 + 136, 270, 40),
                          "ОТМЕНА", RED)
+        if self.connect_error:
+            text(sc, self.connect_error, self.f_small, RED, (W / 2, H / 2 + 190), outline=2)
         text(sc, "Можно также нажать Ctrl+V и Enter", self.f_small,
-             (170, 190, 220), (W / 2, H / 2 + 202), outline=2)
+             (170, 190, 220), (W / 2, H / 2 + 220), outline=2)
 
     # ================= главный render =================
     def render(self):
