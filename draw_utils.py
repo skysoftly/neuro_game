@@ -22,10 +22,10 @@ def make_overlay(W, H):
         for y in range(36):
             d = min(1.6, math.hypot((x - 31.5) / 32, (y - 17.5) / 18))
             alpha = int(min(255, 150 * (d / 1.3) ** 2.4))
-            small.set_at((x, y), (0, 0, 0, alpha))
+            small.set_at((x, y), (12, 10, 8, alpha))
     ov = pygame.transform.smoothscale(small, (W, H)).convert_alpha()
     for y in range(0, H, 3):
-        ov.fill((0, 0, 0, 18), pygame.Rect(0, y, W, 1))
+        ov.fill((8, 7, 6, 25), pygame.Rect(0, y, W, 1))
     for _ in range((W * H) // 18000):
         x, y = random.randrange(W), random.randrange(H)
         alpha = random.randrange(5, 15)
