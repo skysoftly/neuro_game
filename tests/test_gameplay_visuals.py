@@ -51,6 +51,14 @@ class UpgradeTests(unittest.TestCase):
         self.assertIn("pulse_power", {u["id"] for u in UPGRADES})
         self.assertIn("multishot", {u["id"] for u in UPGRADES})
 
+    def test_shield_is_available_and_starts_empty(self):
+        self.assertEqual(self.player.shield_t, 0.0)
+        self.assertEqual(self.player.shield_hits, 0)
+
+    def test_hunting_contract_increases_score_multiplier(self):
+        apply_upgrade(self.player, "xp_gain")
+        self.assertAlmostEqual(self.player.score_gain, 1.2)
+
     def test_new_combat_upgrades_change_stats(self):
         apply_upgrade(self.player, "pulse_power")
         apply_upgrade(self.player, "crit")
