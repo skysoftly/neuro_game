@@ -416,7 +416,7 @@ class Game:
             self._last_hovered_button = hover_key
         elif not hovered and self._last_hovered_button == hover_key:
             self._last_hovered_button = None
-        pulse = 1.0 + (0.018 * (0.5 + 0.5 * math.sin(self.t * 9.0)) if hovered else 0.0)
+        pulse = 1.0 + (0.04 * (0.5 + 0.5 * math.sin(self.t * 9.0)) if hovered else 0.0)
         r = pygame.Rect(0, 0, int(rect.w * pulse), int(rect.h * pulse))
         r.center = rect.center
         fill = (29, 43, 57) if hovered else (17, 27, 39)
@@ -2134,7 +2134,7 @@ class Game:
             rect = pygame.Rect(x, y, card_w, card_h)
             col = u["color"]
             hovered = rect.collidepoint(self.logical_mouse())
-            pulse = 1.0 + (0.012 * (0.5 + 0.5 * math.sin(self.t * 7 + i)) if hovered else 0.0)
+            pulse = 1.0 + (0.025 * (0.5 + 0.5 * math.sin(self.t * 7 + i)) if hovered else 0.0)
             card = pygame.Rect(0, 0, int(card_w * pulse), int(card_h * pulse))
             card.center = rect.center
             draw_glow(sc, (card.centerx, card.y + 30), col, 110, 12 if hovered else 7)
