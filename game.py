@@ -254,6 +254,9 @@ class Game:
         self.parts, self.rings, self.pickups, self.pops = [], [], [], []
         self.queue = []
         self.local_choices = []
+        self.snap = None
+        self.paused = False
+        self.hitstop = 0.0
         self.state = "menu"
         pygame.mouse.set_visible(True)
 
@@ -266,6 +269,9 @@ class Game:
         self.bullets, self.ebullets, self.enemies = [], [], []
         self.parts, self.rings, self.pickups, self.pops = [], [], [], []
         self.queue = []
+        self.local_choices = []
+        self.snap = None
+        self.paused = False
         self.wave = 0
         self.wave_delay = 1.5
         self.spawn_t = 0.0
@@ -328,6 +334,7 @@ class Game:
         self.local_choices = []
         self.lobby_players = []
         self.players = {}
+        self.paused = False
         self.is_host = False
         self.my_id = 0
         self.set_error("Связь с хостом потеряна.\nХост закрыл игру или соединение оборвалось.")
@@ -340,6 +347,8 @@ class Game:
         elif t == "lobby":
             self.lobby_players = [(int(a), b) for a, b in m.get("players", [])]
         elif t == "start":
+            self.snap = None
+            self.local_choices = []
             self.state = "play"
             self.paused = False
             self.help_t = 10.0
@@ -355,6 +364,7 @@ class Game:
             else:
                 self.local_choices = []
         elif t == "dead":
+            self.local_choices = []
             self.state = "dead"
             pygame.mouse.set_visible(True)
         elif t == "disconnect":
@@ -396,11 +406,14 @@ class Game:
         })
 
     def pick_upgrade(self, upgrade_id):
+        if upgrade_id not in self.local_choices:
+            return
         if self.is_host:
             p = self.players.get(self.my_id)
             if p and upgrade_id in p.upgrade_choices:
                 apply_upgrade(p, upgrade_id)
                 p.upgrade_choices = []
+                self.local_choices = []
                 self.audio.play("levelup")
         elif self.client:
             self.client.send({"t": "upgrade", "id": upgrade_id})
@@ -766,7 +779,9 @@ class Game:
         for b in self.ebullets:
             b[0] += b[1] * dt
             b[2] -= dt
-        self.ebullets = [b for b in self.ebullets if -40 < b[0].x < WORLD_W + 40 and -40 < b[0].y < WORLD_H + 40]
+        self.ebullets = [b for b in self.ebullets if b[2] > 0
+                         and -40 < b[0].x < WORLD_W + 40
+                         and -40 < b[0].y < WORLD_H + 40]
 
     def update_pickups(self, dt):
         keep = []
@@ -824,6 +839,12 @@ class Game:
             pts = d["score"] * src.mult()
             src.score += pts
             src.kills += 1
+            if src.lifesteal:
+                src.lifesteal_progress += src.lifesteal
+                if src.lifesteal_progress >= 8:
+                    src.lifesteal_progress -= 8
+                    src.hp = min(src.max_hp, src.hp + 1)
+                    self.pops.append([V(src.p), "+1 HP", 0.9, GREEN])
             src.charge = min(100.0, src.charge + (12 if e.kind == "tank" else 4) * src.pulse_gain)
             self.pops.append([V(e.p), "+%d" % pts, 0.8, e.col])
             # XP
@@ -834,6 +855,7 @@ class Game:
                 src.level += 1
                 src.upgrade_choices = roll_upgrades(self.rng, 3)
                 if src.pid == self.my_id:
+                    self.local_choices = list(src.upgrade_choices)
                     self.audio.play("levelup")
         self.audio.play("boom")
         if e.kind == "tank":
