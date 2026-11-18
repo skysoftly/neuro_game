@@ -2007,22 +2007,24 @@ class Game:
             if -1 <= sy <= H + 1:
                 pygame.draw.line(sc, (15, 19, 44), (0, sy), (W, sy))
         # Красная опасная зона за мягкой границей арены.
-        pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() * 0.003)
-        alpha = int(34 + pulse * 24)
-        danger = pygame.Surface((W, H), pygame.SRCALPHA)
         left, top = -cx, -cy
         right, bottom = left + WORLD_W, top + WORLD_H
-        band = 180
-        red = (255, 35, 65, alpha)
-        if left > 0:
-            pygame.draw.rect(danger, red, (0, 0, min(W, int(left)), H))
-        if right < W:
-            pygame.draw.rect(danger, red, (max(0, int(right)), 0, W - max(0, int(right)), H))
-        if top > 0:
-            pygame.draw.rect(danger, red, (0, 0, W, min(H, int(top))))
-        if bottom < H:
-            pygame.draw.rect(danger, red, (0, max(0, int(bottom)), W, H - max(0, int(bottom))))
-        sc.blit(danger, (0, 0))
+        # Пока камера внутри арены, красная заливка не видна:
+        # не создаём полноэкранную alpha-поверхность каждый кадр.
+        if left > 0 or right < W or top > 0 or bottom < H:
+            pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() * 0.003)
+            alpha = int(34 + pulse * 24)
+            danger = pygame.Surface((W, H), pygame.SRCALPHA)
+            red = (255, 35, 65, alpha)
+            if left > 0:
+                pygame.draw.rect(danger, red, (0, 0, min(W, int(left)), H))
+            if right < W:
+                pygame.draw.rect(danger, red, (max(0, int(right)), 0, W - max(0, int(right)), H))
+            if top > 0:
+                pygame.draw.rect(danger, red, (0, 0, W, min(H, int(top))))
+            if bottom < H:
+                pygame.draw.rect(danger, red, (0, max(0, int(bottom)), W, H - max(0, int(bottom))))
+            sc.blit(danger, (0, 0))
         pygame.draw.rect(sc, (255, 55, 85), (left, top, WORLD_W, WORLD_H), 3)
 
     def draw_hat(self, surface, x, y, hat_index, color, scale=1.0):
