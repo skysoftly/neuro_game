@@ -6,8 +6,44 @@ import os
 W, H = 1280, 720
 # Размер игрового мира
 WORLD_W, WORLD_H = 3000, 2000
-# Сетевой порт
+# Сетевой порт и единый лимит игроков (включая хоста).
 PORT = 5555
+MAX_PLAYERS = 12
+
+
+def enemy_scaling(wave, player_count=1, boss=False):
+    """Плавный бесконечный рост характеристик без жёсткого лимита волн."""
+    wave_steps = max(0, int(wave) - 1)
+    players = max(1, min(MAX_PLAYERS, int(player_count)))
+    if boss:
+        wave_hp = 1.0 + 0.02 * wave_steps + 0.0001 * wave_steps ** 2
+        player_hp = 1.0 + 0.045 * (players - 1)
+        player_speed = 1.0 + 0.01 * (players - 1)
+        speed_cap = 1.18
+    else:
+        wave_hp = 1.0 + 0.04 * wave_steps + 0.0002 * wave_steps ** 2
+        player_hp = 1.0 + 0.05 * (players - 1)
+        player_speed = 1.0 + 0.015 * (players - 1)
+        speed_cap = 1.22
+    return wave_hp * player_hp, min(speed_cap, 1.0 + 0.002 * wave_steps) * player_speed
+
+
+def wave_enemy_count(wave, player_count=1):
+    """Размер очереди волны растёт с онлайном, с лимитом активной толпы."""
+    players = max(1, min(MAX_PLAYERS, int(player_count)))
+    wave_number = max(1, int(wave))
+    return min(64, int((8 + wave_number * 2.2) * (1.0 + 0.06 * (players - 1))))
+
+
+def boss_kind_for_wave(wave):
+    """Каждая пятая волна получает следующего босса по кругу без конца."""
+    wave_number = max(1, int(wave))
+    if wave_number == 2:
+        return "boss_minor"
+    if wave_number % 5 != 0:
+        return None
+    bosses = ("boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege")
+    return bosses[(wave_number // 5 - 1) % len(bosses)]
 # Файл сохранения имени и последнего IP
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
@@ -41,7 +77,7 @@ KINDS = {
     "mine": dict(hp=4, r=12, spd=75, col=(255, 112, 45), score=18),
     "orbiter": dict(hp=7, r=17, spd=132, col=(55, 220, 220), score=42),
     "bruiser": dict(hp=24, r=31, spd=48, col=(195, 105, 65), score=85),
-    "boss": dict(hp=500, r=54, spd=72, col=(245, 100, 190), score=500),
+    "boss": dict(hp=360, r=52, spd=66, col=(245, 100, 190), score=500),
     "boss_storm": dict(hp=610, r=58, spd=82, col=(110, 190, 255), score=650),
     "boss_hunter": dict(hp=700, r=62, spd=96, col=(255, 145, 90), score=800),
     "boss_void": dict(hp=820, r=66, spd=68, col=(165, 120, 245), score=950),
