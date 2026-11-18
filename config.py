@@ -36,15 +36,18 @@ def wave_enemy_count(wave, player_count=1):
     return min(72, int((10 + wave_number * 2.6) * (1.0 + 0.06 * (players - 1))))
 
 
-def boss_kind_for_wave(wave):
-    """Каждая пятая волна получает следующего босса по кругу без конца."""
+def boss_kind_for_wave(wave, rng=None, previous=None):
+    """Малый босс на второй волне, далее случайный босс каждые пять волн."""
     wave_number = max(1, int(wave))
     if wave_number == 2:
         return "boss_minor"
     if wave_number % 5 != 0:
         return None
+    import random
+    chooser = rng if rng is not None else random
     bosses = ("boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege")
-    return bosses[(wave_number // 5 - 1) % len(bosses)]
+    choices = [kind for kind in bosses if kind != previous] or list(bosses)
+    return chooser.choice(choices)
 # Файл сохранения имени и последнего IP
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
