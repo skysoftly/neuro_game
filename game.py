@@ -2358,7 +2358,7 @@ class Game:
             label = "ЗДОРОВЬЕ"
             label_font = self.f_small
             label_y = panel.bottom - 19
-            label_x = panel.centerx - (label_font.size(label) +
+            label_x = panel.centerx - (label_font.size(label)[0] +
                                        label_font.size("%d / %d" % (hp, max_hp))[0] + 12) / 2
             text(sc, label, label_font, hp_color, (label_x, label_y), "midleft", outline=1)
             count_x = label_x + label_font.size(label)[0] + 12
