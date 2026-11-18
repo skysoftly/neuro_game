@@ -22,6 +22,7 @@ from camera import Camera
 from entities import Player, Enemy, Particle, Ring, Bullet
 from upgrades import UPGRADES_BY_ID, apply_upgrade, roll_upgrades
 from network import HostServer, ClientConn
+from visuals import draw_glow
 
 log = logging.getLogger("neuro_game")
 
@@ -1051,6 +1052,7 @@ class Game:
             col = WHITE
         if data["alive"] and (data.get("inv", 0) <= 0 or data.get("dash_t", 0) > 0
                               or int(self.t * 22) % 2 == 0):
+            draw_glow(sc, (sx, sy), col, 48, 28)
             pts = shape(SHIP, data["ang"], (sx, sy), 20)
             pygame.draw.polygon(sc, (6, 40, 56), pts)
             pygame.draw.polygon(sc, col, pts, 2)
@@ -1075,6 +1077,7 @@ class Game:
                                int(e["r"] * (2.2 - 1.2 * k)), 1)
         fill = dim(base_col, 0.12)
         kind = e["k"]
+        draw_glow(sc, (sx, sy), base_col, int(r * 2.2 + 12), 22)
         if kind == "chaser":
             pts = shape(DIAMOND, e["ang"], (sx, sy), r)
         elif kind == "swarm":
@@ -1120,6 +1123,7 @@ class Game:
                     continue
                 bob = math.sin(self.t * 5 + pk[0]) * 3
                 pos = (sx, sy + bob)
+                draw_glow(sc, pos, col, 34, 38)
                 pygame.draw.polygon(sc, col, shape(HEX, self.t * 1.5, pos, 17), 2)
                 text(sc, PICK_LET[pk[2]], self.f_small, col, pos, outline=1)
 
@@ -1131,6 +1135,7 @@ class Game:
         for b in snap.get("ebullets", []):
             sx, sy = cam.to_screen(b[0], b[1])
             if -20 <= sx <= W + 20 and -20 <= sy <= H + 20:
+                draw_glow(sc, (sx, sy), PINK, 22, 42)
                 pygame.draw.circle(sc, PINK, (int(sx), int(sy)), 6)
                 pygame.draw.circle(sc, WHITE, (int(sx), int(sy)), 2)
 
@@ -1141,6 +1146,7 @@ class Game:
                 continue
             p0 = V(sx, sy)
             d = V(b[2], b[3])
+            draw_glow(sc, (sx, sy), CYAN, 18, 30)
             pygame.draw.line(sc, (0, 150, 200), p0, p0 - d * 0.035, 5)
             pygame.draw.line(sc, WHITE, p0, p0 - d * 0.03, 2)
 
@@ -1294,8 +1300,11 @@ class Game:
             y = H / 2 - card_h / 2 + 40
             rect = pygame.Rect(x, y, card_w, card_h)
             col = u["color"]
-            pygame.draw.rect(sc, (20, 20, 40), rect)
-            pygame.draw.rect(sc, col, rect, 3)
+            draw_glow(sc, (rect.centerx, rect.centery), col, 150, 12)
+            pygame.draw.rect(sc, (5, 12, 28), rect)
+            pygame.draw.rect(sc, (24, 35, 62), rect.inflate(-8, -8), 1)
+            pygame.draw.rect(sc, col, rect, 2)
+            pygame.draw.line(sc, dim(col, 0.55), (x + 18, y + 8), (x + card_w - 18, y + 8), 1)
             # номер
             text(sc, str(i + 1), self.f_huge, dim(col, 0.8), (x + 40, y + 40), outline=3)
             # название + описание
@@ -1327,6 +1336,7 @@ class Game:
             pygame.draw.polygon(sc, dim(col, 0.5),
                                 shape(HEX if i % 2 else SQ, a, (cx, cy), 120 + i * 30), 1)
         pulse = 0.8 + 0.2 * math.sin(self.t * 3)
+        draw_glow(sc, (cx, cy), CYAN, 190, 18)
         text(sc, "NEON VOID", self.f_huge, dim(CYAN, pulse), (cx, cy), outline=3)
         text(sc, "СЕТЕВАЯ ИГРА ПО ЛОКАЛЬНОЙ СЕТИ", self.f_mid, MAGENTA, (cx, cy + 78), outline=2)
 
