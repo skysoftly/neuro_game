@@ -301,9 +301,13 @@ class SimulationMixin:
         new_kind = unlocks.get(self.wave)
         if new_kind:
             q[0] = new_kind
-        boss_kind = boss_kind_for_wave(self.wave)
+        boss_kind = boss_kind_for_wave(
+            self.wave, self.rng, getattr(self, "last_boss_kind", None)
+        )
         if boss_kind:
             q.append(boss_kind)
+            if boss_kind != "boss_minor":
+                self.last_boss_kind = boss_kind
         self.queue = q
         if self.wave % 4 == 0:
             self.pickups.append([V(WORLD_W / 2, WORLD_H / 2), "heal", 12.0])
@@ -360,10 +364,10 @@ class SimulationMixin:
             e.v = e.v.lerp(d * (e.spd if dist > 230 else 0), min(1.0, 1.5 * dt))
             e.cool -= dt
             if e.cool <= 0 and dist < 560:
-                e.cool = 2.8
+                e.cool = 2.8 / e.attack_scale
                 for i in range(8):
                     a = i * math.tau / 8 + e.ang
-                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 270, 5.5])
+                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * (270 * e.attack_scale), 5.5])
                 self.play_sound("enemy_shot")
         elif k == "shooter":
             if dist > 400:
@@ -375,12 +379,12 @@ class SimulationMixin:
             e.v = e.v.lerp(tgt, min(1.0, 3 * dt))
             e.cool -= dt
             if e.cool <= 0:
-                e.cool = max(0.72, 2.0 - 0.045 * self.wave)
+                e.cool = max(0.48, 2.0 - 0.045 * self.wave) / e.attack_scale
                 n = 1 if self.wave < 3 else (3 if self.wave < 8 else 5)
                 base = math.atan2(d.y, d.x)
                 for i in range(n):
                     a = base + (i - (n - 1) / 2) * 0.25
-                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * min(430, 300 + self.wave * 8), 6.0])
+                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * min(620, (300 + self.wave * 8) * e.attack_scale), 6.0])
                 self.play_sound("enemy_shot")
         elif k == "orbiter":
             tangent = V(-d.y, d.x) * e.side
@@ -393,11 +397,11 @@ class SimulationMixin:
             e.v = e.v.lerp(velocity, min(1.0, 2.8 * dt))
             e.cool -= dt
             if e.cool <= 0:
-                e.cool = 1.65
+                e.cool = 1.65 / e.attack_scale
                 base = math.atan2(d.y, d.x)
                 for offset in (-0.24, 0.0, 0.24):
                     a = base + offset
-                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 350, 6.0])
+                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * (350 * e.attack_scale), 6.0])
                 self.play_sound("enemy_shot")
         elif k == "bruiser":
             e.cool -= dt
@@ -415,7 +419,7 @@ class SimulationMixin:
             else:
                 e.v = e.v.lerp(d * e.spd, min(1.0, 1.8 * dt))
                 if e.cool <= 0:
-                    e.cool = 3.4
+                    e.cool = 3.4 / e.attack_scale
                     e.windup = 0.62
                     e.charge_dir = V(d)
         elif k in ("boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege", "boss_minor"):
@@ -423,26 +427,26 @@ class SimulationMixin:
             e.cool -= dt
             if e.cool <= 0:
                 if k == "boss":
-                    e.cool = max(1.9, 2.8 - self.wave * 0.012)
+                    e.cool = max(1.35, 2.8 - self.wave * 0.012) / e.attack_scale
                 else:
-                    e.cool = max(1.25, 2.35 - self.wave * 0.018)
+                    e.cool = max(0.9, 2.35 - self.wave * 0.018) / e.attack_scale
                 base = math.atan2(d.y, d.x)
                 if k == "boss_minor":
                     for offset in (-0.22, 0.0, 0.22):
                         a = base + offset
-                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 300, 5.5])
+                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * (300 * e.attack_scale), 5.5])
                 elif k == "boss":
                     # Первый большой босс: меньше снарядов и больше времени на реакцию.
                     for i in range(12):
                         a = i * math.tau / 12 + e.ang
-                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 285, 6.0])
+                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * (285 * e.attack_scale), 6.0])
                     for offset in (-0.32, 0.0, 0.32):
                         a = base + offset
-                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 360, 5.5])
+                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * (360 * e.attack_scale), 5.5])
                 elif k == "boss_storm":
                     for i in range(30):
                         a = i * math.tau / 30 + e.ang
-                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 285, 7.5])
+                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * (285 * e.attack_scale), 7.5])
                     for i in range(8):
                         a = base + (i - 3.5) * 0.16
                         self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 390, 6.0])
