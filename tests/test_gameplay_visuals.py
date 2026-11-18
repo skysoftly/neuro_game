@@ -75,8 +75,12 @@ class UpgradeTests(unittest.TestCase):
         self.assertEqual(self.player.shield_t, 0.0)
         self.assertEqual(self.player.shield_hits, 0)
 
-    def test_score_only_upgrade_is_removed(self):
-        self.assertNotIn("score_gain", {upgrade["id"] for upgrade in UPGRADES})
+    def test_defensive_upgrades_have_reasonable_caps(self):
+        for _ in range(5):
+            apply_upgrade(self.player, "armor")
+            apply_upgrade(self.player, "pulse_power")
+        self.assertEqual(self.player.armor, 2)
+        self.assertEqual(self.player.pulse_power, 1.5)
 
     def test_new_combat_upgrades_change_stats(self):
         apply_upgrade(self.player, "pulse_power")
