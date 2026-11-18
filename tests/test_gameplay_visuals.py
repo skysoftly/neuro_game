@@ -120,6 +120,15 @@ class RetroRenderTests(unittest.TestCase):
         overlay = make_overlay(W, H)
         self.assertEqual(overlay.get_size(), (W, H))
 
+    def test_bloom_reuses_preallocated_surfaces(self):
+        source = pygame.Surface((W, H)).convert()
+        small = pygame.Surface((W // 8, H // 8)).convert()
+        full = pygame.Surface((W, H)).convert()
+        source.fill((12, 18, 24))
+        bloom(source, W, H, 0.08, small, full)
+        self.assertEqual(small.get_size(), (W // 8, H // 8))
+        self.assertEqual(full.get_size(), (W, H))
+
 
 if __name__ == "__main__":
     unittest.main()
