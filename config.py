@@ -16,12 +16,12 @@ def enemy_scaling(wave, player_count=1, boss=False):
     wave_steps = max(0, int(wave) - 1)
     players = max(1, min(MAX_PLAYERS, int(player_count)))
     if boss:
-        wave_hp = 1.0 + 0.02 * wave_steps + 0.0001 * wave_steps ** 2
-        player_hp = 1.0 + 0.045 * (players - 1)
+        wave_hp = 1.0 + 0.012 * wave_steps + 0.00003 * wave_steps ** 2
+        player_hp = 1.0 + 0.025 * (players - 1)
         player_speed = 1.0 + 0.01 * (players - 1)
         speed_cap = 1.18
     else:
-        wave_hp = 1.0 + 0.08 * wave_steps + 0.00025 * wave_steps ** 2
+        wave_hp = 1.0 + 0.035 * wave_steps + 0.00008 * wave_steps ** 2
         player_hp = 1.0 + 0.05 * (players - 1)
         player_speed = 1.0 + 0.015 * (players - 1)
         speed_cap = 1.22
@@ -32,7 +32,7 @@ def wave_enemy_count(wave, player_count=1):
     """Размер очереди волны растёт с онлайном, с лимитом активной толпы."""
     players = max(1, min(MAX_PLAYERS, int(player_count)))
     wave_number = max(1, int(wave))
-    return min(64, int((8 + wave_number * 2.2) * (1.0 + 0.06 * (players - 1))))
+    return min(72, int((10 + wave_number * 2.6) * (1.0 + 0.06 * (players - 1))))
 
 
 def boss_kind_for_wave(wave):
@@ -77,12 +77,12 @@ KINDS = {
     "mine": dict(hp=4, r=12, spd=75, col=(255, 112, 45), score=18),
     "orbiter": dict(hp=7, r=17, spd=132, col=(55, 220, 220), score=42),
     "bruiser": dict(hp=24, r=31, spd=48, col=(195, 105, 65), score=85),
-    "boss": dict(hp=360, r=52, spd=66, col=(245, 100, 190), score=500),
-    "boss_storm": dict(hp=610, r=58, spd=82, col=(110, 190, 255), score=650),
-    "boss_hunter": dict(hp=700, r=62, spd=96, col=(255, 145, 90), score=800),
-    "boss_void": dict(hp=820, r=66, spd=68, col=(165, 120, 245), score=950),
-    "boss_siege": dict(hp=1000, r=72, spd=48, col=(240, 185, 95), score=1200),
-    "boss_minor": dict(hp=100, r=34, spd=58, col=(115, 225, 175), score=180),
+    "boss": dict(hp=250, r=52, spd=66, col=(245, 100, 190), score=500),
+    "boss_storm": dict(hp=330, r=58, spd=82, col=(110, 190, 255), score=650),
+    "boss_hunter": dict(hp=390, r=62, spd=96, col=(255, 145, 90), score=800),
+    "boss_void": dict(hp=450, r=66, spd=68, col=(165, 120, 245), score=950),
+    "boss_siege": dict(hp=520, r=72, spd=48, col=(240, 185, 95), score=1200),
+    "boss_minor": dict(hp=75, r=34, spd=58, col=(115, 225, 175), score=180),
 }
 
 # ---------- подбираемое ----------
