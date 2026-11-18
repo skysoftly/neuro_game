@@ -871,9 +871,28 @@ class Game:
                 if self.tutorial_active and e.button == 1:
                     self.confirm_tutorial()
                     continue
-                if e.button == 1:
-                    self.audio.play("ui_click")
                 mx, my = self.logical_mouse(e.pos)
+                ui_click = bool(self.input_mode or self.tutorial_active or self.paused
+                                or self.state in ("settings", "lobby", "dead", "error"))
+                if self.state == "menu":
+                    menu_cx, menu_y = W / 2, H / 2 - 140 + 160
+                    ui_click = any(rect.collidepoint(mx, my) for rect in (
+                        pygame.Rect(menu_cx - 100, H - 58, 200, 38),
+                        pygame.Rect(menu_cx - 210, menu_y - 20, 420, 52),
+                        pygame.Rect(menu_cx - 210, menu_y + 42, 420, 52),
+                        pygame.Rect(menu_cx - 210, menu_y + 104, 420, 44),
+                        pygame.Rect(menu_cx - 210, menu_y + 158, 420, 44),
+                    ))
+                if self.state == "play" and self.intermission and self.local_choices:
+                    card_w, card_h, card_gap = 320, 238, 30
+                    card_total = len(self.local_choices) * card_w + (len(self.local_choices) - 1) * card_gap
+                    card_x0 = (W - card_total) / 2
+                    card_y0 = H / 2 - card_h / 2 + 38
+                    ui_click = any(pygame.Rect(card_x0 + i * (card_w + card_gap), card_y0,
+                                               card_w, card_h).collidepoint(mx, my)
+                                   for i in range(len(self.local_choices)))
+                if e.button == 1 and ui_click:
+                    self.audio.play("ui_click")
                 if self.input_mode and e.button == 1:
                     if pygame.Rect(W / 2 - 115, H / 2 + 32, 230, 38).collidepoint(mx, my):
                         self._paste_input()
@@ -919,7 +938,6 @@ class Game:
                     elif pygame.Rect(cx + 135, 344, 70, 48).collidepoint(mx, my):
                         self.sfx_volume = min(1.0, self.sfx_volume + 0.05)
                         self.audio.set_volumes(sfx=self.sfx_volume)
-                        self.audio.play("ui_click")
                         self.persist()
                     elif pygame.Rect(cx - 210, 444, 420, 48).collidepoint(mx, my):
                         self.screen_shake_enabled = not self.screen_shake_enabled
