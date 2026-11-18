@@ -224,22 +224,22 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
                      "player_hat": self.local_hat_index})
 
     def set_display_mode(self, fullscreen):
-        """Use a desktop-sized borderless window while keeping 1280x720 logical rendering."""
+        """Switch between a true display fullscreen mode and a resizable window.
+
+        SCALED keeps the game's 1280x720 logical canvas while SDL presents it
+        at the monitor's fullscreen resolution.
+        """
         if fullscreen:
-            self.screen = pygame.display.set_mode(
-                (W, H), pygame.SCALED | pygame.NOFRAME, vsync=1
-            )
             try:
-                sizes = pygame.display.get_desktop_sizes()
-                desktop_w, desktop_h = sizes[0] if sizes else (0, 0)
-                if desktop_w <= 0 or desktop_h <= 0:
-                    info = pygame.display.Info()
-                    desktop_w, desktop_h = info.current_w, info.current_h
-                if desktop_w > 0 and desktop_h > 0:
-                    pygame.display.set_window_size(desktop_w, desktop_h)
-                    pygame.display.set_window_position(0, 0)
-            except (AttributeError, pygame.error):
-                log.exception("Не удалось развернуть безрамочное окно на весь экран")
+                self.screen = pygame.display.set_mode(
+                    (W, H), pygame.SCALED | pygame.FULLSCREEN, vsync=1
+                )
+            except pygame.error:
+                log.exception("Не удалось включить настоящий полноэкранный режим")
+                # Fallback for drivers that reject SCALED + FULLSCREEN.
+                self.screen = pygame.display.set_mode(
+                    (W, H), pygame.FULLSCREEN, vsync=1
+                )
         else:
             self.screen = pygame.display.set_mode(
                 (W, H), pygame.SCALED | pygame.RESIZABLE, vsync=1
