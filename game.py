@@ -2014,9 +2014,22 @@ class Game:
             pygame.draw.line(sc, (0, 150, 200), p0, p0 - d * 0.035, max(3, int(5 * (b[4] if len(b) > 4 else 1))))
             pygame.draw.line(sc, WHITE, p0, p0 - d * 0.03, max(2, int(2 * (b[4] if len(b) > 4 else 1))))
 
-        # Рисуем локального игрока в той же позиции, по которой уже выставили камеру.
+        # Хост рисует своего игрока из живой симуляции (120-160+ Гц),
+        # а не из сетевого снапшота (30 Гц), иначе спрайт дёргается.
+        # Клиент рисует локального игрока по той же интерполированной позиции,
+        # относительно которой выше выставлена камера.
         for pl in snap.get("players", []):
-            if pl["pid"] == self.my_id and not self.is_host and self.camera_target_current is not None:
+            if pl["pid"] == self.my_id and self.is_host:
+                live_player = self.players.get(self.my_id)
+                if live_player is not None:
+                    pl = dict(pl)
+                    pl.update({
+                        "x": live_player.p.x, "y": live_player.p.y,
+                        "ang": live_player.ang, "alive": live_player.alive,
+                        "inv": live_player.inv, "dash_t": live_player.dash_t,
+                        "name": live_player.name,
+                    })
+            elif pl["pid"] == self.my_id and self.camera_target_current is not None:
                 alpha = min(1.0, self.camera_lerp_elapsed / max(1e-4, self.camera_lerp_duration))
                 pl = dict(pl)
                 pl["x"] = self.camera_target_previous[0] + (self.camera_target_current[0] - self.camera_target_previous[0]) * alpha
@@ -2392,7 +2405,7 @@ class Game:
         pygame.draw.line(sc, CYAN, (panel.x + 28, panel.y + 70),
                          (panel.right - 28, panel.y + 70), 2)
         self.draw_fit_text(sc, "ПАУЗА", WHITE,
-                           pygame.Rect(panel.x + 30, panel.y + 12, panel.w - 60, 48), 34, 26, outline=2)
+                           pygame.Rect(panel.x + 30, panel.y + 12, panel.w - 60, 48), 34, 26)
         text(sc, "АРЕНА ОСТАНОВЛЕНА", self.f_small, (155, 183, 192),
              (W / 2, panel.y + 98), outline=1)
         if self.is_host:
@@ -2554,12 +2567,16 @@ class Game:
         # затем ставим камеру относительно неё и только после этого рисуем мир.
         if not self.is_spectating():
             local_draw_pos = None
-            if snap is not None:
+            if self.is_host:
+                live_player = self.players.get(self.my_id)
+                if live_player is not None:
+                    local_draw_pos = (live_player.p.x, live_player.p.y)
+            elif snap is not None:
                 local_state = next((pl for pl in snap.get("players", [])
                                     if pl.get("pid") == self.my_id), None)
                 if local_state is not None:
                     local_draw_pos = (float(local_state["x"]), float(local_state["y"]))
-                    if not self.is_host and self.camera_target_current is not None:
+                    if self.camera_target_current is not None:
                         alpha = min(1.0, self.camera_lerp_elapsed /
                                     max(1e-4, self.camera_lerp_duration))
                         local_draw_pos = (
