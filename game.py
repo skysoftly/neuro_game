@@ -251,6 +251,8 @@ class Game:
         self.tutorial_shade.fill((3, 7, 13, 232))
         self.intermission_shade = pygame.Surface((W, H), pygame.SRCALPHA)
         self.intermission_shade.fill((5, 8, 14, 218))
+        self.upgrade_card_shade = pygame.Surface((320, 238), pygame.SRCALPHA)
+        self.upgrade_card_shade.fill((0, 0, 0, 48))
         self.input_shade = pygame.Surface((W, H), pygame.SRCALPHA)
         self.input_shade.fill((0, 0, 0, 205))
         self.end_tint = pygame.Surface((W, H), pygame.SRCALPHA)
@@ -2656,6 +2658,9 @@ class Game:
                              (card.right - 18, card.bottom - 34), 1)
             text(sc, "ВЫБРАТЬ  -  ЛКМ", self.f_small, col,
                  (card.centerx, card.bottom - 17), outline=1)
+            if not hovered:
+                shade_rect = self.upgrade_card_shade.get_rect(center=card.center)
+                sc.blit(self.upgrade_card_shade, shade_rect)
 
     def draw_menu(self, sc):
         cx, cy = W / 2, H / 2 - 140
