@@ -22,7 +22,7 @@ NEON VOID - кооперативный top-down arena shooter по локаль�
 
 ## Запуск из исходников
 
-Нужен Python 3.10+ и установленный Pygame.
+Для запуска из исходников нужен Python 3.10+ и установленный Pygame. Для сборки Windows EXE рекомендуется Python 3.12 x64: `pygame 2.6.1` может не иметь готового пакета для более новых версий Python.
 
 ```bash
 python -m pip install -r requirements.txt
@@ -31,9 +31,9 @@ python main.py
 
 ## Сборка Windows EXE
 
-Самый простой вариант - запустить `build.bat` из папки проекта.
+Самый простой вариант - установить Python 3.12 x64, а затем запустить `build.bat` из папки проекта.
 
-Скрипт установит зависимости для сборки, сгенерирует иконку и соберет самостоятельный EXE через PyInstaller.
+Скрипт автоматически выберет Python 3.12, установит зависимости из готовых бинарных пакетов (без компиляции Pygame), сгенерирует иконку и соберет самостоятельный EXE через PyInstaller. Если Python 3.12 не установлен, скрипт покажет ссылку и остановится с понятным сообщением.
 
 Готовый файл появится здесь:
 
@@ -44,10 +44,9 @@ dist/NEON VOID.exe
 Команды вручную:
 
 ```powershell
-python -m pip install -r requirements.txt
-python -m pip install pyinstaller pillow
-python make_icon.py
-python -m PyInstaller --noconfirm --clean --onefile --windowed --name "NEON VOID" --icon "icon.ico" --add-data "icon.ico;." main.py
+py -3.12 -m pip install --only-binary=pygame -r requirements.txt pyinstaller pillow
+py -3.12 make_icon.py
+py -3.12 -m PyInstaller --noconfirm --clean --onefile --windowed --name "NEON VOID" --icon "icon.ico" --add-data "icon.ico;." main.py
 ```
 
 ## Игра с друзьями
