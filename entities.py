@@ -29,6 +29,9 @@ class Player:
         self.charge = 0.0
         self.alive = True
         self.color = PLAYER_COLORS[(pid - 1) % len(PLAYER_COLORS)]
+        self.color_index = (pid - 1) % len(PLAYER_COLORS)
+        self.skin = 0
+        self.hat = 0
         self.inp = V()
         self.shoot = False
         self.want_dash = False
