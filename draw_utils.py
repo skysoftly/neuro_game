@@ -26,15 +26,15 @@ def make_overlay(W, H):
     return ov
 
 
-def bloom(src, W, H):
-    g = pygame.transform.smoothscale(src, (W // 4, H // 4))
-    halo = pygame.transform.smoothscale(pygame.transform.smoothscale(g, (W // 12, H // 12)), (W // 4, H // 4))
-    glow = g.copy()
-    glow.blit(g, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
-    glow.blit(halo, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
-    glow.blit(halo, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
-    src.blit(pygame.transform.smoothscale(glow, (W, H)), (0, 0), special_flags=pygame.BLEND_RGB_ADD)
-
+def bloom(src, W, H, strength=0.16):
+    """Soft CRT bloom: bright pixels glow while silhouettes stay readable."""
+    if strength <= 0:
+        return
+    small_size = (max(1, W // 6), max(1, H // 6))
+    glow = pygame.transform.smoothscale(src, small_size)
+    glow = pygame.transform.smoothscale(glow, (W, H))
+    glow.set_alpha(max(1, min(255, int(255 * strength))))
+    src.blit(glow, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
 
 def fisheye(src, strength=0.35):
     """Радиальное искажение через сетку 40x24 — быстрый псевдо-fisheye."""
@@ -83,33 +83,48 @@ def fisheye(src, strength=0.35):
 
 
 def read_clipboard():
-    """Без pygame.scrap — tkinter, затем Windows ctypes."""
-    try:
-        import tkinter
-        r = tkinter.Tk()
-        r.withdraw()
-        t = r.clipboard_get()
-        r.destroy()
-        if t:
-            return t.strip()
-    except Exception:
-        pass
+    """Read Unicode text from the Windows clipboard, with a tkinter fallback."""
     if sys.platform == "win32":
         try:
             import ctypes
-            u32 = ctypes.windll.user32
-            if not u32.OpenClipboard(0):
-                return ""
-            try:
-                h = u32.GetClipboardData(13)
-                if h:
-                    ptr = ctypes.windll.kernel32.GlobalLock(h)
-                    try:
-                        return ctypes.wstring_at(ptr).strip()
-                    finally:
-                        ctypes.windll.kernel32.GlobalUnlock(h)
-            finally:
-                u32.CloseClipboard()
+            from ctypes import wintypes
+
+            user32 = ctypes.WinDLL("user32", use_last_error=True)
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            user32.OpenClipboard.argtypes = [wintypes.HWND]
+            user32.OpenClipboard.restype = wintypes.BOOL
+            user32.CloseClipboard.argtypes = []
+            user32.CloseClipboard.restype = wintypes.BOOL
+            user32.GetClipboardData.argtypes = [wintypes.UINT]
+            user32.GetClipboardData.restype = wintypes.HANDLE
+            kernel32.GlobalLock.argtypes = [wintypes.HGLOBAL]
+            kernel32.GlobalLock.restype = wintypes.LPVOID
+            kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
+            kernel32.GlobalUnlock.restype = wintypes.BOOL
+
+            if user32.OpenClipboard(None):
+                try:
+                    handle = user32.GetClipboardData(13)  # CF_UNICODETEXT
+                    if handle:
+                        pointer = kernel32.GlobalLock(handle)
+                        if pointer:
+                            try:
+                                return ctypes.wstring_at(pointer).strip()
+                            finally:
+                                kernel32.GlobalUnlock(handle)
+                finally:
+                    user32.CloseClipboard()
         except Exception:
             pass
-    return ""
+
+    try:
+        import tkinter
+        root = tkinter.Tk()
+        root.withdraw()
+        try:
+            value = root.clipboard_get()
+            return value.strip() if value else ""
+        finally:
+            root.destroy()
+    except Exception:
+        return ""
