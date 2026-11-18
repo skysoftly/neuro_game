@@ -241,6 +241,18 @@ class Game:
         self.f_hint = font(20)
 
         self.overlay = make_overlay(W, H)
+        self.bloom_small = pygame.Surface((max(1, W // 8), max(1, H // 8))).convert()
+        self.bloom_full = pygame.Surface((W, H)).convert()
+        self.pause_shade = pygame.Surface((W, H), pygame.SRCALPHA)
+        self.pause_shade.fill((2, 4, 9, 205))
+        self.tutorial_shade = pygame.Surface((W, H), pygame.SRCALPHA)
+        self.tutorial_shade.fill((3, 7, 13, 232))
+        self.input_shade = pygame.Surface((W, H), pygame.SRCALPHA)
+        self.input_shade.fill((0, 0, 0, 205))
+        self.end_tint = pygame.Surface((W, H), pygame.SRCALPHA)
+        self.end_tint.fill((135, 10, 22, 112))
+        self.debug_panel_surface = pygame.Surface((310, 126), pygame.SRCALPHA)
+        self.debug_panel_surface.fill((4, 8, 18, 220))
         vignette_small = pygame.Surface((64, 36), pygame.SRCALPHA)
         for vy in range(36):
             for vx in range(64):
@@ -2228,9 +2240,7 @@ class Game:
         self.draw_button(sc, pygame.Rect(W / 2 - 150, H - 102, 300, 46), "В МЕНЮ", CYAN)
 
     def draw_pause_overlay(self, sc):
-        shade = pygame.Surface((W, H), pygame.SRCALPHA)
-        shade.fill((2, 4, 9, 205))
-        sc.blit(shade, (0, 0))
+        sc.blit(self.pause_shade, (0, 0))
         panel = pygame.Rect(W / 2 - 245, H / 2 - 145, 490, 320)
         pts = [(panel.x + 24, panel.y), (panel.right - 24, panel.y),
                (panel.right, panel.y + 24), (panel.right, panel.bottom - 24),
@@ -2287,9 +2297,7 @@ class Game:
     def draw_input_overlay(self, sc):
         if not self.input_mode:
             return
-        overlay = pygame.Surface((W, H), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 205))
-        sc.blit(overlay, (0, 0))
+        sc.blit(self.input_shade, (0, 0))
         label = "ВВЕДИТЕ IP ХОСТА" if self.input_mode == "ip" else "ВВЕДИТЕ ИМЯ"
         text(sc, label, self.f_big, CYAN, (W / 2, H / 2 - 110), outline=3)
         value = self.ip_input if self.input_mode == "ip" else self.name_input
@@ -2313,9 +2321,7 @@ class Game:
 
     # ================= заставка и обучение =================
     def draw_tutorial_overlay(self, sc):
-        shade = pygame.Surface((W, H), pygame.SRCALPHA)
-        shade.fill((3, 7, 13, 232))
-        sc.blit(shade, (0, 0))
+        sc.blit(self.tutorial_shade, (0, 0))
         panel = pygame.Rect(W / 2 - 330, H / 2 - 230, 660, 460)
         pygame.draw.rect(sc, (10, 18, 28), panel)
         pygame.draw.rect(sc, CYAN, panel, 2)
@@ -2430,7 +2436,7 @@ class Game:
         # Hit feedback is rendered locally from the local player's snapshot.
 
         # Low-cost bloom works directly on the scene buffer; no full-screen copy.
-        bloom(sc, W, H, 0.055)
+        bloom(sc, W, H, 0.055, self.bloom_small, self.bloom_full)
 
         local_player = None
         if snap is not None and self.state == "play":
@@ -2474,9 +2480,7 @@ class Game:
                 if self.tutorial_active and self.state == "play":
                     self.draw_tutorial_overlay(self.screen)
                 if self.state == "dead" and self.is_host:
-                    end_tint = pygame.Surface((W, H), pygame.SRCALPHA)
-                    end_tint.fill((135, 10, 22, 112))
-                    self.screen.blit(end_tint, (0, 0))
+                    self.screen.blit(self.end_tint, (0, 0))
                 if self.state == "dead":
                     self.draw_dead(self.screen, snap)
                 if self.paused:
@@ -2494,9 +2498,7 @@ class Game:
                 "BULLETS: %d   PARTICLES: %d" % (len(snap.get("bullets", [])) if snap else len(self.bullets), len(self.parts)),
                 "NETWORK: %s" % ("HOST" if self.is_host else ("CLIENT" if self.client else "OFFLINE")),
             ]
-            panel = pygame.Surface((310, 126), pygame.SRCALPHA)
-            panel.fill((4, 8, 18, 220))
-            self.screen.blit(panel, (W - 322, H - 138))
+            self.screen.blit(self.debug_panel_surface, (W - 322, H - 138))
             for i, line in enumerate(debug_lines):
                 text(self.screen, line, self.f_small, GREEN, (W - 312, H - 126 + i * 23), "topleft", outline=1)
 
