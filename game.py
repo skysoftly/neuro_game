@@ -102,6 +102,10 @@ class Audio:
                 "ui_hover": self.make(680, 760, 0.025, 0.012, "sin", 0.0),
                 "ready": self.make(440, 990, 0.24, 0.06, "sin", 0.0),
                 "wave": self.make(260, 520, 0.42, 0.06, "tri", 0.0),
+                "boss_spawn": self.make(92, 38, 0.95, 0.15, "sin", 0.08),
+                "boss_hit": [self.make(190, 82, 0.12, 0.075, "tri", 0.04),
+                             self.make(145, 62, 0.16, 0.085, "sin", 0.06)],
+                "enemy_shot": self.make(440, 260, 0.09, 0.028, "tri", 0.0),
             }
             self.ok = True
             self.music = self.make_music()
@@ -116,24 +120,31 @@ class Audio:
     def make_music():
         """Longer, quieter ambient chiptune with space between phrases."""
         rate = 44100
-        melody = (440, 0, 523, 659, 0, 587, 523, 0, 392, 0, 440, 523, 0, 494, 440, 0,
-                  349, 0, 392, 440, 0, 523, 494, 0, 330, 0, 392, 494, 0, 440, 392, 0)
-        bass = (110, 110, 130.81, 130.81, 98, 98, 87.31, 87.31)
-        count = int(rate * 0.28)
+        melody = (659, 0, 523, 659, 784, 0, 659, 523,
+                  587, 0, 440, 587, 698, 0, 587, 440,
+                  523, 659, 784, 0, 880, 784, 659, 523,
+                  440, 0, 523, 659, 587, 523, 440, 0)
+        bass = (82.4, 82.4, 110, 110, 73.4, 73.4, 98, 98)
+        count = int(rate * 0.16)
         buf = array.array("h")
         for step, note in enumerate(melody):
             lead_phase = bass_phase = 0.0
             for i in range(count):
+                t = i / count
                 bass_phase += bass[(step // 4) % len(bass)] / rate
-                env = min(1.0, i / 1800) * min(1.0, (count - i) / 3500)
-                low = math.sin(bass_phase * math.tau) * env * 0.035
+                env = min(1.0, i / 900) * min(1.0, (count - i) / 2600)
+                low = math.sin(bass_phase * math.tau) * env * 0.055
                 lead = 0.0
                 if note:
                     lead_phase += note / rate
                     tri = 1.0 - 4.0 * abs(round(lead_phase) - lead_phase)
-                    lead_env = min(1.0, i / 1400) * min(1.0, (count - i) / 3000)
-                    lead = tri * lead_env * 0.032
-                buf.append(int(max(-1.0, min(1.0, lead + low)) * 32767))
+                    lead_env = min(1.0, i / 700) * min(1.0, (count - i) / 2100)
+                    lead = tri * lead_env * 0.048
+                kick = math.sin((72 - 42 * t) * math.tau * i / rate) * math.exp(-t * 18) * 0.15 if step % 4 == 0 else 0.0
+                snare = random.uniform(-1, 1) * math.exp(-t * 24) * 0.045 if step % 8 == 4 else 0.0
+                hat = random.uniform(-1, 1) * math.exp(-t * 38) * 0.018 if step % 2 else 0.0
+                sample = max(-0.9, min(0.9, lead + low + kick + snare + hat))
+                buf.append(int(sample * 32767))
         return pygame.mixer.Sound(buffer=buf.tobytes())
     @staticmethod
     def make(f0, f1, dur, vol, wave, noise):
@@ -168,8 +179,14 @@ class Game:
     def __init__(self):
         pygame.mixer.pre_init(44100, -16, 1, 512)
         pygame.init()
-        pygame.display.set_caption("NEON VOID — СЕТЕВАЯ")
+        pygame.display.set_caption("NEON VOID")
         self.screen = pygame.display.set_mode((W, H), pygame.SCALED | pygame.RESIZABLE)
+        icon = pygame.Surface((64, 64), pygame.SRCALPHA)
+        icon.fill((7, 13, 23))
+        pygame.draw.polygon(icon, CYAN, [(32, 3), (57, 18), (57, 46), (32, 61), (7, 46), (7, 18)], 4)
+        pygame.draw.polygon(icon, MAGENTA, [(32, 15), (45, 32), (32, 49), (19, 32)], 3)
+        pygame.draw.circle(icon, WHITE, (32, 32), 5)
+        pygame.display.set_icon(icon)
         self.clock = pygame.time.Clock()
         self.scene = pygame.Surface((W, H)).convert()
 
@@ -1059,23 +1076,27 @@ class Game:
         q = []
         for _ in range(n):
             r = random.random()
-            if self.wave >= 3 and r < 0.09:
+            if self.wave >= 6 and r < 0.08:
+                q.append("bruiser")
+            elif self.wave >= 4 and r < 0.17:
+                q.append("orbiter")
+            elif self.wave >= 3 and r < 0.27:
                 q.append("tank")
-            elif self.wave >= 4 and r < 0.19:
+            elif self.wave >= 4 and r < 0.37:
                 q.append("splitter")
-            elif self.wave >= 3 and r < 0.29:
+            elif self.wave >= 3 and r < 0.47:
                 q.append("dasher")
-            elif self.wave >= 5 and r < 0.38:
+            elif self.wave >= 5 and r < 0.56:
                 q.append("mine")
-            elif self.wave >= 2 and r < 0.52:
+            elif self.wave >= 2 and r < 0.68:
                 q.append("shooter")
-            elif self.wave >= 2 and r < 0.66:
+            elif self.wave >= 2 and r < 0.82:
                 q.append("swarm")
             else:
                 q.append("chaser")
-        # Every fifth wave ends with a unique-feeling arena boss encounter.
         if self.wave % 5 == 0:
-            q.append(("boss", "boss_storm", "boss_hunter")[(self.wave // 5 - 1) % 3])
+            bosses = ("boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege")
+            q.append(bosses[(self.wave // 5 - 1) % len(bosses)])
         self.queue = q
         if self.wave % 4 == 0:
             self.pickups.append([V(WORLD_W / 2, WORLD_H / 2), "heal", 12.0])
@@ -1096,6 +1117,10 @@ class Game:
         enemy.max_hp = enemy.hp
         enemy.spd *= 1.0 + 0.035 * max(0, len(self.players) - 1)
         self.enemies.append(enemy)
+        if kind.startswith("boss"):
+            self.banner_t = max(self.banner_t, 2.8)
+            self.shake = max(self.shake, 12)
+            self.audio.play("boss_spawn")
 
     def update_enemy(self, e, dt):
         alive_players = [p for p in self.players.values() if p.alive]
@@ -1151,24 +1176,92 @@ class Game:
                     a = base + (i - (n - 1) / 2) * 0.25
                     self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * min(430, 300 + self.wave * 8), 6.0])
                 self.audio.play("shoot")
-        elif k in ("boss", "boss_storm", "boss_hunter"):
-            e.v = e.v.lerp(d * e.spd, min(1.0, 1.4 * dt))
+        elif k == "orbiter":
+            tangent = V(-d.y, d.x) * e.side
+            desired = 300
+            velocity = tangent * e.spd * 1.35
+            if dist < desired - 55:
+                velocity -= d * e.spd * 1.25
+            elif dist > desired + 75:
+                velocity += d * e.spd * 0.9
+            e.v = e.v.lerp(velocity, min(1.0, 2.8 * dt))
             e.cool -= dt
             if e.cool <= 0:
-                e.cool = max(1.25, 2.5 - self.wave * 0.025)
-                count = 26 if k == "boss_storm" else 14 if k == "boss_hunter" else 18
-                speed = 350 if k == "boss_storm" else 430 if k == "boss_hunter" else 300
-                for i in range(count):
-                    a = i * math.tau / count + e.ang
-                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * speed, 7.0])
+                e.cool = 1.65
                 base = math.atan2(d.y, d.x)
-                fan = (-0.62, -0.42, -0.21, 0, 0.21, 0.42, 0.62) if k == "boss_hunter" else (-0.42, -0.21, 0, 0.21, 0.42)
-                for offset in fan:
+                for offset in (-0.24, 0.0, 0.24):
                     a = base + offset
-                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * (470 if k == "boss_hunter" else 390), 6.0])
-                if k == "boss_hunter":
-                    e.v += d * 520
-                self.shake = max(self.shake, 9)
+                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 350, 6.0])
+                self.audio.play("enemy_shot")
+        elif k == "bruiser":
+            e.cool -= dt
+            if e.windup > 0:
+                e.windup -= dt
+                e.v *= math.exp(-8.0 * dt)
+                if e.windup <= 0:
+                    e.charge_t = 0.52
+                    e.v = e.charge_dir * (e.spd * 5.2)
+                    self.rings.append(Ring(e.p, 12, 115, 620, ORANGE, 4))
+                    self.audio.play("dash")
+            elif e.charge_t > 0:
+                e.charge_t = max(0.0, e.charge_t - dt)
+                e.v = e.charge_dir * (e.spd * 5.2)
+            else:
+                e.v = e.v.lerp(d * e.spd, min(1.0, 1.8 * dt))
+                if e.cool <= 0:
+                    e.cool = 3.4
+                    e.windup = 0.62
+                    e.charge_dir = V(d)
+        elif k in ("boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege"):
+            e.v = e.v.lerp(d * e.spd, min(1.0, 1.25 * dt))
+            e.cool -= dt
+            if e.cool <= 0:
+                e.cool = max(1.25, 2.35 - self.wave * 0.018)
+                base = math.atan2(d.y, d.x)
+                if k == "boss":
+                    for i in range(18):
+                        a = i * math.tau / 18 + e.ang
+                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 320, 7.0])
+                    for offset in (-0.34, 0.0, 0.34):
+                        a = base + offset
+                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 410, 6.0])
+                elif k == "boss_storm":
+                    for i in range(30):
+                        a = i * math.tau / 30 + e.ang
+                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 285, 7.5])
+                    for i in range(8):
+                        a = base + (i - 3.5) * 0.16
+                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 390, 6.0])
+                    e.ang += 0.55
+                elif k == "boss_hunter":
+                    for offset in (-0.72, -0.48, -0.24, 0, 0.24, 0.48, 0.72):
+                        a = base + offset
+                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 475, 6.0])
+                    e.v += d * 680
+                    self.rings.append(Ring(e.p, 10, 145, 720, ORANGE, 5))
+                elif k == "boss_void":
+                    side = V(-d.y, d.x) * random.choice((-1, 1))
+                    e.p = target.p - d * random.uniform(250, 340) + side * random.uniform(100, 220)
+                    e.p.x = max(80, min(WORLD_W - 80, e.p.x))
+                    e.p.y = max(80, min(WORLD_H - 80, e.p.y))
+                    e.v = V()
+                    self.rings.append(Ring(e.p, 14, 230, 520, PURPLE, 6))
+                    for i in range(12):
+                        a = i * math.tau / 12 + e.ang
+                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 330, 7.0])
+                    for offset in (-0.18, 0.0, 0.18):
+                        a = base + offset
+                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 430, 6.0])
+                else:
+                    e.v *= 0.25
+                    for i in range(24):
+                        a = i * math.tau / 24 + e.ang
+                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 245, 8.0])
+                    for offset in (-0.9, -0.45, 0.0, 0.45, 0.9):
+                        a = base + offset
+                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 360, 7.0])
+                    self.rings.append(Ring(e.p, 18, 185, 430, YELLOW, 8))
+                self.shake = max(self.shake, 11 if k == "boss_siege" else 8)
                 self.audio.play("boom")
         else:  # tank
             e.v = e.v.lerp(d * e.spd, min(1.0, 2 * dt))
@@ -1267,7 +1360,7 @@ class Game:
         if e.hp <= 0:
             self.kill(e, src)
         else:
-            self.audio.play("hit")
+            self.audio.play("boss_hit" if e.kind.startswith("boss") else "hit")
 
     def kill(self, e, src):
         if e.dead:
@@ -1555,10 +1648,13 @@ class Game:
             pts = shape(DIAMOND, e["ang"], (sx, sy), r)
         elif kind in ("swarm", "splitter"):
             pts = shape(TRI, e["ang"], (sx, sy), r)
-        elif kind in ("shooter", "mine"):
-            pts = shape(HEX, e["ang"] * 0.4, (sx, sy), r)
+        elif kind in ("shooter", "mine", "orbiter"):
+            pts = shape(HEX, e["ang"] * (0.8 if kind == "orbiter" else 0.4), (sx, sy), r)
+        elif kind == "bruiser":
+            pts = shape(SQ, e["ang"] * 0.35, (sx, sy), r * 1.12)
         elif kind.startswith("boss"):
-            pts = shape(HEX, e["ang"] * 0.3, (sx, sy), r * 1.35)
+            boss_shape = DIAMOND if kind == "boss_hunter" else SQ if kind == "boss_siege" else TRI if kind == "boss_void" else HEX
+            pts = shape(boss_shape, e["ang"] * 0.3, (sx, sy), r * 1.35)
         else:
             pts = shape(SQ, e["ang"], (sx, sy), r)
         pygame.draw.polygon(sc, fill, pts)
@@ -1575,6 +1671,11 @@ class Game:
         if kind.startswith("boss"):
             pygame.draw.circle(sc, dim(col, 0.25), (int(sx), int(sy)), int(r * 0.72), 5)
             pygame.draw.circle(sc, WHITE, (int(sx), int(sy)), max(5, int(r * 0.24)), 2)
+            if kind == "boss_void":
+                pygame.draw.circle(sc, PURPLE, (int(sx), int(sy)), int(r * 1.1 + 8 * math.sin(self.t * 4)), 2)
+            elif kind == "boss_siege":
+                pygame.draw.rect(sc, YELLOW, pygame.Rect(int(sx-r*0.55), int(sy-r*0.55),
+                                 int(r*1.1), int(r*1.1)), 3)
             for spoke in range(6):
                 a = e["ang"] + spoke * math.tau / 6
                 start = (sx + math.cos(a) * r * 0.48, sy + math.sin(a) * r * 0.48)
@@ -1587,7 +1688,19 @@ class Game:
                 pygame.draw.line(sc, col,
                                  (sx + math.cos(a) * r * 0.35, sy + math.sin(a) * r * 0.35),
                                  (sx + math.cos(a) * r * 0.95, sy + math.sin(a) * r * 0.95), 2)
-        if kind == "shooter":
+        if kind == "orbiter":
+            orbit = 1.0 + 0.18 * math.sin(self.t * 7 + e["ang"])
+            pygame.draw.circle(sc, col, (int(sx), int(sy)), int(r * 1.5 * orbit), 1)
+            pygame.draw.circle(sc, WHITE, (int(sx), int(sy)), max(3, int(r * 0.24)), 2)
+        elif kind == "bruiser":
+            for spoke in range(4):
+                a = e["ang"] + spoke * math.pi / 2
+                pygame.draw.line(sc, col,
+                                 (sx + math.cos(a) * r * 0.55, sy + math.sin(a) * r * 0.55),
+                                 (sx + math.cos(a) * r * 1.2, sy + math.sin(a) * r * 1.2), 4)
+            if e.get("windup", 0) > 0:
+                pygame.draw.circle(sc, WHITE, (int(sx), int(sy)), int(r * 1.5), 2)
+        elif kind == "shooter":
             pygame.draw.circle(sc, col, (int(sx), int(sy)), max(2, int(r * 0.3)))
             if k >= 1 and e["cool"] < 0.35:
                 pygame.draw.circle(sc, WHITE, (int(sx), int(sy)), int(r + 6 + e["cool"] * 20), 2)
