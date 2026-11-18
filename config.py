@@ -36,6 +36,10 @@ KINDS = {
     "swarm":  dict(hp=1, r=9, spd=215, col=ORANGE, score=5, xp=2),
     "shooter": dict(hp=3, r=17, spd=95, col=PURPLE, score=30, xp=8),
     "tank":   dict(hp=10, r=28, spd=60, col=YELLOW, score=60, xp=20),
+    "dasher": dict(hp=3, r=15, spd=205, col=(255, 110, 120), score=24, xp=7),
+    "splitter": dict(hp=5, r=21, spd=105, col=(120, 220, 150), score=35, xp=10),
+    "mine": dict(hp=2, r=12, spd=75, col=(255, 180, 80), score=18, xp=6),
+    "boss": dict(hp=110, r=54, spd=72, col=(245, 100, 190), score=500, xp=100),
 }
 
 # ---------- подбираемое ----------
