@@ -607,7 +607,7 @@ class Game:
             mode = self.input_mode
             self.input_mode = None
             self.persist()
-            if mode == "ip" and self.ip_input.strip():
+            if mode == "ip":
                 self.join_server(self.ip_input)
             return
         if e.key == pygame.K_ESCAPE:
