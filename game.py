@@ -963,7 +963,7 @@ class Game:
 
     def spawn(self, kind):
         alive_players = [p for p in self.players.values() if p.alive]
-        if not alive_players or len(self.enemies) >= 90:
+        if not alive_players or (len(self.enemies) >= 90 and kind != "boss"):
             return
         tgt = random.choice(alive_players)
         ang = random.uniform(0, math.tau)
@@ -1066,23 +1066,22 @@ class Game:
             key = (int(e.p.x // cell), int(e.p.y // cell))
             buckets.setdefault(key, []).append(e)
         for (gx, gy), group in buckets.items():
-            nearby = group[:]
-            for ox, oy in ((1,0), (0,1), (1,1), (-1,1)):
-                nearby.extend(buckets.get((gx + ox, gy + oy), ()))
+            neighbors = [buckets.get((gx + ox, gy + oy), ())
+                         for ox, oy in ((1,0), (0,1), (1,1), (-1,1))]
+            pairs = []
             for i, a in enumerate(group):
-                for b in nearby:
-                    if a is b:
-                        continue
-                    if b in group and group.index(b) <= i:
-                        continue
-                    d = a.p - b.p
-                    rr = a.r + b.r
-                    l2 = d.length_squared()
-                    if 0 < l2 < rr * rr:
-                        l = math.sqrt(l2)
-                        push = d / l * (rr - l) * 0.5
-                        a.p += push
-                        b.p -= push
+                pairs.extend((a, group[j]) for j in range(i + 1, len(group)))
+                for other in neighbors:
+                    pairs.extend((a, other_enemy) for other_enemy in other)
+            for a, other_enemy in pairs:
+                d = a.p - other_enemy.p
+                rr = a.r + other_enemy.r
+                l2 = d.length_squared()
+                if 0 < l2 < rr * rr:
+                    l = math.sqrt(l2)
+                    push = d / l * (rr - l) * 0.5
+                    a.p += push
+                    other_enemy.p -= push
 
     def update_bullets(self, dt):
         for b in self.bullets:
@@ -1574,6 +1573,19 @@ class Game:
         text(sc, ("БОСС НА АРЕНЕ" if any(e.get("k") == "boss" for e in snap.get("enemies", []))
                   else "БОСС ЧЕРЕЗ %d ВОЛН" % boss_in),
              self.f_small, MAGENTA, (W - 30, 84), "midright", outline=1)
+
+        bosses = [e for e in snap.get("enemies", []) if e.get("k") == "boss"]
+        if bosses:
+            boss = bosses[0]
+            bw = 500
+            bx = (W - bw) // 2
+            by = 104
+            ratio = max(0.0, min(1.0, boss.get("hp", 0) / max(1, boss.get("max_hp", 1))))
+            pygame.draw.rect(sc, (12, 8, 18), (bx, by, bw, 14))
+            pygame.draw.rect(sc, MAGENTA, (bx, by, int(bw * ratio), 14))
+            pygame.draw.rect(sc, (230, 190, 220), (bx, by, bw, 14), 1)
+            text(sc, "БОСС  •  %d%%" % int(ratio * 100), self.f_small, WHITE,
+                 (W / 2, by - 12), outline=1)
 
         # XP / level локального игрока
         if me:
