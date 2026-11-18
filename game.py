@@ -1542,16 +1542,16 @@ class Game:
             if p.shield_hits <= 0:
                 p.shield_t = 0.0
             self.play_sound("shield_block", p.pid)
+            self.pops.append([V(p.p), "ЩИТ", 0.75, CYAN, p.pid])
             if p.pid == self.my_id:
-                self.pops.append([V(p.p), "ЩИТ", 0.75, CYAN, p.pid])
                 self.rings.append(Ring(p.p, 20, 125, 620, CYAN, 4))
                 self.burst(p.p, CYAN, 18, 300, (0.15, 0.35), 2)
             return
         p.armor_hits += 1
         if p.armor > 0 and p.armor_hits % max(2, 5 - p.armor) == 0:
             self.play_sound("armor_block", p.pid)
+            self.pops.append([V(p.p), "БРОНЯ", 0.8, CYAN, p.pid])
             if p.pid == self.my_id:
-                self.pops.append([V(p.p), "БРОНЯ", 0.8, CYAN, p.pid])
                 self.rings.append(Ring(p.p, 8, 100, 520, CYAN, 3))
             return
         p.hp -= 1
