@@ -14,8 +14,8 @@ class EndlessDifficultyTests(unittest.TestCase):
 
     def test_wave_number_has_no_small_hard_limit(self):
         self.assertGreater(wave_enemy_count(10_000, 1), 0)
-        self.assertEqual(boss_kind_for_wave(10_000), "boss")
-        self.assertEqual(boss_kind_for_wave(10_005), "boss_storm")
+        self.assertEqual(boss_kind_for_wave(10_000), "boss_siege")
+        self.assertEqual(boss_kind_for_wave(10_005), "boss")
 
     def test_bosses_continue_cycling_every_five_waves(self):
         self.assertEqual(
