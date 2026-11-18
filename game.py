@@ -1561,24 +1561,21 @@ class Game:
                 me = pl
                 break
 
-        # левый верх: все игроки (соревнование)
-        y = 26
+        # Компактный список игроков: имя, счёт и здоровье без лишних подписей.
+        y = 24
         for pl in snap.get("players", []):
             col = PLAYER_COLORS[(pl["pid"] - 1) % len(PLAYER_COLORS)]
-            text(sc, pl["name"] + (" (вы)" if pl["pid"] == self.my_id else ""),
-                 self.f_small, col, (24, y), "midleft", outline=2)
-            text(sc, "%d очк.  ур.%d" % (pl["score"], pl.get("level", 1)),
-                 self.f_small, WHITE, (24, y + 22), "midleft", outline=2)
-            text(sc, "убийств: %d" % pl.get("kills", 0),
-                 self.f_small, (170, 180, 210), (200, y + 22), "midleft", outline=2)
+            label = pl["name"] + ("  •  ВЫ" if pl["pid"] == self.my_id else "")
+            text(sc, label, self.f_small, col, (24, y), "midleft", outline=1)
+            text(sc, "%d" % pl["score"], self.f_small, WHITE, (220, y), "midright", outline=1)
             for i in range(pl["max_hp"]):
-                pts = shape(SHIP, -math.pi / 2, (24 + i * 20, y + 44), 8)
+                pts = shape(SHIP, -math.pi / 2, (30 + i * 19, y + 23), 7)
                 if i < pl["hp"]:
                     pygame.draw.polygon(sc, (6, 40, 56), pts)
                     pygame.draw.polygon(sc, col, pts, 2)
                 else:
                     pygame.draw.polygon(sc, (40, 50, 70), pts, 1)
-            y += 62
+            y += 43
 
         # правый верх: волна
         wave = snap.get("wave", 1)
