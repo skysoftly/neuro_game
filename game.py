@@ -1468,7 +1468,7 @@ class Game:
 
     def draw_error(self, sc):
         text(sc, "ОШИБКА", self.f_huge, RED, (W / 2, 150), outline=3)
-        for i, line in enumerate(self.error_msg.split("\\n")):
+        for i, line in enumerate(self.error_msg.split("\n")):
             text(sc, line, self.f_mid, WHITE, (W / 2, 290 + i * 46), outline=2)
         self.draw_button(sc, pygame.Rect(W / 2 - 150, H - 102, 300, 46), "В МЕНЮ", CYAN)
 
