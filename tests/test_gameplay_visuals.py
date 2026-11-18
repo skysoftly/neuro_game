@@ -26,7 +26,18 @@ class UpgradeTests(unittest.TestCase):
 
     def test_damage_upgrade_changes_damage(self):
         apply_upgrade(self.player, "dmg")
-        self.assertAlmostEqual(self.player.dmg, 1.2)
+        self.assertAlmostEqual(self.player.dmg, 1.12)
+
+    def test_damage_upgrade_has_a_hard_cap(self):
+        for _ in range(8):
+            apply_upgrade(self.player, "dmg")
+        self.assertEqual(self.player.upgrades["dmg"], 3)
+        self.assertAlmostEqual(self.player.dmg, 1.36)
+
+    def test_roll_excludes_upgrades_at_their_cap(self):
+        self.player.upgrades["dmg"] = 3
+        result = roll_upgrades(random.Random(2), 3, self.player)
+        self.assertNotIn("dmg", result)
 
     def test_lifesteal_upgrade_is_tracked(self):
         apply_upgrade(self.player, "lifesteal")
