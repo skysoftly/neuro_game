@@ -1112,7 +1112,7 @@ class Game:
         self.audio.play("hurt")
         if p.hp <= 0:
             p.alive = False
-                self.burst(p.p, p.color, 120, 800, (0.6, 1.8), 4)
+            self.burst(p.p, p.color, 120, 800, (0.6, 1.8), 4)
             self.burst(p.p, WHITE, 40, 500, (0.3, 0.9), 3)
             for r, s in ((500, 500), (800, 800)):
                 self.rings.append(Ring(p.p, 10, r, s, p.color, 6))
@@ -1746,6 +1746,8 @@ class Game:
         snap = None
         if self.state in ("play", "dead"):
             snap = self.build_snapshot() if self.is_host else self.snap
+            if snap is not None:
+                self.wave = int(snap.get("wave", self.wave))
 
         # мир
         if snap is not None:
