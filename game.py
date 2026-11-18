@@ -107,26 +107,45 @@ class Audio:
                              self.make(145, 62, 0.16, 0.085, "sin", 0.06)],
                 "enemy_shot": self.make(440, 260, 0.09, 0.028, "tri", 0.0),
                 "boss_death": self.make(180, 28, 0.85, 0.13, "sin", 0.10),
+                "heal": self.make(420, 1120, 0.34, 0.10, "sin", 0.0),
+                "wave_start": self.make(180, 760, 0.72, 0.11, "tri", 0.03),
+                "wave_clear": self.make(620, 980, 0.46, 0.075, "sin", 0.0),
+                "scene": self.make(330, 660, 0.20, 0.045, "sin", 0.0),
             }
             self.ok = True
-            self.music = self.make_music()
+            self.sfx_volume = 0.75
+            self.music_volume = 0.12
+            self.music_tracks = {
+                "menu": self.make_music("menu"),
+                "game": self.make_music("game"),
+                "dead": self.make_music("dead"),
+            }
             self.music_channel = pygame.mixer.Channel(7)
-            self.music_channel.set_volume(0.12)
-            self.music_channel.play(self.music, loops=-1)
+            self.music_mode = None
+            self.music_channel.set_volume(self.music_volume)
+            self.set_scene("menu")
         except Exception:
             self.ok = False
             log.exception("Не удалось инициализировать аудио")
 
     @staticmethod
-    def make_music():
-        """Longer, quieter ambient chiptune with space between phrases."""
+    def make_music(mode="game"):
+        """Generate three distinct, loopable original chiptune themes."""
         rate = 44100
-        melody = (659, 0, 523, 659, 784, 0, 659, 523,
-                  587, 0, 440, 587, 698, 0, 587, 440,
-                  523, 659, 784, 0, 880, 784, 659, 523,
-                  440, 0, 523, 659, 587, 523, 440, 0)
-        bass = (82.4, 82.4, 110, 110, 73.4, 73.4, 98, 98)
-        count = int(rate * 0.16)
+        patterns = {
+            "menu": ((392, 0, 494, 587, 0, 494, 440, 0, 330, 0, 392, 494, 0, 440, 392, 0),
+                     (98, 98, 82.4, 82.4), 0.24, False),
+            "game": ((659, 0, 523, 659, 784, 0, 659, 523,
+                     587, 0, 440, 587, 698, 0, 587, 440,
+                     523, 659, 784, 0, 880, 784, 659, 523,
+                     440, 0, 523, 659, 587, 523, 440, 0),
+                    (82.4, 82.4, 110, 110, 73.4, 73.4, 98, 98), 0.14, True),
+            "dead": ((392, 349, 330, 294, 262, 0, 220, 196,
+                     174, 0, 147, 131, 110, 0, 98, 82),
+                    (65.4, 58.3, 55.0, 49.0), 0.30, False),
+        }
+        melody, bass, beat, drums = patterns.get(mode, patterns["game"])
+        count = int(rate * beat)
         buf = array.array("h")
         for step, note in enumerate(melody):
             lead_phase = bass_phase = 0.0
@@ -134,19 +153,41 @@ class Audio:
                 t = i / count
                 bass_phase += bass[(step // 4) % len(bass)] / rate
                 env = min(1.0, i / 900) * min(1.0, (count - i) / 2600)
-                low = math.sin(bass_phase * math.tau) * env * 0.055
+                low = math.sin(bass_phase * math.tau) * env * (0.045 if mode == "menu" else 0.06)
                 lead = 0.0
                 if note:
                     lead_phase += note / rate
                     tri = 1.0 - 4.0 * abs(round(lead_phase) - lead_phase)
                     lead_env = min(1.0, i / 700) * min(1.0, (count - i) / 2100)
-                    lead = tri * lead_env * 0.048
-                kick = math.sin((72 - 42 * t) * math.tau * i / rate) * math.exp(-t * 18) * 0.15 if step % 4 == 0 else 0.0
-                snare = random.uniform(-1, 1) * math.exp(-t * 24) * 0.045 if step % 8 == 4 else 0.0
-                hat = random.uniform(-1, 1) * math.exp(-t * 38) * 0.018 if step % 2 else 0.0
+                    lead = tri * lead_env * (0.032 if mode == "dead" else 0.045)
+                kick = snare = hat = 0.0
+                if drums:
+                    kick = math.sin((72 - 42 * t) * math.tau * i / rate) * math.exp(-t * 18) * 0.13 if step % 4 == 0 else 0.0
+                    snare = random.uniform(-1, 1) * math.exp(-t * 24) * 0.04 if step % 8 == 4 else 0.0
+                    hat = random.uniform(-1, 1) * math.exp(-t * 38) * 0.016 if step % 2 else 0.0
                 sample = max(-0.9, min(0.9, lead + low + kick + snare + hat))
                 buf.append(int(sample * 32767))
         return pygame.mixer.Sound(buffer=buf.tobytes())
+
+    def set_volumes(self, music=None, sfx=None):
+        if music is not None:
+            self.music_volume = max(0.0, min(1.0, float(music)))
+            if self.ok:
+                self.music_channel.set_volume(self.music_volume)
+        if sfx is not None:
+            self.sfx_volume = max(0.0, min(1.0, float(sfx)))
+
+    def set_scene(self, scene):
+        if not self.ok:
+            return
+        mode = "dead" if scene == "dead" else "game" if scene == "play" else "menu"
+        if mode == self.music_mode:
+            return
+        self.music_mode = mode
+        self.music_channel.stop()
+        self.music_channel.set_volume(self.music_volume)
+        self.music_channel.play(self.music_tracks[mode], loops=0 if mode == "dead" else -1)
+
     @staticmethod
     def make(f0, f1, dur, vol, wave, noise):
         rate = 44100
@@ -172,6 +213,7 @@ class Audio:
             sound = self.s[name]
             if isinstance(sound, list):
                 sound = random.choice(sound)
+            sound.set_volume(self.sfx_volume)
             sound.play()
 
 
@@ -207,8 +249,11 @@ class Game:
         self.tutorial_active = False
         self.tutorial_ready = False
         self.lobby_scroll = 0
-        self.hud_scroll = 0
         self.paused = False
+        self.snapshot_timer = 0.0
+        self.input_send_timer = 0.0
+        self.target_fps = int(cfg_fps) if False else 120
+        self.screen_shake_enabled = True
         self.shake = 0.0
         self.spectator_speed = 620.0
         self.flash = 0.0
@@ -224,6 +269,12 @@ class Game:
 
         cfg = load_config()
         self.last_ip = cfg.get("last_ip", "")
+        self.music_volume = max(0.0, min(1.0, float(cfg.get("music_volume", 0.12))))
+        self.sfx_volume = max(0.0, min(1.0, float(cfg.get("sfx_volume", 0.75))))
+        self.screen_shake_enabled = bool(cfg.get("screen_shake", True))
+        self.target_fps = int(cfg.get("target_fps", 120))
+        if self.target_fps not in (60, 120, 144, 0):
+            self.target_fps = 120
         self.first_run = not bool(str(cfg.get("name", "")).strip())
         self.name_input = str(cfg.get("name", "")).strip() if not self.first_run else ""
         self.ip_input = self.last_ip
@@ -234,7 +285,7 @@ class Game:
         self.client = None
         self.my_id = 0
         self.lobby_players = []
-        self.input_mode = "name" if self.first_run else None
+        self.input_mode = None
         self.connect_error = ""
 
         self.camera = Camera(W, H, WORLD_W, WORLD_H)
@@ -260,7 +311,9 @@ class Game:
         pygame.mouse.set_visible(True)
 
     def persist(self):
-        save_config({"last_ip": self.last_ip, "name": self.name_input})
+        save_config({"last_ip": self.last_ip, "name": self.name_input,
+                     "music_volume": self.music_volume, "sfx_volume": self.sfx_volume,
+                     "screen_shake": self.screen_shake_enabled, "target_fps": self.target_fps})
 
     def logical_mouse(self, pos=None):
         if pos is None:
