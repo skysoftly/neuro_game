@@ -85,7 +85,7 @@ class Audio:
             self.ok = True
             self.music = self.make_music()
             self.music_channel = pygame.mixer.Channel(7)
-            self.music_channel.set_volume(0.10)
+            self.music_channel.set_volume(0.22)
             self.music_channel.play(self.music, loops=-1)
         except Exception:
             self.ok = False
@@ -240,6 +240,7 @@ class Game:
     # ================= сеть =================
     def start_host(self):
         log.info("Запуск лобби хоста")
+        self.connect_error = ""
         try:
             self.server = HostServer()
         except Exception as e:
@@ -596,6 +597,7 @@ class Game:
         if not value:
             self.connect_error = "Буфер обмена пуст или недоступен"
             return
+        self.connect_error = ""
         if self.input_mode == "ip":
             value = "".join(ch for ch in value.strip() if ch.isdigit() or ch == ".")
             self.ip_input = value[:15]
@@ -625,9 +627,10 @@ class Game:
         ch = e.unicode
         if ch and ch.isprintable():
             if self.input_mode == "ip":
-                self.ip_input += ch
+                if ch.isdigit() or ch == ".":
+                    self.ip_input = (self.ip_input + ch)[:15]
             else:
-                self.name_input += ch
+                self.name_input = (self.name_input + ch)[:16]
 
     def quit(self):
         self.leave_net()
