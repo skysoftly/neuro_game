@@ -602,6 +602,14 @@ class Game:
             self.tutorial_ready = False
             pygame.mouse.set_visible(False)
         elif t == "snap":
+            previous_players = (self.snap or {}).get("players", [])
+            previous_me = next((p for p in previous_players if p.get("pid") == self.my_id), None)
+            current_me = next((p for p in m.get("players", []) if p.get("pid") == self.my_id), None)
+            if current_me and previous_me:
+                if current_me.get("hurt_t", 0) > previous_me.get("hurt_t", 0) + 0.08:
+                    self.audio.play("hurt")
+                if current_me.get("hp", 0) > previous_me.get("hp", 0):
+                    self.audio.play("heal")
             self.snap = m
             self.banner_t = m.get("banner", 0)
             self.intermission = bool(m.get("intermission", False))
@@ -1047,6 +1055,7 @@ class Game:
             if p.regen_timer >= 1.0 / p.regen:
                 p.regen_timer = 0.0
                 p.hp = min(p.max_hp, p.hp + 1)
+                if p.pid == self.my_id:
                 self.audio.play("heal")
         p.rapid = max(0.0, p.rapid - dt)
         p.spread = max(0.0, p.spread - dt)
@@ -1459,7 +1468,8 @@ class Game:
         self.rings.append(Ring(pk[0], 8, 120, 450, col, 3))
         self.burst(pk[0], col, 20, 350)
         self.pops.append([V(pk[0]), {"rapid": "БЫСТРЫЙ ОГОНЬ", "spread": "ТРОЙНОЙ ВЫСТРЕЛ", "heal": "+1 HP"}[kind], 1.2, col])
-        self.audio.play("heal" if kind == "heal" else "pickup")
+        if p.pid == self.my_id:
+            self.audio.play("heal" if kind == "heal" else "pickup")
 
     def damage(self, e, n, src):
         e.hp -= n
@@ -1523,24 +1533,26 @@ class Game:
             p.shield_hits -= 1
             if p.shield_hits <= 0:
                 p.shield_t = 0.0
-            self.pops.append([V(p.p), "ЩИТ", 0.75, CYAN])
-            self.rings.append(Ring(p.p, 20, 125, 620, CYAN, 4))
-            self.burst(p.p, CYAN, 18, 300, (0.15, 0.35), 2)
+            if p.pid == self.my_id:
+                self.pops.append([V(p.p), "ЩИТ", 0.75, CYAN, p.pid])
+                self.rings.append(Ring(p.p, 20, 125, 620, CYAN, 4))
+                self.burst(p.p, CYAN, 18, 300, (0.15, 0.35), 2)
             return
         p.armor_hits += 1
         if p.armor > 0 and p.armor_hits % max(2, 5 - p.armor) == 0:
-            self.pops.append([V(p.p), "БРОНЯ", 0.8, CYAN])
-            self.rings.append(Ring(p.p, 8, 100, 520, CYAN, 3))
+            if p.pid == self.my_id:
+                self.pops.append([V(p.p), "БРОНЯ", 0.8, CYAN, p.pid])
+                self.rings.append(Ring(p.p, 8, 100, 520, CYAN, 3))
             return
         p.hp -= 1
         p.inv = 0.58
         if p.pid == self.my_id:
             self.shake = max(self.shake, 18)
         p.hurt_t = 0.52
-        self.hitstop = 0.07
-        self.burst(p.p, CYAN, 40, 520, (0.3, 0.9), 3)
-        self.rings.append(Ring(p.p, 10, 280, 900, RED, 5))
-        self.audio.play("hurt")
+        if p.pid == self.my_id:
+            self.burst(p.p, CYAN, 40, 520, (0.3, 0.9), 3)
+            self.rings.append(Ring(p.p, 10, 280, 900, RED, 5))
+            self.audio.play("hurt")
         if p.hp <= 0:
             p.alive = False
             self.burst(p.p, p.color, 120, 800, (0.6, 1.8), 4)
@@ -2065,7 +2077,8 @@ class Game:
         else:
             ready_count = sum(1 for p in roster if p.get("alive", True) and p.get("upgrade_ready", False))
             alive_count = sum(1 for p in roster if p.get("alive", True))
-        text(sc, "ПЕРЕДЫШКА МЕЖДУ ВОЛНАМИ", self.f_big, YELLOW, (W / 2, 88), outline=2)
+        self.draw_fit_text(sc, "ПЕРЕДЫШКА МЕЖДУ ВОЛНАМИ", YELLOW,
+                           pygame.Rect(90, 58, W - 180, 62), 52, 34)
         if self.local_choices:
             text(sc, "ВЫБЕРИ ОДНО УЛУЧШЕНИЕ", self.f_mid, WHITE, (W / 2, 145), outline=1)
             text(sc, "СЛЕДУЮЩАЯ ВОЛНА НАЧНЕТСЯ, КОГДА ВСЕ ВЫБЕРУТ", self.f_small,
@@ -2241,7 +2254,8 @@ class Game:
             row_col = YELLOW if is_mvp else col
             mark = "" if is_mvp else ""
             text(sc, "%d" % (i + 1), self.f_mid, row_col, (W / 2 - 380, y), "midleft", outline=2)
-            text(sc, pl["name"] + mark, self.f_mid, row_col, (W / 2 - 320, y), "midleft", outline=2)
+            self.draw_fit_text(sc, pl["name"] + mark, row_col,
+                               pygame.Rect(W / 2 - 320, y - 18, 360, 36), 30, 14)
             text(sc, str(pl["score"]), self.f_mid, WHITE, (W / 2 + 60, y), "midleft", outline=2)
             text(sc, str(pl.get("kills", 0)), self.f_mid, WHITE, (W / 2 + 200, y), "midleft", outline=2)
             text(sc, str(snap.get("wave", 0)), self.f_mid, WHITE, (W / 2 + 340, y), "midleft", outline=2)
