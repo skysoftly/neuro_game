@@ -250,8 +250,45 @@ class Game:
         sw, sh = self.screen.get_size()
         return (pos[0] * W / max(1, sw), pos[1] * H / max(1, sh))
 
+    def draw_fit_text(self, surface, value, color, rect, base_size=18, min_size=12):
+        size = base_size
+        f = font(size)
+        while size > min_size and f.size(str(value))[0] > rect.width:
+            size -= 1
+            f = font(size)
+        old_clip = surface.get_clip()
+        surface.set_clip(rect)
+        text(surface, str(value), f, color, rect.center, outline=1)
+        surface.set_clip(old_clip)
+
+    def draw_wrapped_text(self, surface, value, f, color, rect, max_lines=2):
+        words = str(value).split()
+        lines, current = [], ""
+        for word in words:
+            candidate = (current + " " + word).strip()
+            if current and f.size(candidate)[0] > rect.width:
+                lines.append(current)
+                current = word
+            else:
+                current = candidate
+        if current:
+            lines.append(current)
+        if len(lines) > max_lines:
+            lines = lines[:max_lines]
+            last = lines[-1]
+            while last and f.size(last + "...")[0] > rect.width:
+                last = last[:-1].rstrip()
+            lines[-1] = last + "..."
+        old_clip = surface.get_clip()
+        surface.set_clip(rect)
+        line_h = f.get_linesize()
+        y = rect.centery - len(lines) * line_h / 2 + line_h / 2
+        for line in lines:
+            text(surface, line, f, color, (rect.centerx, y), outline=1)
+            y += line_h
+        surface.set_clip(old_clip)
+
     def draw_button(self, surface, rect, label, color=CYAN, enabled=True):
-        # Старая панельная кнопка: тёмная эмаль, двойная рамка и светлая грань.
         mouse = self.logical_mouse()
         hovered = enabled and rect.collidepoint(mouse)
         hover_key = (rect.x, rect.y, rect.w, rect.h, label)
@@ -260,35 +297,32 @@ class Game:
             self._last_hovered_button = hover_key
         elif not hovered and self._last_hovered_button == hover_key:
             self._last_hovered_button = None
-        fill = (25, 37, 52) if not hovered else (39, 57, 72)
+        pulse = 1.0 + (0.018 * (0.5 + 0.5 * math.sin(self.t * 9.0)) if hovered else 0.0)
+        r = pygame.Rect(0, 0, int(rect.w * pulse), int(rect.h * pulse))
+        r.center = rect.center
+        fill = (29, 43, 57) if hovered else (17, 27, 39)
         edge = color if enabled else (75, 82, 94)
-        cut = min(14, rect.height // 3)
-        pts = [(rect.left + cut, rect.top), (rect.right - cut, rect.top),
-               (rect.right, rect.top + cut), (rect.right, rect.bottom - cut),
-               (rect.right - cut, rect.bottom), (rect.left + cut, rect.bottom),
-               (rect.left, rect.bottom - cut), (rect.left, rect.top + cut)]
-        pygame.draw.polygon(surface, (3, 7, 15), [(x + 4, y + 5) for x, y in pts])
-        pygame.draw.polygon(surface, (9, 15, 26), pts)
-        inner = [(rect.left + cut + 3, rect.top + 3), (rect.right - cut - 3, rect.top + 3),
-                 (rect.right - 3, rect.top + cut + 3), (rect.right - 3, rect.bottom - cut - 3),
-                 (rect.right - cut - 3, rect.bottom - 3), (rect.left + cut + 3, rect.bottom - 3),
-                 (rect.left + 3, rect.bottom - cut - 3), (rect.left + 3, rect.top + cut + 3)]
+        cut = min(16, r.height // 3)
+        pts = [(r.left + cut, r.top), (r.right - cut, r.top),
+               (r.right, r.top + cut), (r.right, r.bottom - cut),
+               (r.right - cut, r.bottom), (r.left + cut, r.bottom),
+               (r.left, r.bottom - cut), (r.left, r.top + cut)]
+        pygame.draw.polygon(surface, (2, 5, 12), [(x + 5, y + 6) for x, y in pts])
+        pygame.draw.polygon(surface, (7, 13, 23), pts)
+        inner = [(r.left + cut + 3, r.top + 3), (r.right - cut - 3, r.top + 3),
+                 (r.right - 3, r.top + cut + 3), (r.right - 3, r.bottom - cut - 3),
+                 (r.right - cut - 3, r.bottom - 3), (r.left + cut + 3, r.bottom - 3),
+                 (r.left + 3, r.bottom - cut - 3), (r.left + 3, r.top + cut + 3)]
         pygame.draw.polygon(surface, fill, inner)
-        light = dim(edge, 0.88 if hovered else 0.55)
-        dark = dim(edge, 0.24)
-        pygame.draw.line(surface, light, pts[0], pts[1], 2)
-        pygame.draw.line(surface, light, pts[7], pts[0], 2)
-        pygame.draw.line(surface, dark, pts[4], pts[5], 2)
-        pygame.draw.line(surface, dark, pts[3], pts[4], 2)
+        pygame.draw.line(surface, dim(edge, 0.95 if hovered else 0.58), pts[0], pts[1], 2)
+        pygame.draw.line(surface, dim(edge, 0.75), pts[7], pts[0], 2)
+        pygame.draw.line(surface, dim(edge, 0.22), pts[4], pts[5], 2)
         pygame.draw.polygon(surface, edge, pts, 1)
-        pygame.draw.line(surface, dim(edge, 0.7), (rect.left + cut + 8, rect.centery),
-                         (rect.left + cut + 8, rect.centery + 5), 2)
         if hovered:
-            pygame.draw.line(surface, WHITE, (rect.left + cut + 12, rect.top + 7),
-                             (rect.right - cut - 12, rect.top + 7), 1)
-        label_color = WHITE if enabled else (112, 120, 132)
-        text(surface, label, self.f_mid if rect.height >= 50 else self.f_small,
-             label_color, (rect.centerx, rect.centery - (1 if hovered else 0)), outline=1)
+            pygame.draw.line(surface, WHITE, (r.left + cut + 12, r.top + 7),
+                             (r.right - cut - 12, r.top + 7), 1)
+        self.draw_fit_text(surface, label, WHITE if enabled else (112, 120, 132),
+                           r.inflate(-18, -8), 30 if r.height >= 50 else 18, 12)
         return hovered
     # ================= сеть =================
     def start_host(self):
@@ -489,8 +523,12 @@ class Game:
                 self.local_choices = []
                 self.local_upgrade_waiting = False
             pygame.mouse.set_visible(not (self.state == "play" and self.intermission))
+        elif t == "pause":
+            self.paused = bool(m.get("paused", False))
+            pygame.mouse.set_visible(self.paused or self.intermission)
         elif t == "dead":
             self.local_choices = []
+            self.paused = False
             self.state = "dead"
             pygame.mouse.set_visible(True)
         elif t == "disconnect":
@@ -503,6 +541,15 @@ class Game:
             self.tutorial_active = False
             self.server.broadcast({"t": "begin"})
             pygame.mouse.set_visible(False)
+
+    def set_paused(self, value):
+        value = bool(value)
+        if self.paused == value:
+            return
+        self.paused = value
+        pygame.mouse.set_visible(value or self.intermission or self.state == "dead")
+        if self.is_host and self.server:
+            self.server.broadcast({"t": "pause", "paused": value})
 
     def confirm_tutorial(self):
         if not self.tutorial_active:
@@ -518,7 +565,7 @@ class Game:
             self.client.send({"t": "tutorial_ready"})
 
     def send_input(self):
-        if self.tutorial_active or self.is_host or not self.client or self.state != "play":
+        if self.tutorial_active or self.paused or self.is_host or not self.client or self.state != "play":
             return
         k = pygame.key.get_pressed()
         x = int(k[pygame.K_d] or k[pygame.K_RIGHT]) - int(k[pygame.K_a] or k[pygame.K_LEFT])
@@ -596,7 +643,7 @@ class Game:
         return False
 
     def update_spectator_camera(self, dt):
-        if self.state not in ("play", "dead") or not self.is_spectating():
+        if self.paused or self.state not in ("play", "dead") or not self.is_spectating():
             return
         keys = pygame.key.get_pressed()
         x = int(keys[pygame.K_d] or keys[pygame.K_RIGHT]) - int(keys[pygame.K_a] or keys[pygame.K_LEFT])
@@ -632,6 +679,19 @@ class Game:
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
                 self.quit()
+                continue
+            if self.paused and self.state == "play":
+                if e.type == pygame.KEYDOWN and e.key in (pygame.K_ESCAPE, pygame.K_p):
+                    if self.is_host:
+                        self.set_paused(False)
+                elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                    mx, my = self.logical_mouse(e.pos)
+                    cx = W / 2
+                    if self.is_host and pygame.Rect(cx - 175, H / 2 + 42, 350, 52).collidepoint(mx, my):
+                        self.set_paused(False)
+                    elif pygame.Rect(cx - 175, H / 2 + 108, 350, 48).collidepoint(mx, my):
+                        self.leave_net()
+                continue
             elif e.type == pygame.KEYDOWN:
                 if e.key == pygame.K_F11:
                     pygame.display.toggle_fullscreen()
@@ -672,7 +732,7 @@ class Game:
                         self.host_start_game()
                 elif self.state == "play":
                     if e.key in (pygame.K_p, pygame.K_ESCAPE) and self.is_host:
-                        self.paused = not self.paused
+                        self.set_paused(not self.paused)
                     elif e.key == pygame.K_e:
                         p = self.players.get(self.my_id)
                         if p:
@@ -856,6 +916,7 @@ class Game:
         p.dash_t = max(0.0, p.dash_t - dt)
         p.dash_cd = max(0.0, p.dash_cd - dt)
         p.inv = max(0.0, p.inv - dt)
+        p.hurt_t = max(0.0, p.hurt_t - dt)
         p.cool = max(0.0, p.cool - dt)
         p.pulse_boost = max(0.0, p.pulse_boost - dt)
         p.shield_t = max(0.0, p.shield_t - dt)
@@ -930,7 +991,6 @@ class Game:
     def do_pulse(self, p):
         p.charge = 0
         self.shake = max(self.shake, 34)
-        self.flash = 0.85
         p.inv = max(p.inv, 0.85)
         p.shield_t = 5.0
         p.shield_hits = min(5, 2 + p.upgrades.get("pulse_power", 0))
@@ -1169,7 +1229,12 @@ class Game:
         for pk in self.pickups:
             pk[2] -= dt
             if alive_players:
-                target = min(alive_players, key=lambda p: (p.p - pk[0]).length_squared())
+                owner_pid = pk[3] if len(pk) > 3 else None
+                eligible = [p for p in alive_players if owner_pid is None or p.pid == owner_pid]
+                if not eligible:
+                    keep.append(pk)
+                    continue
+                target = min(eligible, key=lambda p: (p.p - pk[0]).length_squared())
                 d = target.p - pk[0]
                 dist = d.length()
                 attract_r = 170 * target.magnet
@@ -1224,9 +1289,9 @@ class Game:
                 if src.lifesteal_progress >= 18:
                     src.lifesteal_progress -= 18
                     src.hp = min(src.max_hp, src.hp + 1)
-                    self.pops.append([V(src.p), "+1 HP", 0.9, GREEN])
+                    self.pops.append([V(src.p), "+1 HP", 0.9, GREEN, src.pid])
             src.charge = min(100.0, src.charge + (26 if e.kind.startswith("boss") else 14 if e.kind == "tank" else 7) * src.pulse_gain)
-            self.pops.append([V(e.p), "+%d" % pts, 0.8, e.col])
+            self.pops.append([V(e.p), "+%d" % pts, 0.8, e.col, src.pid])
             # Одно улучшение выдаётся в конце каждой волны.
         self.audio.play("boom")
         if e.kind in ("tank", "splitter"):
@@ -1237,8 +1302,11 @@ class Game:
         if e.kind.startswith("boss"):
             self.burst(e.p, MAGENTA, 180, 980, (0.5, 1.5), 5)
             self.rings.append(Ring(e.p, 10, 900, 700, YELLOW, 9))
-            for _ in range(3):
-                self.pickups.append([V(e.p), random.choice(("heal", "rapid", "spread")), 14.0])
+            for player in self.players.values():
+                if not player.alive:
+                    continue
+                reward = "heal" if player.hp < player.max_hp and random.random() < 0.55 else random.choice(("rapid", "spread"))
+                self.pickups.append([V(player.p), reward, 18.0, player.pid])
         chance = {"shooter": 0.2, "tank": 0.6}.get(e.kind, 0.05)
         if random.random() < chance:
             kinds = ["rapid", "spread"]
@@ -1269,7 +1337,7 @@ class Game:
         p.inv = 0.58
         p.chain = 0
         self.shake = max(self.shake, 24)
-        self.flash = 1.0
+        p.hurt_t = 0.52
         self.hitstop = 0.07
         self.burst(p.p, CYAN, 40, 520, (0.3, 0.9), 3)
         self.rings.append(Ring(p.p, 10, 280, 900, RED, 5))
@@ -1381,6 +1449,7 @@ class Game:
                 "chain": p.chain, "combo_t": round(p.combo_t, 2),
                 "alive": p.alive, "inv": round(p.inv, 2), "dash_t": round(p.dash_t, 2),
                 "shield_t": round(p.shield_t, 1), "shield_hits": p.shield_hits,
+                "hurt_t": round(p.hurt_t, 2),
                 "upgrade_choices": list(p.upgrade_choices),
                 "upgrade_ready": p.upgrade_ready,
                 "pending_upgrades": p.pending_upgrades,
@@ -1402,9 +1471,13 @@ class Game:
                 "hp": e.hp, "max_hp": e.max_hp,
             })
         for pk in self.pickups:
-            snap["pickups"].append([round(pk[0].x, 1), round(pk[0].y, 1), pk[1], round(pk[2], 1)])
-        for pos, s, life, col in self.pops:
-            snap["pops"].append([round(pos.x, 1), round(pos.y, 1), s, round(life, 2), col])
+            snap["pickups"].append([round(pk[0].x, 1), round(pk[0].y, 1), pk[1], round(pk[2], 1),
+                                    pk[3] if len(pk) > 3 else -1])
+        for pop in self.pops:
+            pos, label, life, col = pop[:4]
+            owner_pid = pop[4] if len(pop) > 4 else -1
+            snap["pops"].append([round(pos.x, 1), round(pos.y, 1), label,
+                                 round(life, 2), col, owner_pid])
         return snap
 
     # ================= отрисовка мира =================
@@ -1598,10 +1671,14 @@ class Game:
                                            int(r.r), max(1, int(r.w * k)))
 
         # всплывающие надписи +XP
-        for px, py, s, life, col in snap.get("pops", []):
+        for pop in snap.get("pops", []):
+            px, py, label, life, col = pop[:5]
+            owner_pid = pop[5] if len(pop) > 5 else -1
+            if owner_pid not in (-1, self.my_id):
+                continue
             sx, sy = cam.to_screen(px, py)
             if -60 <= sx <= W + 60 and -40 <= sy <= H + 40:
-                text(sc, s, self.f_small, dim(col, min(1.0, life * 2)), (sx, sy), outline=1)
+                text(sc, label, self.f_small, dim(col, min(1.0, life * 2)), (sx, sy), outline=1)
 
     # ================= HUD =================
     def draw_hint(self, sc):
@@ -1725,7 +1802,7 @@ class Game:
             panel = pygame.Surface((460, 48), pygame.SRCALPHA)
             panel.fill((8, 10, 24, 190))
             sc.blit(panel, (W / 2 - 230, 142))
-            text(sc, "ВЫ ВЫБЫЛИ — МОЖНО НАБЛЮДАТЬ ЗА ИГРОЙ",
+            text(sc, "YOU ARE OUT - SPECTATING",
                  self.f_small, RED, (W / 2, 166), outline=2)
 
         # баннер волны
@@ -1750,7 +1827,7 @@ class Game:
             panel = pygame.Rect(W / 2 - 190, 142, 380, 38)
             pygame.draw.rect(sc, (8, 15, 26), panel)
             pygame.draw.rect(sc, (90, 145, 165), panel, 1)
-            text(sc, "РЕЖИМ НАБЛЮДАТЕЛЯ  •  WASD — КАМЕРА",
+            text(sc, "SPECTATOR MODE - WASD CAMERA",
                  self.f_small, (185, 215, 225), panel.center, outline=1)
 
         self.draw_hint(sc)
@@ -1768,44 +1845,51 @@ class Game:
         else:
             ready_count = sum(1 for p in roster if p.get("alive", True) and p.get("upgrade_ready", False))
             alive_count = sum(1 for p in roster if p.get("alive", True))
-        text(sc, "ПЕРЕДЫШКА МЕЖДУ ВОЛНАМИ", self.f_big, YELLOW, (W / 2, 92), outline=2)
+        text(sc, "INTERMISSION", self.f_big, YELLOW, (W / 2, 88), outline=2)
         if self.local_choices:
-            text(sc, "ВЫБЕРИ ОДНО УЛУЧШЕНИЕ", self.f_mid, WHITE, (W / 2, 148), outline=1)
-            text(sc, "Следующая волна начнётся, когда выберут все игроки", self.f_small, (184, 195, 194), (W / 2, 184), outline=1)
+            text(sc, "CHOOSE ONE UPGRADE", self.f_mid, WHITE, (W / 2, 145), outline=1)
+            text(sc, "The next wave starts when everyone is ready", self.f_small,
+                 (184, 195, 194), (W / 2, 180), outline=1)
         else:
-            text(sc, "ВЫБОР ПРИНЯТ", self.f_mid, CYAN, (W / 2, 150), outline=1)
-            text(sc, "ЖДИТЕ, ПОКА ВСЕ ВЫБЕРУТ СПОСОБНОСТИ  •  %d / %d" % (ready_count, alive_count),
-                 self.f_small, WHITE, (W / 2, 188), outline=1)
-        card_w, card_h, gap = 320, 220, 30
+            text(sc, "CHOICE LOCKED", self.f_mid, CYAN, (W / 2, 145), outline=1)
+            text(sc, "WAITING FOR PLAYERS  -  %d / %d" % (ready_count, alive_count),
+                 self.f_small, WHITE, (W / 2, 180), outline=1)
+        card_w, card_h, gap = 320, 238, 30
         total = len(self.local_choices) * card_w + max(0, len(self.local_choices) - 1) * gap
         x0 = (W - total) / 2
         for i, up_id in enumerate(self.local_choices):
             u = UPGRADES_BY_ID.get(up_id)
             if not u:
                 continue
-            x, y = x0 + i * (card_w + gap), H / 2 - card_h / 2 + 40
+            x, y = x0 + i * (card_w + gap), H / 2 - card_h / 2 + 38
             rect = pygame.Rect(x, y, card_w, card_h)
             col = u["color"]
             hovered = rect.collidepoint(self.logical_mouse())
-            pygame.draw.rect(sc, (3, 6, 11), rect.move(5, 6))
-            pygame.draw.rect(sc, (18, 27, 38) if hovered else (13, 20, 30), rect)
-            pygame.draw.rect(sc, (42, 51, 60), rect.inflate(-8, -8), 1)
-            pygame.draw.rect(sc, WHITE if hovered else col, rect, 2 if hovered else 1)
-            pygame.draw.line(sc, dim(col, 0.55), (x + 18, y + 8), (x + card_w - 18, y + 8), 1)
-            text(sc, u["name"], self.f_mid, col, (rect.centerx, y + 82), outline=1)
-            words, lines, current = u["desc"].split(), [], ""
-            for word in words:
-                if len(current) + len(word) + 1 > 24:
-                    lines.append(current)
-                    current = word
-                else:
-                    current = (current + " " + word).strip()
-            if current:
-                lines.append(current)
-            for li, line in enumerate(lines):
-                text(sc, line, self.f_small, WHITE, (rect.centerx, y + 130 + li * 22), outline=1)
-            pygame.draw.line(sc, dim(col, 0.35), (x + 12, y + card_h - 38), (x + card_w - 12, y + card_h - 38), 1)
-            text(sc, "ВЫБРАТЬ  [ЛКМ]", self.f_small, col, (rect.centerx, rect.bottom - 18), outline=1)
+            pulse = 1.0 + (0.012 * (0.5 + 0.5 * math.sin(self.t * 7 + i)) if hovered else 0.0)
+            card = pygame.Rect(0, 0, int(card_w * pulse), int(card_h * pulse))
+            card.center = rect.center
+            draw_glow(sc, (card.centerx, card.y + 30), col, 110, 12 if hovered else 7)
+            cut = 20
+            pts = [(card.x + cut, card.y), (card.right - cut, card.y),
+                   (card.right, card.y + cut), (card.right, card.bottom - cut),
+                   (card.right - cut, card.bottom), (card.x + cut, card.bottom),
+                   (card.x, card.bottom - cut), (card.x, card.y + cut)]
+            pygame.draw.polygon(sc, (2, 5, 11), [(px + 5, py + 7) for px, py in pts])
+            pygame.draw.polygon(sc, (15, 23, 34) if hovered else (10, 17, 27), pts)
+            pygame.draw.polygon(sc, dim(col, 0.9 if hovered else 0.58), pts, 2 if hovered else 1)
+            pygame.draw.line(sc, dim(col, 0.48), (card.x + 24, card.y + 8),
+                             (card.right - 24, card.y + 8), 2)
+            text(sc, "MODULE %02d" % (i + 1), self.f_small, dim(col, 0.9),
+                 (card.centerx, card.y + 29), outline=1)
+            self.draw_wrapped_text(sc, u["name"], self.f_mid, col,
+                                   pygame.Rect(card.x + 18, card.y + 48, card.w - 36, 72), 2)
+            self.draw_wrapped_text(sc, u["desc"], self.f_small, WHITE,
+                                   pygame.Rect(card.x + 24, card.y + 126, card.w - 48, 66), 3)
+            pygame.draw.line(sc, dim(col, 0.35), (card.x + 18, card.bottom - 34),
+                             (card.right - 18, card.bottom - 34), 1)
+            text(sc, "SELECT  -  LEFT CLICK", self.f_small, col,
+                 (card.centerx, card.bottom - 17), outline=1)
+
     def draw_menu(self, sc):
         cx, cy = W / 2, H / 2 - 140
         for i in range(5):
@@ -1833,20 +1917,15 @@ class Game:
         cx = W / 2
         text(sc, "ЛОББИ", self.f_huge, CYAN, (cx, 90), outline=3)
         if self.is_host:
-            text(sc, "ВЫ — ХОСТ", self.f_mid, YELLOW, (cx, 170), outline=2)
-            text(sc, "Ваш IP для подключения:", self.f_small, (160, 170, 220), (cx, 215), outline=2)
-            host_ip = self.lan_ips[0] if self.lan_ips else "IP НЕ НАЙДЕН"
-            text(sc, host_ip, self.f_big, WHITE, (cx, 276), outline=2)
-            text(sc, "Порт: %d" % PORT, self.f_small, (164, 174, 182), (cx, 326), outline=1)
-            text(sc, "Подключайтесь из той же локальной сети", self.f_small, (164, 174, 182), (cx, 356), outline=1)
+            role, shown_ip = "YOU - HOST", (self.lan_ips[0] if self.lan_ips else "IP NOT FOUND")
         else:
-            text(sc, "ВЫ — КЛИЕНТ", self.f_mid, YELLOW, (cx, 170), outline=2)
-            text(sc, "Подключение: %s" % self.last_ip, self.f_small,
-                 (160, 170, 220), (cx, 215), outline=2)
+            role, shown_ip = "YOU - CLIENT", (self.last_ip or "UNKNOWN")
+        text(sc, role, self.f_mid, YELLOW, (cx - 175, 190), outline=2)
+        text(sc, "IP: " + shown_ip, self.f_mid, WHITE, (cx + 190, 190), outline=2)
 
-        py0 = 400
-        text(sc, "ИГРОКИ В ЛОББИ  •  %d" % len(self.lobby_players), self.f_mid, WHITE, (cx, py0), outline=2)
-        list_rect = pygame.Rect(245, 430, 790, H - 590)
+        py0 = 330
+        text(sc, "PLAYERS IN LOBBY  -  %d" % len(self.lobby_players), self.f_mid, WHITE, (cx, py0), outline=2)
+        list_rect = pygame.Rect(245, 360, 790, H - 520)
         pygame.draw.rect(sc, (5, 10, 18), list_rect)
         pygame.draw.rect(sc, (48, 72, 82), list_rect, 1)
         visible = max(1, (list_rect.h - 12) // 34)
@@ -1855,13 +1934,13 @@ class Game:
         sc.set_clip(list_rect.inflate(-4, -4))
         for i, (pid, name) in enumerate(self.lobby_players[self.lobby_scroll:self.lobby_scroll + visible]):
             col = PLAYER_COLORS[(pid - 1) % len(PLAYER_COLORS)] if pid > 0 else YELLOW
-            mark = " • ВЫ" if pid == self.my_id else ""
-            role = " • ХОСТ" if pid == 0 else ""
+            mark = " - YOU" if pid == self.my_id else ""
+            role = " - HOST" if pid == 0 else ""
             text(sc, "%02d  %s%s%s" % (self.lobby_scroll + i + 1, name, role, mark),
                  self.f_small, col, (list_rect.x + 18, list_rect.y + 17 + i * 34), "midleft", outline=1)
         sc.set_clip(old_clip)
         if len(self.lobby_players) > visible:
-            text(sc, "КОЛЁСИКО МЫШИ  •  %d–%d ИЗ %d" %
+            text(sc, "SCROLL  %d-%d OF %d" %
                  (self.lobby_scroll + 1, min(len(self.lobby_players), self.lobby_scroll + visible), len(self.lobby_players)),
                  self.f_small, (150, 175, 185), (cx, list_rect.bottom - 12), outline=1)
         if not self.lobby_players:
@@ -1883,6 +1962,28 @@ class Game:
             text(sc, line, self.f_mid, WHITE, (W / 2, 290 + i * 46), outline=2)
         self.draw_button(sc, pygame.Rect(W / 2 - 150, H - 102, 300, 46), "В МЕНЮ", CYAN)
 
+    def draw_pause_overlay(self, sc):
+        shade = pygame.Surface((W, H), pygame.SRCALPHA)
+        shade.fill((2, 4, 9, 205))
+        sc.blit(shade, (0, 0))
+        panel = pygame.Rect(W / 2 - 245, H / 2 - 145, 490, 320)
+        pts = [(panel.x + 24, panel.y), (panel.right - 24, panel.y),
+               (panel.right, panel.y + 24), (panel.right, panel.bottom - 24),
+               (panel.right - 24, panel.bottom), (panel.x + 24, panel.bottom),
+               (panel.x, panel.bottom - 24), (panel.x, panel.y + 24)]
+        pygame.draw.polygon(sc, (4, 8, 15), pts)
+        pygame.draw.polygon(sc, (60, 85, 98), pts, 1)
+        pygame.draw.line(sc, CYAN, (panel.x + 28, panel.y + 70),
+                         (panel.right - 28, panel.y + 70), 2)
+        text(sc, "PAUSE", self.f_huge, WHITE, (W / 2, panel.y + 42), outline=2)
+        text(sc, "THE ARENA IS FROZEN", self.f_small, (155, 183, 192),
+             (W / 2, panel.y + 98), outline=1)
+        if self.is_host:
+            self.draw_button(sc, pygame.Rect(W / 2 - 175, H / 2 + 42, 350, 52), "CONTINUE", CYAN)
+        else:
+            text(sc, "WAITING FOR HOST", self.f_mid, YELLOW, (W / 2, H / 2 + 68), outline=1)
+        self.draw_button(sc, pygame.Rect(W / 2 - 175, H / 2 + 108, 350, 48), "LEAVE SESSION", RED)
+
     def draw_dead(self, sc, snap):
         text(sc, "СЕССИЯ ЗАВЕРШЕНА", self.f_huge, RED, (W / 2, 100), outline=3)
         players = sorted(snap.get("players", []), key=lambda p: -p["score"])
@@ -1901,7 +2002,7 @@ class Game:
             col = PLAYER_COLORS[(pl["pid"] - 1) % len(PLAYER_COLORS)]
             is_mvp = pl["pid"] == mvp_pid
             row_col = YELLOW if is_mvp else col
-            mark = " ★" if is_mvp else ""
+            mark = "" if is_mvp else ""
             text(sc, "%d" % (i + 1), self.f_mid, row_col, (W / 2 - 380, y), "midleft", outline=2)
             text(sc, pl["name"] + mark, self.f_mid, row_col, (W / 2 - 320, y), "midleft", outline=2)
             text(sc, str(pl["score"]), self.f_mid, WHITE, (W / 2 + 60, y), "midleft", outline=2)
@@ -1911,7 +2012,7 @@ class Game:
 
         if mvp_pid >= 0:
             mvp_name = next((p["name"] for p in players if p["pid"] == mvp_pid), "?")
-            text(sc, "★ MVP: %s" % mvp_name, self.f_mid, YELLOW, (W / 2, y + 30), outline=2)
+            text(sc, "MVP: %s" % mvp_name, self.f_mid, YELLOW, (W / 2, y + 30), outline=2)
 
         if self.is_host:
             self.draw_button(sc, pygame.Rect(W / 2 - 190, H - 126, 380, 52), "ИГРАТЬ СНОВА", CYAN)
@@ -2060,8 +2161,7 @@ class Game:
                                         shape(HEX if i % 2 else SQ, a, (cx, cy), 120 + i * 30), 1)
 
         # flash
-        if self.flash > 0:
-            sc.fill((int(70 * self.flash), 0, int(10 * self.flash)), special_flags=pygame.BLEND_RGB_ADD)
+        # Hit feedback is rendered locally from the local player's snapshot.
 
         # Мягкий CRT glow без геометрических искажений и размытия интерфейса.
         post = sc.copy()
@@ -2074,6 +2174,15 @@ class Game:
         self.screen.fill((0, 0, 0))
         self.screen.blit(post, (ox, oy))
         self.screen.blit(self.overlay, (0, 0))
+
+        if snap is not None and self.state == "play":
+            local_player = next((p for p in snap.get("players", [])
+                                 if p.get("pid") == self.my_id), None)
+            hurt_t = local_player.get("hurt_t", 0.0) if local_player else 0.0
+            if hurt_t > 0:
+                hurt_layer = pygame.Surface((W, H), pygame.SRCALPHA)
+                hurt_layer.fill((155, 12, 24, int(105 * min(1.0, hurt_t / 0.52))))
+                self.screen.blit(hurt_layer, (0, 0))
 
         # UI поверх игрового слоя: текст и кнопки остаются контрастными.
         if self.state == "loading":
@@ -2092,8 +2201,12 @@ class Game:
                     self.draw_tutorial_overlay(self.screen)
                 if self.state == "dead":
                     self.draw_dead(self.screen, snap)
+                if self.state == "dead" and self.is_host:
+                    end_tint = pygame.Surface((W, H), pygame.SRCALPHA)
+                    end_tint.fill((135, 10, 22, 112))
+                    self.screen.blit(end_tint, (0, 0))
                 if self.paused:
-                    text(self.screen, "ПАУЗА", self.f_huge, WHITE, (W / 2, H / 2), outline=3)
+                    self.draw_pause_overlay(self.screen)
 
         self.draw_input_overlay(self.screen)
 
