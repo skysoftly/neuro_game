@@ -40,8 +40,8 @@ def bloom(src, W, H, strength=0.22, small_surface=None, full_surface=None):
     if strength <= 0.001:
         return
     sw, sh = max(1, W // 8), max(1, H // 8)
-    small = small_surface or pygame.Surface((sw, sh)).convert()
-    full = full_surface or pygame.Surface((W, H)).convert()
+    small = small_surface if small_surface is not None else pygame.Surface((sw, sh)).convert()
+    full = full_surface if full_surface is not None else pygame.Surface((W, H)).convert()
     pygame.transform.smoothscale(src, (sw, sh), small)
     pygame.transform.smoothscale(small, (W, H), full)
     full.set_alpha(max(1, min(255, int(255 * strength))))
