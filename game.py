@@ -2635,7 +2635,7 @@ class Game:
             pygame.draw.rect(sc, (15, 25, 38), cell)
             pygame.draw.rect(sc, CYAN if selected else (55, 72, 88), cell, 2 if selected else 1)
             pts = shape(skin_shape, -math.pi / 2, cell.center, 10)
-            pygame.draw.polygon(sc, current_color and PLAYER_COLORS[current_color], pts, 2)
+            pygame.draw.polygon(sc, PLAYER_COLORS[current_color], pts, 2)
             text(sc, str(idx + 1), font(11), WHITE, (cell.right - 8, cell.centery), "midright", outline=1)
 
         text(sc, "ШАПОЧКА", font(15), CYAN, (edit_rect.x + 22, edit_rect.y + 270), "midleft", outline=1)
