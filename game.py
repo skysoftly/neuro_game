@@ -111,6 +111,8 @@ class Audio:
                 "wave_start": self.make(180, 760, 0.72, 0.11, "tri", 0.03),
                 "wave_clear": self.make(620, 980, 0.46, 0.075, "sin", 0.0),
                 "scene": self.make(330, 660, 0.20, 0.045, "sin", 0.0),
+                "shield_block": self.make(760, 420, 0.12, 0.075, "sin", 0.0),
+                "armor_block": self.make(330, 720, 0.16, 0.07, "tri", 0.0),
             }
             self.ok = True
             self.sfx_volume = 0.75
@@ -310,6 +312,7 @@ class Game:
         self.rings = []
         self.pickups = []   # [pos, kind, ttl]
         self.pops = []      # [pos, text, ttl, color]
+        self.sound_events = []
         self.queue = []
         self.spawn_t = 0.0
         self.wave_delay = 1.5
@@ -321,6 +324,16 @@ class Game:
         self._last_hovered_button = None
 
         pygame.mouse.set_visible(True)
+
+    def play_sound(self, sound_name, owner_pid=None):
+        """Play locally and replicate simulation sounds to the correct LAN clients."""
+        if not self.is_host:
+            if owner_pid is None or owner_pid == self.my_id:
+                self.audio.play(sound_name)
+            return
+        if owner_pid is None or owner_pid == self.my_id:
+            self.audio.play(sound_name)
+        self.sound_events.append([sound_name, -1 if owner_pid is None else int(owner_pid)])
 
     def persist(self):
         save_config({"last_ip": self.last_ip, "name": self.name_input,
@@ -602,14 +615,9 @@ class Game:
             self.tutorial_ready = False
             pygame.mouse.set_visible(False)
         elif t == "snap":
-            previous_players = (self.snap or {}).get("players", [])
-            previous_me = next((p for p in previous_players if p.get("pid") == self.my_id), None)
-            current_me = next((p for p in m.get("players", []) if p.get("pid") == self.my_id), None)
-            if current_me and previous_me:
-                if current_me.get("hurt_t", 0) > previous_me.get("hurt_t", 0) + 0.08:
-                    self.audio.play("hurt")
-                if current_me.get("hp", 0) > previous_me.get("hp", 0):
-                    self.audio.play("heal")
+            for event in m.get("sfx", []):
+                if len(event) >= 2 and (event[1] < 0 or event[1] == self.my_id):
+                    self.audio.play(event[0])
             self.snap = m
             self.banner_t = m.get("banner", 0)
             self.intermission = bool(m.get("intermission", False))
@@ -1056,7 +1064,7 @@ class Game:
                 p.regen_timer = 0.0
                 p.hp = min(p.max_hp, p.hp + 1)
                 if p.pid == self.my_id:
-                    self.audio.play("heal")
+                    self.play_sound("heal", p.pid)
         p.rapid = max(0.0, p.rapid - dt)
         p.spread = max(0.0, p.spread - dt)
         if p.want_dash:
@@ -1069,7 +1077,7 @@ class Game:
                 p.dash_t = 0.22
                 p.inv = max(p.inv, 0.20)
                 p.dash_cd = p.dash_cd_max
-                self.audio.play("dash")
+                self.play_sound("dash", p.pid)
                 self.rings.append(Ring(p.p, 10, 90, 400, CYAN, 3))
 
         if p.want_pulse:
@@ -1114,7 +1122,7 @@ class Game:
             fwd = V(math.cos(p.ang), math.sin(p.ang))
             p.v -= fwd * 25
             self.burst(p.p + fwd * 24, CYAN, 3, 260, (0.08, 0.2), 2)
-            self.audio.play("shoot")
+            self.play_sound("shoot", p.pid)
 
     def do_pulse(self, p):
         p.charge = 0
@@ -1123,7 +1131,7 @@ class Game:
         p.shield_t = 5.0
         p.shield_hits = min(5, 2 + p.upgrades.get("pulse_power", 0))
         p.pulse_boost = 5.0
-        self.audio.play("pulse")
+        self.play_sound("pulse", p.pid)
         self.rings.append(Ring(p.p, 18, 170, 520, CYAN, 5))
         self.rings.append(Ring(p.p, 12, 125, 760, WHITE, 2))
         self.burst(p.p, CYAN, 42, 420, (0.25, 0.7), 3)
@@ -1150,7 +1158,7 @@ class Game:
             return
         self.intermission = True
         self.queue.clear()
-        self.audio.play("wave_clear")
+        self.play_sound("wave_clear")
         for p in self.players.values():
             if not p.alive:
                 p.upgrade_choices = []
@@ -1180,7 +1188,7 @@ class Game:
 
     def next_wave(self):
         self.wave += 1
-        self.audio.play("wave_start")
+        self.play_sound("wave_start")
         self.wave_delay = 2.0
         self.banner_t = 2.2
         player_count = max(1, sum(1 for p in self.players.values() if p.alive))
@@ -1232,7 +1240,7 @@ class Game:
         if kind.startswith("boss"):
             self.banner_t = max(self.banner_t, 2.8)
             self.shake = max(self.shake, 12)
-            self.audio.play("boss_spawn")
+            self.play_sound("boss_spawn")
 
     def update_enemy(self, e, dt):
         alive_players = [p for p in self.players.values() if p.alive]
@@ -1271,7 +1279,7 @@ class Game:
                 for i in range(8):
                     a = i * math.tau / 8 + e.ang
                     self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 270, 5.5])
-                self.audio.play("enemy_shot")
+                self.play_sound("enemy_shot")
         elif k == "shooter":
             if dist > 400:
                 tgt = d * e.spd
@@ -1315,7 +1323,7 @@ class Game:
                     e.charge_t = 0.52
                     e.v = e.charge_dir * (e.spd * 5.2)
                     self.rings.append(Ring(e.p, 12, 115, 620, ORANGE, 4))
-                    self.audio.play("dash")
+                    self.play_sound("dash")
             elif e.charge_t > 0:
                 e.charge_t = max(0.0, e.charge_t - dt)
                 e.v = e.charge_dir * (e.spd * 5.2)
@@ -1378,7 +1386,7 @@ class Game:
                 boss_sounds = {"boss": "boom", "boss_storm": "enemy_shot",
                                "boss_hunter": "dash", "boss_void": "pulse",
                                "boss_siege": "boss_spawn"}
-                self.audio.play(boss_sounds.get(k, "boom"))
+                self.play_sound(boss_sounds.get(k, "boom"))
         else:  # tank
             e.v = e.v.lerp(d * e.spd, min(1.0, 2 * dt))
             e.cool -= dt
@@ -1388,7 +1396,7 @@ class Game:
                 for i in range(count):
                     a = i * math.tau / count + e.ang
                     self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * min(340, 230 + self.wave * 5), 6.0])
-                self.audio.play("boom")
+                self.play_sound("boom")
         e.p += e.v * dt
         e.p.x = max(15, min(WORLD_W - 15, e.p.x))
         e.p.y = max(15, min(WORLD_H - 15, e.p.y))
@@ -1468,8 +1476,7 @@ class Game:
         self.rings.append(Ring(pk[0], 8, 120, 450, col, 3))
         self.burst(pk[0], col, 20, 350)
         self.pops.append([V(pk[0]), {"rapid": "БЫСТРЫЙ ОГОНЬ", "spread": "ТРОЙНОЙ ВЫСТРЕЛ", "heal": "+1 HP"}[kind], 1.2, col, p.pid])
-        if p.pid == self.my_id:
-            self.audio.play("heal" if kind == "heal" else "pickup")
+        self.play_sound("heal" if kind == "heal" else "pickup", p.pid)
 
     def damage(self, e, n, src):
         e.hp -= n
@@ -1477,7 +1484,7 @@ class Game:
         if e.hp <= 0:
             self.kill(e, src)
         else:
-            self.audio.play("boss_hit" if e.kind.startswith("boss") else "hit")
+            self.play_sound("boss_hit" if e.kind.startswith("boss") else "hit")
 
     def kill(self, e, src):
         if e.dead:
@@ -1497,20 +1504,19 @@ class Game:
                 if src.lifesteal_progress >= 18:
                     src.lifesteal_progress -= 18
                     src.hp = min(src.max_hp, src.hp + 1)
-                    if src.pid == self.my_id:
-                        self.audio.play("heal")
+                    self.play_sound("heal", src.pid)
                     self.pops.append([V(src.p), "+1 HP", 0.9, GREEN, src.pid])
             src.charge = min(100.0, src.charge + (26 if e.kind.startswith("boss") else 14 if e.kind == "tank" else 7) * src.pulse_gain)
             self.pops.append([V(e.p), "+%d" % pts, 0.8, e.col, src.pid])
             # Одно улучшение выдаётся в конце каждой волны.
-        self.audio.play("boom")
+        self.play_sound("boom")
         if e.kind in ("tank", "splitter"):
             for _ in range(4 if e.kind == "tank" else 3):
                 c = Enemy("swarm", e.p + V(random.uniform(-30, 30), random.uniform(-30, 30)), self.wave)
                 c.age = 0.45
                 self.enemies.append(c)
         if e.kind.startswith("boss"):
-            self.audio.play("boss_death")
+            self.play_sound("boss_death")
             self.burst(e.p, MAGENTA, 180, 980, (0.5, 1.5), 5)
             self.rings.append(Ring(e.p, 10, 900, 700, YELLOW, 9))
             for player in self.players.values():
@@ -1537,6 +1543,7 @@ class Game:
                 p.shield_t = 0.0
             if p.pid == self.my_id:
                 self.pops.append([V(p.p), "ЩИТ", 0.75, CYAN, p.pid])
+                self.play_sound("shield_block", p.pid)
                 self.rings.append(Ring(p.p, 20, 125, 620, CYAN, 4))
                 self.burst(p.p, CYAN, 18, 300, (0.15, 0.35), 2)
             return
@@ -1544,6 +1551,7 @@ class Game:
         if p.armor > 0 and p.armor_hits % max(2, 5 - p.armor) == 0:
             if p.pid == self.my_id:
                 self.pops.append([V(p.p), "БРОНЯ", 0.8, CYAN, p.pid])
+                self.play_sound("armor_block", p.pid)
                 self.rings.append(Ring(p.p, 8, 100, 520, CYAN, 3))
             return
         p.hp -= 1
@@ -1554,7 +1562,7 @@ class Game:
         if p.pid == self.my_id:
             self.burst(p.p, CYAN, 40, 520, (0.3, 0.9), 3)
             self.rings.append(Ring(p.p, 10, 280, 900, RED, 5))
-            self.audio.play("hurt")
+            self.play_sound("hurt", p.pid)
         if p.hp <= 0:
             p.alive = False
             self.burst(p.p, p.color, 120, 800, (0.6, 1.8), 4)
@@ -1648,6 +1656,7 @@ class Game:
     def build_snapshot(self):
         snap = {
             "t": "snap",
+            "sfx": self.sound_events[:],
             "players": [],
             "bullets": [],
             "ebullets": [],
@@ -1701,6 +1710,7 @@ class Game:
             owner_pid = pop[4] if len(pop) > 4 else -1
             snap["pops"].append([round(pos.x, 1), round(pos.y, 1), label,
                                  round(life, 2), col, owner_pid])
+        self.sound_events.clear()
         return snap
 
     # ================= отрисовка мира =================
