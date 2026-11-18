@@ -63,6 +63,7 @@ class Player:
         self.pulse_power = 1.0
         self.dash_damage = 1.0
         self.xp_gain = 1.0
+        self.score_gain = 1.0
         self.combo_bonus = 0
         self.pulse_boost = 0.0
         self.shield_t = 0.0
