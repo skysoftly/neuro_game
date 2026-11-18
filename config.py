@@ -11,8 +11,27 @@ PORT = 5555
 MAX_PLAYERS = 12
 SIDE_SHOT_DAMAGE_RATIO = 0.33
 
+DIFFICULTIES = ("easy", "normal", "hard", "impossible")
+DIFFICULTY_LABELS = {
+    "easy": "ЛЕГКО",
+    "normal": "НОРМАЛЬНО",
+    "hard": "СЛОЖНО",
+    "impossible": "НЕВОЗМОЖНО",
+}
+DIFFICULTY_MULTIPLIERS = {
+    # HP, скорость, атаки, количество врагов
+    "easy": (0.78, 0.92, 0.86, 0.86),
+    "normal": (1.00, 1.00, 1.00, 1.00),
+    "hard": (1.35, 1.08, 1.16, 1.18),
+    "impossible": (1.85, 1.18, 1.38, 1.42),
+}
 
-def enemy_scaling(wave, player_count=1, boss=False):
+
+def difficulty_multipliers(difficulty="normal"):
+    return DIFFICULTY_MULTIPLIERS.get(difficulty, DIFFICULTY_MULTIPLIERS["normal"])
+
+
+def enemy_scaling(wave, player_count=1, boss=False, difficulty="normal"):
     """Плавный бесконечный рост характеристик без жёсткого лимита волн."""
     wave_steps = max(0, int(wave) - 1)
     players = max(1, min(MAX_PLAYERS, int(player_count)))
@@ -26,14 +45,16 @@ def enemy_scaling(wave, player_count=1, boss=False):
         player_hp = 1.0 + 0.05 * (players - 1)
         player_speed = 1.0 + 0.015 * (players - 1)
         speed_cap = 1.22
-    return wave_hp * player_hp, min(speed_cap, (1.0 + 0.002 * wave_steps) * player_speed)
+    hp_mult, speed_mult, _, _ = difficulty_multipliers(difficulty)
+    return wave_hp * player_hp * hp_mult, min(speed_cap * speed_mult, (1.0 + 0.002 * wave_steps) * player_speed * speed_mult)
 
 
-def wave_enemy_count(wave, player_count=1):
+def wave_enemy_count(wave, player_count=1, difficulty="normal"):
     """Размер очереди волны растёт с онлайном, с лимитом активной толпы."""
     players = max(1, min(MAX_PLAYERS, int(player_count)))
     wave_number = max(1, int(wave))
-    return min(72, int((10 + wave_number * 2.6) * (1.0 + 0.06 * (players - 1))))
+    _, _, _, count_mult = difficulty_multipliers(difficulty)
+    return min(72, max(1, int((10 + wave_number * 2.6) * (1.0 + 0.06 * (players - 1)) * count_mult)))
 
 
 def boss_kind_for_wave(wave, rng=None, previous=None):
