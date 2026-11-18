@@ -1571,7 +1571,6 @@ class Game:
             for r, s in ((500, 500), (800, 800)):
                 self.rings.append(Ring(p.p, 10, r, s, p.color, 6))
             if p.pid == self.my_id:
-                if p.pid == self.my_id:
                 self.shake = 40
 
     def collide(self):
