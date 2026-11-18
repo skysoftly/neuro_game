@@ -945,8 +945,8 @@ class Game:
                         self.state = "menu"
             elif e.type == pygame.MOUSEWHEEL:
                 mx, my = self.logical_mouse()
-                if self.state == "lobby" and pygame.Rect(245, 360, 790, H - 520).collidepoint(mx, my):
-                    visible = max(1, (H - 532) // 34)
+                if self.state == "lobby" and pygame.Rect(130, 220, 470, 350).collidepoint(mx, my):
+                    visible = max(1, (350 - 62) // 34)
                     self.lobby_scroll = max(0, min(max(0, len(self.lobby_players) - visible), self.lobby_scroll - e.y))
             elif e.type == pygame.MOUSEBUTTONDOWN:
                 if self.tutorial_active and e.button == 1:
@@ -1994,7 +1994,7 @@ class Game:
             pygame.draw.circle(sc, dim(col, 0.6), (int(sx), int(sy)), 26, 1)
         # имя игрока
         label = data["name"]
-        text(sc, label, self.f_small, col, (sx, sy - 34), outline=2)
+        text(sc, label, self.f_small, col, (sx, sy - 47), outline=2)
 
     def draw_enemy(self, sc, e, cam):
         sx, sy = cam.to_screen(e["x"], e["y"])
