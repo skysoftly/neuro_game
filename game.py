@@ -308,6 +308,9 @@ class Game:
         self.target_fps = int(cfg.get("target_fps", 120))
         if self.target_fps not in (60, 120, 144, 0):
             self.target_fps = 120
+        self.borderless_fullscreen = bool(cfg.get("borderless_fullscreen", False))
+        if self.borderless_fullscreen:
+            self.set_display_mode(True)
         self.audio.set_volumes(self.music_volume, self.sfx_volume)
         self.first_run = not bool(str(cfg.get("name", "")).strip())
         self.name_input = str(cfg.get("name", "")).strip() if not self.first_run else ""
@@ -360,8 +363,23 @@ class Game:
         save_config({"last_ip": self.last_ip, "name": self.name_input,
                      "music_volume": self.music_volume, "sfx_volume": self.sfx_volume,
                      "screen_shake": self.screen_shake_enabled, "target_fps": self.target_fps,
+                     "borderless_fullscreen": self.borderless_fullscreen,
                      "player_color": self.local_color_index, "player_skin": self.local_skin_index,
                      "player_hat": self.local_hat_index})
+
+    def set_display_mode(self, fullscreen):
+        """Keep the 1280x720 render surface; SDL scales it to the desktop."""
+        flags = pygame.SCALED
+        if fullscreen:
+            flags |= pygame.FULLSCREEN
+        else:
+            flags |= pygame.RESIZABLE
+        self.screen = pygame.display.set_mode((W, H), flags, vsync=1)
+
+    def toggle_borderless_fullscreen(self):
+        self.borderless_fullscreen = not self.borderless_fullscreen
+        self.set_display_mode(self.borderless_fullscreen)
+        self.persist()
 
     def logical_mouse(self, pos=None):
         if pos is None:
@@ -938,7 +956,7 @@ class Game:
                 continue
             elif e.type == pygame.KEYDOWN:
                 if e.key == pygame.K_F11:
-                    pygame.display.toggle_fullscreen()
+                    self.toggle_borderless_fullscreen()
                     continue
                 if e.key == pygame.K_F3 and not self.input_mode:
                     self.debug_overlay = not self.debug_overlay
@@ -1081,7 +1099,9 @@ class Game:
                         options = (60, 120, 144, 0)
                         self.target_fps = options[(options.index(self.target_fps) + 1) % len(options)]
                         self.persist()
-                    elif pygame.Rect(cx - 150, H - 76, 300, 46).collidepoint(mx, my):
+                    elif pygame.Rect(cx - 210, 584, 420, 48).collidepoint(mx, my):
+                        self.toggle_borderless_fullscreen()
+                    elif pygame.Rect(cx - 150, H - 58, 300, 42).collidepoint(mx, my):
                         self.state = "menu"
                 elif self.state == "lobby" and e.button == 1:
                     if pygame.Rect(W / 2 - 190, H - 136, 380, 52).collidepoint(mx, my):
@@ -2675,7 +2695,12 @@ class Game:
         fps_label = "БЕЗ ЛИМИТА" if self.target_fps == 0 else str(self.target_fps)
         self.draw_button(sc, pygame.Rect(cx - 210, 514, 420, 48),
                          "ЛИМИТ FPS: " + fps_label, PURPLE)
-        self.draw_button(sc, pygame.Rect(cx - 150, H - 76, 300, 46), "НАЗАД", RED)
+        self.draw_button(sc, pygame.Rect(cx - 210, 584, 420, 48),
+                         "БЕЗРАМОЧНЫЙ ЭКРАН: " + ("ВКЛ" if self.borderless_fullscreen else "ВЫКЛ"),
+                         CYAN if self.borderless_fullscreen else RED)
+        text(sc, "F11 — переключить в любой момент", font(13), (135, 155, 175),
+             (cx, 642), outline=1)
+        self.draw_button(sc, pygame.Rect(cx - 150, H - 58, 300, 42), "НАЗАД", RED)
 
     def draw_lobby(self, sc):
         cx = W / 2
