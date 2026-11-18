@@ -72,7 +72,7 @@ class Enemy:
         self.kind = kind
         self.p = V(pos)
         self.v = V()
-        hp_scale = 1.0 + 0.14 * max(0, wave - 1)
+        hp_scale = 1.0 + 0.20 * max(0, wave - 1)
         self.hp = max(1, math.ceil(d["hp"] * hp_scale))
         self.max_hp = self.hp
         self.r = d["r"]
