@@ -14,15 +14,22 @@ class EndlessDifficultyTests(unittest.TestCase):
 
     def test_wave_number_has_no_small_hard_limit(self):
         self.assertGreater(wave_enemy_count(10_000, 1), 0)
-        self.assertEqual(boss_kind_for_wave(10_000), "boss_siege")
-        self.assertEqual(boss_kind_for_wave(10_005), "boss")
+        self.assertIn(boss_kind_for_wave(10_000), {
+            "boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege"
+        })
+        self.assertIn(boss_kind_for_wave(10_005), {
+            "boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege"
+        })
 
-    def test_bosses_continue_cycling_every_five_waves(self):
-        self.assertEqual(
-            [boss_kind_for_wave(wave) for wave in (5, 10, 15, 20, 25)],
-            ["boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege"],
-        )
-        self.assertEqual(boss_kind_for_wave(30), "boss")
+    def test_bosses_are_random_and_can_avoid_immediate_repeats(self):
+        import random
+        rng = random.Random(7)
+        first = boss_kind_for_wave(5, rng)
+        second = boss_kind_for_wave(10, rng, first)
+        bosses = {"boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege"}
+        self.assertIn(first, bosses)
+        self.assertIn(second, bosses)
+        self.assertNotEqual(first, second)
         self.assertEqual(boss_kind_for_wave(2), "boss_minor")
         self.assertIsNone(boss_kind_for_wave(3))
 
@@ -38,6 +45,11 @@ class EndlessDifficultyTests(unittest.TestCase):
         at_capacity = enemy_scaling(20, MAX_PLAYERS)
         beyond_capacity = enemy_scaling(20, MAX_PLAYERS + 100)
         self.assertEqual(at_capacity, beyond_capacity)
+
+    def test_enemy_attack_scaling_increases_with_wave(self):
+        early = Enemy("shooter", (0, 0), 1)
+        late = Enemy("shooter", (0, 0), 100)
+        self.assertGreater(late.attack_scale, early.attack_scale)
 
     def test_fifth_wave_boss_is_less_durable_than_old_version(self):
         boss = Enemy("boss", (0, 0), 5)
