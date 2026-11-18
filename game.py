@@ -262,24 +262,30 @@ class Game:
             self._last_hovered_button = None
         fill = (25, 37, 52) if not hovered else (39, 57, 72)
         edge = color if enabled else (75, 82, 94)
-        shadow = pygame.Rect(rect.x + 4, rect.y + 5, rect.w, rect.h)
-        pygame.draw.rect(surface, (3, 7, 15), shadow)
-        pygame.draw.rect(surface, (9, 15, 26), rect)
-        inner = rect.inflate(-4, -4)
-        pygame.draw.rect(surface, fill, inner)
-        light = dim(edge, 0.82 if hovered else 0.52)
-        dark = dim(edge, 0.28)
-        pygame.draw.line(surface, light, (rect.left + 2, rect.top + 2),
-                         (rect.right - 3, rect.top + 2), 2)
-        pygame.draw.line(surface, light, (rect.left + 2, rect.top + 2),
-                         (rect.left + 2, rect.bottom - 3), 2)
-        pygame.draw.line(surface, dark, (rect.left + 2, rect.bottom - 2),
-                         (rect.right - 2, rect.bottom - 2), 2)
-        pygame.draw.line(surface, dark, (rect.right - 2, rect.top + 2),
-                         (rect.right - 2, rect.bottom - 2), 2)
-        pygame.draw.rect(surface, edge, rect, 1)
+        cut = min(14, rect.height // 3)
+        pts = [(rect.left + cut, rect.top), (rect.right - cut, rect.top),
+               (rect.right, rect.top + cut), (rect.right, rect.bottom - cut),
+               (rect.right - cut, rect.bottom), (rect.left + cut, rect.bottom),
+               (rect.left, rect.bottom - cut), (rect.left, rect.top + cut)]
+        pygame.draw.polygon(surface, (3, 7, 15), [(x + 4, y + 5) for x, y in pts])
+        pygame.draw.polygon(surface, (9, 15, 26), pts)
+        inner = [(rect.left + cut + 3, rect.top + 3), (rect.right - cut - 3, rect.top + 3),
+                 (rect.right - 3, rect.top + cut + 3), (rect.right - 3, rect.bottom - cut - 3),
+                 (rect.right - cut - 3, rect.bottom - 3), (rect.left + cut + 3, rect.bottom - 3),
+                 (rect.left + 3, rect.bottom - cut - 3), (rect.left + 3, rect.top + cut + 3)]
+        pygame.draw.polygon(surface, fill, inner)
+        light = dim(edge, 0.88 if hovered else 0.55)
+        dark = dim(edge, 0.24)
+        pygame.draw.line(surface, light, pts[0], pts[1], 2)
+        pygame.draw.line(surface, light, pts[7], pts[0], 2)
+        pygame.draw.line(surface, dark, pts[4], pts[5], 2)
+        pygame.draw.line(surface, dark, pts[3], pts[4], 2)
+        pygame.draw.polygon(surface, edge, pts, 1)
+        pygame.draw.line(surface, dim(edge, 0.7), (rect.left + cut + 8, rect.centery),
+                         (rect.left + cut + 8, rect.centery + 5), 2)
         if hovered:
-            pygame.draw.rect(surface, dim(edge, 0.35), inner, 1)
+            pygame.draw.line(surface, WHITE, (rect.left + cut + 12, rect.top + 7),
+                             (rect.right - cut - 12, rect.top + 7), 1)
         label_color = WHITE if enabled else (112, 120, 132)
         text(surface, label, self.f_mid if rect.height >= 50 else self.f_small,
              label_color, (rect.centerx, rect.centery - (1 if hovered else 0)), outline=1)
@@ -1605,21 +1611,29 @@ class Game:
                 me = pl
                 break
 
-        # Компактный список игроков: имя, счёт и здоровье без лишних подписей.
-        y = 24
-        for pl in snap.get("players", []):
+        # Прокручиваемая панель игроков: число участников не раздвигает HUD.
+        roster = snap.get("players", [])
+        panel = pygame.Rect(14, 16, 238, min(H - 180, 340))
+        pygame.draw.rect(sc, (5, 10, 18), panel)
+        pygame.draw.rect(sc, (48, 72, 82), panel, 1)
+        visible = max(1, (panel.h - 28) // 42)
+        self.hud_scroll = max(0, min(self.hud_scroll, max(0, len(roster) - visible)))
+        old_clip = sc.get_clip()
+        sc.set_clip(panel.inflate(-4, -4))
+        for idx, pl in enumerate(roster[self.hud_scroll:self.hud_scroll + visible]):
+            y = panel.y + 9 + idx * 42
             col = PLAYER_COLORS[(pl["pid"] - 1) % len(PLAYER_COLORS)]
             label = pl["name"] + ("  •  ВЫ" if pl["pid"] == self.my_id else "")
-            text(sc, label, self.f_small, col, (24, y), "midleft", outline=1)
-            text(sc, "%d" % pl["score"], self.f_small, WHITE, (220, y), "midright", outline=1)
+            text(sc, label, self.f_small, col, (panel.x + 10, y + 2), "midleft", outline=1)
+            text(sc, "%d" % pl["score"], self.f_small, WHITE, (panel.right - 12, y + 2), "midright", outline=1)
             for i in range(pl["max_hp"]):
-                pts = shape(SHIP, -math.pi / 2, (30 + i * 19, y + 23), 7)
-                if i < pl["hp"]:
-                    pygame.draw.polygon(sc, (6, 40, 56), pts)
-                    pygame.draw.polygon(sc, col, pts, 2)
-                else:
-                    pygame.draw.polygon(sc, (40, 50, 70), pts, 1)
-            y += 43
+                pts = shape(SHIP, -math.pi / 2, (panel.x + 17 + i * 18, y + 25), 6)
+                pygame.draw.polygon(sc, col if i < pl["hp"] else (40, 50, 60), pts,
+                                    1 if i >= pl["hp"] else 0)
+        sc.set_clip(old_clip)
+        if len(roster) > visible:
+            text(sc, "▲ %d/%d ▼" % (self.hud_scroll + 1, len(roster)),
+                 self.f_small, (155, 180, 190), (panel.centerx, panel.bottom - 11), outline=1)
 
         # правый верх: волна
         wave = snap.get("wave", 1)
@@ -1627,7 +1641,7 @@ class Game:
         remaining = snap.get("enemies_left", 0)
         text(sc, "УГРОЗ: %d" % remaining, self.f_small, WHITE, (W - 30, 62), "midright", outline=1)
         boss_in = snap.get("boss_in", 5)
-        boss_alive = any(e.get("k") == "boss" for e in snap.get("enemies", []))
+        boss_alive = any(e.get("k", "").startswith("boss") for e in snap.get("enemies", []))
         boss_label = "БОСС НА АРЕНЕ" if boss_alive else ("БОСС В ЭТОЙ ВОЛНЕ" if boss_in == 0
                                                           else "БОСС ЧЕРЕЗ %d ВОЛН" % boss_in)
         text(sc, boss_label, self.f_small, MAGENTA, (W - 30, 84), "midright", outline=1)
@@ -1807,16 +1821,28 @@ class Game:
                  (160, 170, 220), (cx, 215), outline=2)
 
         py0 = 400
-        text(sc, "ИГРОКИ В ЛОББИ:", self.f_mid, WHITE, (cx, py0), outline=2)
-        for i, (pid, name) in enumerate(self.lobby_players):
+        text(sc, "ИГРОКИ В ЛОББИ  •  %d" % len(self.lobby_players), self.f_mid, WHITE, (cx, py0), outline=2)
+        list_rect = pygame.Rect(245, 430, 790, H - 590)
+        pygame.draw.rect(sc, (5, 10, 18), list_rect)
+        pygame.draw.rect(sc, (48, 72, 82), list_rect, 1)
+        visible = max(1, (list_rect.h - 12) // 34)
+        self.lobby_scroll = max(0, min(self.lobby_scroll, max(0, len(self.lobby_players) - visible)))
+        old_clip = sc.get_clip()
+        sc.set_clip(list_rect.inflate(-4, -4))
+        for i, (pid, name) in enumerate(self.lobby_players[self.lobby_scroll:self.lobby_scroll + visible]):
             col = PLAYER_COLORS[(pid - 1) % len(PLAYER_COLORS)] if pid > 0 else YELLOW
-            mark = " (вы)" if pid == self.my_id else ""
-            role = " [ХОСТ]" if pid == 0 else ""
-            text(sc, "%d. %s%s%s" % (i + 1, name, role, mark), self.f_mid, col,
-                 (cx, py0 + 55 + i * 46), outline=2)
+            mark = " • ВЫ" if pid == self.my_id else ""
+            role = " • ХОСТ" if pid == 0 else ""
+            text(sc, "%02d  %s%s%s" % (self.lobby_scroll + i + 1, name, role, mark),
+                 self.f_small, col, (list_rect.x + 18, list_rect.y + 17 + i * 34), "midleft", outline=1)
+        sc.set_clip(old_clip)
+        if len(self.lobby_players) > visible:
+            text(sc, "КОЛЁСИКО МЫШИ  •  %d–%d ИЗ %d" %
+                 (self.lobby_scroll + 1, min(len(self.lobby_players), self.lobby_scroll + visible), len(self.lobby_players)),
+                 self.f_small, (150, 175, 185), (cx, list_rect.bottom - 12), outline=1)
         if not self.lobby_players:
             text(sc, "ожидание подключений...", self.f_small, (150, 150, 180),
-                 (cx, py0 + 55), outline=2)
+                 (cx, list_rect.centery), outline=2)
 
         if self.is_host:
             self.draw_button(sc, pygame.Rect(cx - 190, H - 136, 380, 52), "НАЧАТЬ ИГРУ", CYAN)
@@ -1894,6 +1920,59 @@ class Game:
         text(sc, "Можно также нажать Ctrl+V и Enter", self.f_small,
              (170, 190, 220), (W / 2, H / 2 + 220), outline=2)
 
+    # ================= заставка и обучение =================
+    def draw_tutorial_overlay(self, sc):
+        shade = pygame.Surface((W, H), pygame.SRCALPHA)
+        shade.fill((3, 7, 13, 232))
+        sc.blit(shade, (0, 0))
+        panel = pygame.Rect(W / 2 - 330, H / 2 - 230, 660, 460)
+        pygame.draw.rect(sc, (10, 18, 28), panel)
+        pygame.draw.rect(sc, CYAN, panel, 2)
+        pygame.draw.line(sc, MAGENTA, (panel.x + 22, panel.y + 64),
+                         (panel.right - 22, panel.y + 64), 2)
+        text(sc, "ПЕРЕД ПЕРВОЙ ВОЛНОЙ", self.f_big, CYAN, (W / 2, panel.y + 42), outline=2)
+        rows = [
+            ("WASD", "движение по арене"),
+            ("МЫШЬ", "наводись на врагов"),
+            ("ЛКМ", "стрельба"),
+            ("SPACE", "рывок — быстрое уклонение"),
+            ("ПКМ", "щит — блокирует несколько попаданий"),
+            ("МЕЖДУ ВОЛНАМИ", "выбери одно улучшение мышью"),
+        ]
+        for i, (key, desc) in enumerate(rows):
+            y = panel.y + 105 + i * 47
+            text(sc, key, self.f_small, YELLOW if i < 4 else MAGENTA,
+                 (panel.x + 34, y), "midleft", outline=1)
+            text(sc, desc, self.f_small, WHITE, (panel.x + 210, y), "midleft", outline=1)
+        if self.is_host:
+            text(sc, "ХОСТ: ENTER ИЛИ КЛИК — НАЧАТЬ, КОГДА ВСЕ ГОТОВЫ",
+                 self.f_small, GREEN, (W / 2, panel.bottom - 52), outline=1)
+        elif self.tutorial_ready:
+            text(sc, "ГОТОВО • ОЖИДАНИЕ ОСТАЛЬНЫХ ИГРОКОВ",
+                 self.f_small, GREEN, (W / 2, panel.bottom - 52), outline=1)
+        else:
+            text(sc, "ENTER ИЛИ КЛИК — ПОДТВЕРДИТЬ ГОТОВНОСТЬ",
+                 self.f_small, GREEN, (W / 2, panel.bottom - 52), outline=1)
+
+    def draw_splash(self, sc):
+        sc.fill((5, 9, 17))
+        cx, cy = W / 2, H / 2
+        pulse = 0.75 + 0.25 * math.sin(self.t * 4.0)
+        for i in range(7):
+            radius = 45 + i * 42 + math.sin(self.t * 1.8 + i) * 8
+            color = (CYAN, MAGENTA, PURPLE)[i % 3]
+            pygame.draw.circle(sc, dim(color, 0.18 + 0.08 * pulse),
+                               (int(cx), int(cy - 25)), int(radius), 1)
+        pygame.draw.polygon(sc, CYAN, shape(HEX, self.t * 0.7, (cx, cy - 25), 88), 2)
+        pygame.draw.polygon(sc, MAGENTA, shape(SQ, -self.t * 0.45, (cx, cy - 25), 120), 1)
+        draw_glow(sc, (cx, cy - 25), CYAN, 160, 20)
+        text(sc, "NEURO VOID", self.f_huge, dim(WHITE, pulse), (cx, cy - 25), outline=3)
+        text(sc, "INITIALIZING ARENA SYSTEM", self.f_small, CYAN, (cx, cy + 92), outline=1)
+        progress = min(1.0, self.loading_t / 2.8)
+        pygame.draw.rect(sc, (18, 30, 42), (cx - 180, cy + 128, 360, 8))
+        pygame.draw.rect(sc, CYAN, (cx - 180, cy + 128, int(360 * progress), 8))
+        text(sc, "%d%%" % int(progress * 100), self.f_small, WHITE, (cx, cy + 158), outline=1)
+
     # ================= главный render =================
     def draw_ambient_background(self, sc):
         """Медленная параллакс-геометрия для меню, лобби и ошибок."""
@@ -1970,7 +2049,9 @@ class Game:
         self.screen.blit(self.overlay, (0, 0))
 
         # UI поверх игрового слоя: текст и кнопки остаются контрастными.
-        if self.state == "menu":
+        if self.state == "loading":
+            self.draw_splash(self.screen)
+        elif self.state == "menu":
             self.draw_menu(self.screen)
         elif self.state == "lobby":
             self.draw_lobby(self.screen)
@@ -1980,6 +2061,8 @@ class Game:
             if snap is not None:
                 self.draw_hud(self.screen, snap)
                 self.draw_upgrade_overlay(self.screen)
+                if self.tutorial_active and self.state == "play":
+                    self.draw_tutorial_overlay(self.screen)
                 if self.state == "dead":
                     self.draw_dead(self.screen, snap)
                 if self.paused:
