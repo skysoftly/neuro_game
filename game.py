@@ -383,6 +383,7 @@ class Game:
         self.state = "play"
         pygame.mouse.set_visible(False)
         self.camera.follow(self.players[self.my_id].p.x, self.players[self.my_id].p.y, 0, snap=True)
+        pygame.mouse.set_visible(True)
         self.server.broadcast({"t": "start"})
 
     def poll_network(self):
@@ -473,6 +474,7 @@ class Game:
             pygame.mouse.set_visible(True)
         elif t == "begin":
             self.tutorial_active = False
+            self.tutorial_ready = False
             pygame.mouse.set_visible(False)
         elif t == "snap":
             self.snap = m
