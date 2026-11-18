@@ -811,10 +811,10 @@ class Game:
                     elif pygame.Rect(W / 2 - 150, H - 66, 300, 42).collidepoint(mx, my):
                         self.leave_net()
                 elif self.state == "play" and self.local_choices and e.button == 1:
-                    card_w, card_h, gap = 320, 220, 30
+                    card_w, card_h, gap = 320, 238, 30
                     total = len(self.local_choices) * card_w + (len(self.local_choices) - 1) * gap
                     x0 = (W - total) / 2
-                    card_y = H / 2 - card_h / 2 + 40
+                    card_y = H / 2 - card_h / 2 + 38
                     for i, upgrade_id in enumerate(self.local_choices):
                         card = pygame.Rect(x0 + i * (card_w + gap), card_y, card_w, card_h)
                         if card.collidepoint(mx, my):
@@ -1445,7 +1445,7 @@ class Game:
             self.shake = 40
 
     def collide(self):
-        # пули игрока → враги
+        # пули игрока -> враги
         keep_b = []
         for b in self.bullets:
             hit = False
@@ -1469,7 +1469,7 @@ class Game:
                 keep_b.append(b)
         self.bullets = keep_b
 
-        # пули врагов → игроки
+        # пули врагов -> игроки
         keep_e = []
         for b in self.ebullets:
             hit_p = None
@@ -1483,7 +1483,7 @@ class Game:
             keep_e.append(b)
         self.ebullets = keep_e
 
-        # враги ↔ игроки
+        # враги <-> игроки
         for e in list(self.enemies):
             if e.dead or e.age < 0.7:
                 continue
@@ -1767,7 +1767,7 @@ class Game:
         for pl in snap.get("players", []):
             self.draw_player(sc, pl, pl["pid"] == self.my_id, cam)
 
-        # локальные эффекты — частицы, кольца (только у себя, т.к. в снапшоте их нет)
+        # локальные эффекты - частицы, кольца (только у себя, т.к. в снапшоте их нет)
         if self.is_host:
             for q in self.parts:
                 sx, sy = cam.to_screen(q.p.x, q.p.y)
@@ -1818,7 +1818,7 @@ class Game:
         for idx, pl in enumerate(roster[self.hud_scroll:self.hud_scroll + visible]):
             y = panel.y + 9 + idx * 42
             col = PLAYER_COLORS[(pl["pid"] - 1) % len(PLAYER_COLORS)]
-            label = pl["name"] + ("  •  ВЫ" if pl["pid"] == self.my_id else "")
+            label = pl["name"] + ("  -  ВЫ" if pl["pid"] == self.my_id else "")
             text(sc, label, self.f_small, col, (panel.x + 10, y + 2), "midleft", outline=1)
             text(sc, "%d" % pl["score"], self.f_small, WHITE, (panel.right - 12, y + 2), "midright", outline=1)
             for i in range(pl["max_hp"]):
@@ -1827,7 +1827,7 @@ class Game:
                                     1 if i >= pl["hp"] else 0)
         sc.set_clip(old_clip)
         if len(roster) > visible:
-            text(sc, "▲ %d/%d ▼" % (self.hud_scroll + 1, len(roster)),
+            text(sc, "^ %d/%d v" % (self.hud_scroll + 1, len(roster)),
                  self.f_small, (155, 180, 190), (panel.centerx, panel.bottom - 11), outline=1)
 
         # правый верх: волна
@@ -1871,7 +1871,7 @@ class Game:
             pygame.draw.rect(sc, (12, 8, 18), (bx, by, bw, 14))
             pygame.draw.rect(sc, MAGENTA, (bx, by, int(bw * ratio), 14))
             pygame.draw.rect(sc, (230, 190, 220), (bx, by, bw, 14), 1)
-            text(sc, "БОСС  •  %d%%" % int(ratio * 100), self.f_small, WHITE,
+            text(sc, "БОСС  -  %d%%" % int(ratio * 100), self.f_small, WHITE,
                  (W / 2, by - 12), outline=1)
 
         if me:
@@ -1885,10 +1885,10 @@ class Game:
             pc = WHITE if full and int(self.t * 6) % 2 == 0 else MAGENTA
             bar(24, H - 30, 154, me["charge"] / 100, pc, "ЩИТ [ПКМ]")
             if me.get("shield_t", 0) > 0:
-                text(sc, "ЩИТ  %d  •  %.1fс" % (me.get("shield_hits", 0), me["shield_t"]),
+                text(sc, "ЩИТ  %d  -  %.1fс" % (me.get("shield_hits", 0), me["shield_t"]),
                      self.f_small, CYAN, (24, H - 82), "midleft", outline=1)
 
-            # Временные баффы — отдельная компактная панель справа снизу, не под обучением.
+            # Временные баффы - отдельная компактная панель справа снизу, не под обучением.
             buffs = me.get("buffs", {})
             active = [(name, buffs.get(name, 0)) for name in ("rapid", "spread", "pulse_boost") if buffs.get(name, 0) > 0]
             if active:
@@ -2105,7 +2105,7 @@ class Game:
 
         # заголовки
         hdr_y = 220
-        text(sc, "№", self.f_small, (150, 160, 200), (W / 2 - 380, hdr_y), "midleft", outline=2)
+        text(sc, "N", self.f_small, (150, 160, 200), (W / 2 - 380, hdr_y), "midleft", outline=2)
         text(sc, "ИМЯ", self.f_small, (150, 160, 200), (W / 2 - 320, hdr_y), "midleft", outline=2)
         text(sc, "ОЧКИ", self.f_small, (150, 160, 200), (W / 2 + 60, hdr_y), "midleft", outline=2)
         text(sc, "УБИЙСТВА", self.f_small, (150, 160, 200), (W / 2 + 200, hdr_y), "midleft", outline=2)
@@ -2174,8 +2174,8 @@ class Game:
             ("WASD", "движение по арене"),
             ("МЫШЬ", "наводись на врагов"),
             ("ЛКМ", "стрельба"),
-            ("SPACE", "рывок — быстрое уклонение"),
-            ("ПКМ", "щит — блокирует несколько попаданий"),
+            ("SPACE", "рывок - быстрое уклонение"),
+            ("ПКМ", "щит - блокирует несколько попаданий"),
             ("МЕЖДУ ВОЛНАМИ", "выбери одно улучшение мышью"),
         ]
         for i, (key, desc) in enumerate(rows):
@@ -2184,16 +2184,16 @@ class Game:
                  (panel.x + 34, y), "midleft", outline=1)
             text(sc, desc, self.f_small, WHITE, (panel.x + 210, y), "midleft", outline=1)
         if self.is_host and self.tutorial_ready:
-            text(sc, "ГОТОВО • ОЖИДАНИЕ ОСТАЛЬНЫХ ИГРОКОВ",
+            text(sc, "ГОТОВО - ОЖИДАНИЕ ОСТАЛЬНЫХ ИГРОКОВ",
                  self.f_small, GREEN, (W / 2, panel.bottom - 52), outline=1)
         elif self.is_host:
-            text(sc, "ХОСТ: ENTER ИЛИ КЛИК — НАЧАТЬ, КОГДА ВСЕ ГОТОВЫ",
+            text(sc, "ХОСТ: ENTER ИЛИ КЛИК - НАЧАТЬ, КОГДА ВСЕ ГОТОВЫ",
                  self.f_small, GREEN, (W / 2, panel.bottom - 52), outline=1)
         elif self.tutorial_ready:
-            text(sc, "ГОТОВО • ОЖИДАНИЕ ОСТАЛЬНЫХ ИГРОКОВ",
+            text(sc, "ГОТОВО - ОЖИДАНИЕ ОСТАЛЬНЫХ ИГРОКОВ",
                  self.f_small, GREEN, (W / 2, panel.bottom - 52), outline=1)
         else:
-            text(sc, "ENTER ИЛИ КЛИК — ПОДТВЕРДИТЬ ГОТОВНОСТЬ",
+            text(sc, "ENTER ИЛИ КЛИК - ПОДТВЕРДИТЬ ГОТОВНОСТЬ",
                  self.f_small, GREEN, (W / 2, panel.bottom - 52), outline=1)
 
     def draw_splash(self, sc):
@@ -2258,7 +2258,7 @@ class Game:
         if snap is not None:
             self.draw_world(sc, snap, self.camera)
         else:
-            # для меню/лобби — только звёзды и сетка «вокруг»
+            # для меню/лобби - только звёзды и сетка "вокруг"
             sc.fill(BG)
             for x, y, z in self.stars:
                 sx = (x - self.camera.x * 0.3 * z) % W
