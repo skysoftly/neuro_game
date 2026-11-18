@@ -35,15 +35,17 @@ def make_overlay(W, H):
         pygame.draw.line(ov, (120, 150, 180, 12), (x, y), (x + 18, y + 1), 1)
     return ov
 
-def bloom(src, W, H, strength=0.22):
-    """Low-cost soft bloom: two hardware-accelerated scale operations, no Python pixel loops."""
+def bloom(src, W, H, strength=0.22, small_surface=None, full_surface=None):
+    """Low-cost bloom with optional reusable buffers; no Python pixel loops."""
     if strength <= 0.001:
         return
     sw, sh = max(1, W // 8), max(1, H // 8)
-    glow = pygame.transform.smoothscale(src, (sw, sh))
-    glow = pygame.transform.smoothscale(glow, (W, H))
-    glow.set_alpha(max(1, min(255, int(255 * strength))))
-    src.blit(glow, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
+    small = small_surface or pygame.Surface((sw, sh)).convert()
+    full = full_surface or pygame.Surface((W, H)).convert()
+    pygame.transform.smoothscale(src, (sw, sh), small)
+    pygame.transform.smoothscale(small, (W, H), full)
+    full.set_alpha(max(1, min(255, int(255 * strength))))
+    src.blit(full, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
 
 def fisheye(src, strength=0.075):
     """Very mild lens curvature, processed at half resolution."""
