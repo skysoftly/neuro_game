@@ -2324,10 +2324,10 @@ class Game:
             max_hp = max(1, int(me["max_hp"]))
             hp_ratio = max(0.0, min(1.0, hp / max_hp))
             hp_color = GREEN if hp_ratio > 0.55 else ORANGE if hp_ratio > 0.25 else RED
-            # Показываем не более 10 ячеек, но не меньше максимального HP,
-            # пока его значение ниже 10. При HP выше 10 старшие уровни
-            # заменяют первые сердца, а общее число ячеек остаётся равным 10.
-            slots = min(10, max_hp)
+            # На экране всегда до 10 ячеек: каждая заполненная ячейка —
+            # одно текущее HP. При HP выше 10 уровень сердец пересчитывается
+            # от текущего здоровья, поэтому урон снимает старшие сердца слева.
+            slots = min(10, max(5, max_hp))
             crystal_w, crystal_gap = 17, 7
             total_w = slots * crystal_w + (slots - 1) * crystal_gap
             panel_w, panel_h = max(250, total_w + 30), 76
@@ -2344,15 +2344,14 @@ class Game:
             )
             start_x = panel.centerx - total_w // 2
             heart_y = panel.y + 8
-            filled_slots = max(0.0, min(float(slots), hp / max_hp * slots))
             for slot in range(slots):
                 x = int(start_x + slot * (crystal_w + crystal_gap))
-                fill = max(0.0, min(1.0, filled_slots - slot))
+                fill = max(0.0, min(1.0, hp - slot))
 
-                # Старшие уровни располагаются слева: 15 HP = 5 сердец II
-                # уровня + 5 сердец I уровня; 22 HP = 2 сердца III
-                # уровня + 8 сердец II уровня.
-                bonus_level = max(1, (max_hp - slot + 9) // 10)
+                # Уровень зависит от текущего HP, а не максимального:
+                # 22 HP = 2 сердца III + 8 сердец II;
+                # после 3 урона (19 HP) = 9 сердец II + 1 сердце I.
+                bonus_level = max(1, (hp - slot + 9) // 10)
                 cycle = (bonus_level - 1) // 10
                 base = pygame.Color(palette[(bonus_level - 1) % 10])
                 hue, saturation, value, _ = base.hsva
