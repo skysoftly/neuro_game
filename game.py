@@ -98,7 +98,7 @@ class Audio:
                 "pulse": self.make(520, 90, 0.42, 0.12, "sin", 0.04),
                 "hurt": self.make(220, 85, 0.20, 0.10, "tri", 0.05),
                 "ui_click": self.make(520, 390, 0.045, 0.025, "sin", 0.0),
-                "ui_hover": self.make(680, 760, 0.025, 0.012, "sin", 0.0),
+                "ui_hover": self.make(620, 700, 0.035, 0.008, "sin", 0.0),
                 "ready": self.make(440, 990, 0.24, 0.06, "sin", 0.0),
                 "boss_spawn": self.make(92, 38, 0.95, 0.15, "sin", 0.08),
                 "boss_hit": [self.make(190, 82, 0.12, 0.075, "tri", 0.04),
@@ -186,7 +186,7 @@ class Audio:
             return
         self.music_mode = mode
         self.music_channel.stop()
-        self.music_channel.set_volume(self.music_volume)
+        self.music_channel.set_volume(self.music_volume * (0.42 if mode == "game" else 1.0))
         self.music_channel.play(self.music_tracks[mode], loops=0 if mode == "dead" else -1)
 
     @staticmethod
@@ -280,6 +280,11 @@ class Game:
         self.target_fps = 120
         self.audio_scene = "menu"
         self.last_ui_state = "loading"
+        self.last_hover_sound_t = -10.0
+        self.camera_target_previous = None
+        self.camera_target_current = None
+        self.camera_lerp_elapsed = 0.0
+        self.camera_lerp_duration = 1.0 / 30.0
         self.screen_shake_enabled = True
         self.shake = 0.0
         self.spectator_speed = 620.0
@@ -412,7 +417,9 @@ class Game:
         hovered = enabled and rect.collidepoint(mouse)
         hover_key = (rect.x, rect.y, rect.w, rect.h, label)
         if hovered and self._last_hovered_button != hover_key:
-            self.audio.play("ui_hover")
+            if self.t - self.last_hover_sound_t >= 0.14:
+                self.audio.play("ui_hover")
+                self.last_hover_sound_t = self.t
             self._last_hovered_button = hover_key
         elif not hovered and self._last_hovered_button == hover_key:
             self._last_hovered_button = None
@@ -628,6 +635,13 @@ class Game:
             self.tutorial_ready = False
             pygame.mouse.set_visible(False)
         elif t == "snap":
+            local_state = next((pl for pl in m.get("players", []) if pl.get("pid") == self.my_id), None)
+            if local_state is not None:
+                incoming = (float(local_state["x"]), float(local_state["y"]))
+                self.camera_target_previous = self.camera_target_current or incoming
+                self.camera_lerp_duration = max(1.0 / 60.0, min(0.10, self.camera_lerp_elapsed))
+                self.camera_target_current = incoming
+                self.camera_lerp_elapsed = 0.0
             for event in m.get("sfx", []):
                 if len(event) >= 2 and (event[1] < 0 or event[1] == self.my_id):
                     self.audio.play(event[0])
@@ -1032,6 +1046,9 @@ class Game:
     def host_update(self, dt):
         if self.tutorial_active:
             return
+        if not any(player.alive for player in self.players.values()):
+            self.finish_session()
+            return
         if self.intermission:
             self.shake *= math.exp(-8 * dt)
             for player in self.players.values():
@@ -1068,14 +1085,7 @@ class Game:
         self.banner_t = max(0.0, self.banner_t - dt)
 
         if not any(p.alive for p in self.players.values()):
-            self.state = "dead"
-            self.intermission = False
-            self.local_upgrade_waiting = False
-            self.local_choices = []
-            for player in self.players.values():
-                player.upgrade_choices = []
-            self.server.broadcast({"t": "dead"})
-            pygame.mouse.set_visible(True)
+            self.finish_session()
 
     def update_player(self, p, dt):
         p.dash_t = max(0.0, p.dash_t - dt)
@@ -1083,7 +1093,6 @@ class Game:
         p.inv = max(0.0, p.inv - dt)
         p.hurt_t = max(0.0, p.hurt_t - dt)
         p.cool = max(0.0, p.cool - dt)
-        p.pulse_boost = max(0.0, p.pulse_boost - dt)
         p.shield_t = max(0.0, p.shield_t - dt)
         if p.regen > 0 and p.hp < p.max_hp:
             p.regen_timer += dt
@@ -1135,16 +1144,18 @@ class Game:
                 aa = p.ang + a + random.uniform(-0.025, 0.025)
                 d = V(math.cos(aa), math.sin(aa))
                 shot_damage = p.dmg * (2.0 if random.random() < p.crit else 1.0)
+                size_damage = 1.0 + 0.08 * p.upgrades.get("bullet_size", 0)
                 self.bullets.append(Bullet(p.p + d * 22, d * (1100 * p.bullet_speed), p.pid,
-                                           shot_damage * p.bullet_size, p.pierce, p.bullet_size))
+                                           shot_damage * size_damage, p.pierce, p.bullet_size))
             for i in range(p.multishot):
                 spread = 0.12 * (i + 1)
                 for sign in (-1, 1):
                     aa = p.ang + spread * sign
                     d = V(math.cos(aa), math.sin(aa))
                     shot_damage = p.dmg * (2.0 if random.random() < p.crit else 1.0)
+                    size_damage = 1.0 + 0.08 * p.upgrades.get("bullet_size", 0)
                     self.bullets.append(Bullet(p.p + d * 22, d * (1100 * p.bullet_speed),
-                                               p.pid, shot_damage * p.bullet_size, p.pierce, p.bullet_size))
+                                               p.pid, shot_damage * size_damage, p.pierce, p.bullet_size))
             fwd = V(math.cos(p.ang), math.sin(p.ang))
             p.v -= fwd * 25
             self.burst(p.p + fwd * 24, CYAN, 3, 260, (0.08, 0.2), 2)
@@ -1154,17 +1165,16 @@ class Game:
         p.charge = 0
         if p.pid == self.my_id:
             self.shake = max(self.shake, 34)
-        p.inv = max(p.inv, 0.85)
-        p.shield_t = 5.0
-        p.shield_hits = min(5, 2 + p.upgrades.get("pulse_power", 0))
-        p.pulse_boost = 5.0
+        p.inv = max(p.inv, 0.35)
+        p.shield_t = 3.5
+        p.shield_hits = min(3, 1 + p.upgrades.get("pulse_power", 0))
         self.play_sound("pulse", p.pid)
         self.rings.append(Ring(p.p, 18, 170, 520, CYAN, 5))
         self.rings.append(Ring(p.p, 12, 125, 760, WHITE, 2))
         self.burst(p.p, CYAN, 42, 420, (0.25, 0.7), 3)
 
     def update_waves(self, dt):
-        if self.intermission:
+        if self.intermission or not any(player.alive for player in self.players.values()):
             return
         alive = any(not e.dead for e in self.enemies)
         if self.wave == 0 and not self.queue and not alive:
@@ -1176,9 +1186,11 @@ class Game:
         elif self.queue:
             self.spawn_t -= dt
             if self.spawn_t <= 0:
-                player_count = max(1, len(self.players))
+                player_count = max(1, sum(1 for player in self.players.values() if player.alive))
                 self.spawn_t = max(0.12, (0.7 - 0.018 * self.wave) / (1.0 + 0.08 * (player_count - 1)))
-                self.spawn(self.queue.pop())
+                next_kind = self.queue[-1]
+                if len(self.enemies) < 90 or next_kind.startswith("boss"):
+                    self.spawn(self.queue.pop())
 
     def begin_intermission(self):
         if self.intermission:
@@ -1205,6 +1217,9 @@ class Game:
     def start_next_wave(self):
         if not self.intermission:
             return
+        if not any(player.alive for player in self.players.values()):
+            self.finish_session()
+            return
         self.intermission = False
         self.local_choices = []
         self.local_upgrade_waiting = False
@@ -1212,6 +1227,19 @@ class Game:
             p.upgrade_choices = []
             p.upgrade_ready = False
         self.next_wave()
+
+    def finish_session(self):
+        if self.state == "dead":
+            return
+        self.state = "dead"
+        self.intermission = False
+        self.local_upgrade_waiting = False
+        self.local_choices = []
+        for player in self.players.values():
+            player.upgrade_choices = []
+        if self.server:
+            self.server.broadcast({"t": "dead"})
+        pygame.mouse.set_visible(True)
 
     def next_wave(self):
         self.wave += 1
@@ -1523,7 +1551,7 @@ class Game:
         self.rings.append(Ring(e.p, e.r, e.r * 4 + 30, 520, e.col, 3))
         self.shake = max(self.shake, 5 + e.r * 0.4)
         if src:
-            pts = int(d["score"] * src.score_gain)
+            pts = int(d["score"])
             src.score += pts
             src.kills += 1
             if src.lifesteal:
@@ -1575,7 +1603,7 @@ class Game:
                 self.burst(p.p, CYAN, 18, 300, (0.15, 0.35), 2)
             return
         p.armor_hits += 1
-        if p.armor > 0 and p.armor_hits % max(2, 5 - p.armor) == 0:
+        if p.armor > 0 and p.armor_hits % max(3, 6 - p.armor) == 0:
             self.play_sound("armor_block", p.pid)
             self.pops.append([V(p.p), "БРОНЯ", 0.8, CYAN, p.pid])
             if p.pid == self.my_id:
@@ -2436,7 +2464,12 @@ class Game:
         # Живой игрок ведёт камеру за собой. В режиме наблюдателя камера
         # свободная и перемещается WASD/стрелками.
         if not self.is_spectating():
-            tx, ty = self._player_screen_pos()
+            if not self.is_host and self.camera_target_current is not None:
+                alpha = min(1.0, self.camera_lerp_elapsed / max(1e-4, self.camera_lerp_duration))
+                tx = self.camera_target_previous[0] + (self.camera_target_current[0] - self.camera_target_previous[0]) * alpha
+                ty = self.camera_target_previous[1] + (self.camera_target_current[1] - self.camera_target_previous[1]) * alpha
+            else:
+                tx, ty = self._player_screen_pos()
             self.camera.follow(tx, ty, self.clock.get_time() / 1000.0)
 
         snap = None
@@ -2545,6 +2578,7 @@ class Game:
         while True:
             real_dt = min(self.clock.tick(self.target_fps) / 1000.0, 1 / 20)
             self.t += real_dt
+            self.camera_lerp_elapsed += real_dt
             self.debug_timer += real_dt
             if self.debug_timer >= 5.0:
                 self.debug_timer = 0.0
