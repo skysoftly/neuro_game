@@ -2,6 +2,8 @@ import random
 import unittest
 
 import pygame
+from entities import Bullet
+from config import SIDE_SHOT_DAMAGE_RATIO
 
 from config import W, H, KINDS
 from draw_utils import bloom, make_overlay
@@ -118,6 +120,17 @@ class UpgradeTests(unittest.TestCase):
             apply_upgrade(self.player, "pierce")
         self.assertEqual(self.player.pierce, 2)
         self.assertEqual(self.player.upgrades["pierce"], 2)
+
+    def test_piercing_bullet_loses_damage_after_each_hit(self):
+        bullet = Bullet((0, 0), (1, 0), 1, 100, 2)
+        self.assertTrue(bullet.register_hit())
+        self.assertAlmostEqual(bullet.dmg, 65)
+        self.assertTrue(bullet.register_hit())
+        self.assertAlmostEqual(bullet.dmg, 42.25)
+        self.assertFalse(bullet.register_hit())
+
+    def test_side_shots_are_one_third_damage(self):
+        self.assertAlmostEqual(SIDE_SHOT_DAMAGE_RATIO, 1 / 3, places=2)
 
 
 class RetroRenderTests(unittest.TestCase):
