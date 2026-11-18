@@ -136,33 +136,6 @@ class Audio:
                     lead = tri * lead_env * 0.032
                 buf.append(int(max(-1.0, min(1.0, lead + low)) * 32767))
         return pygame.mixer.Sound(buffer=buf.tobytes())
-    def make_music():
-        """Original mellow chiptune loop with a melody, bass and soft pulse."""
-        rate = 44100
-        melody = (440, 523, 659, 523, 392, 494, 587, 494,
-                  349, 440, 523, 440, 330, 392, 494, 392)
-        bass = (110, 110, 130.81, 130.81, 87.31, 87.31, 98, 98)
-        beat = 0.22
-        count = int(rate * beat)
-        buf = array.array("h")
-        for step, note in enumerate(melody):
-            base_phase = 0.0
-            bass_phase = 0.0
-            for i in range(count):
-                t = i / count
-                base_phase += note / rate
-                bass_phase += bass[(step // 2) % len(bass)] / rate
-                tri = 1.0 - 4.0 * abs(round(base_phase) - base_phase)
-                lead_env = min(1.0, i / 500) * min(1.0, (count - i) / 1800)
-                bass_env = min(1.0, i / 900) * min(1.0, (count - i) / 2500)
-                lead = tri * lead_env * 0.075
-                low = math.sin(bass_phase * math.tau) * bass_env * 0.045
-                pulse = 0.0
-                if step % 4 == 0 and i < int(rate * 0.055):
-                    pulse = math.sin((75 - 35 * t) * math.tau * i / rate) * (1 - t / 0.25) * 0.035
-                buf.append(int(max(-1.0, min(1.0, lead + low + pulse)) * 32767))
-        return pygame.mixer.Sound(buffer=buf.tobytes())
-
     @staticmethod
     def make(f0, f1, dur, vol, wave, noise):
         rate = 44100
