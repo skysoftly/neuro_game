@@ -933,7 +933,7 @@ class Game:
         self.flash = 0.85
         p.inv = max(p.inv, 0.85)
         p.shield_t = 5.0
-        p.shield_hits = min(4, 2 + int(p.pulse_power - 1.0))
+        p.shield_hits = min(5, 2 + p.upgrades.get("pulse_power", 0))
         p.pulse_boost = 5.0
         self.audio.play("pulse")
         self.rings.append(Ring(p.p, 18, 170, 520, CYAN, 5))
@@ -1692,7 +1692,7 @@ class Game:
             bar(24, H - 54, 154, 1 - me["dash_cd"] / 0.9, CYAN, "РЫВОК [SPACE]")
             full = me["charge"] >= 100
             pc = WHITE if full and int(self.t * 6) % 2 == 0 else MAGENTA
-            bar(24, H - 30, 154, me["charge"] / 100, pc, "ЩИТ [ПКМ]" if full else "ЩИТ")
+            bar(24, H - 30, 154, me["charge"] / 100, pc, "ЩИТ [ПКМ]")
             if me.get("shield_t", 0) > 0:
                 text(sc, "ЩИТ  %d  •  %.1fс" % (me.get("shield_hits", 0), me["shield_t"]),
                      self.f_small, CYAN, (24, H - 82), "midleft", outline=1)
