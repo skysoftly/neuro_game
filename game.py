@@ -2529,12 +2529,6 @@ class Game:
             pygame.draw.circle(sc, CYAN, (int(sx), int(sy)), 31 + int(2 * math.sin(self.t * 9)), 2)
             pygame.draw.circle(sc, WHITE, (int(sx), int(sy)), 35, 1)
 
-        if me and not me.get("alive", True) and self.state == "play":
-            panel = pygame.Rect(W / 2 - 230, 142, 460, 48)
-            pygame.draw.rect(sc, (8, 10, 24), panel)
-            pygame.draw.rect(sc, (90, 145, 165), panel, 1)
-            text(sc, "YOU ARE OUT - SPECTATING",
-                 self.f_small, RED, (W / 2, 166), outline=2)
 
         # Баннер волны всегда помещается в экран независимо от номера волны.
         if snap.get("banner", 0) > 0 and self.state == "play":
@@ -2556,12 +2550,8 @@ class Game:
                 pygame.draw.line(sc, WHITE, (mx + dx * 16, my + dy * 16),
                                  (mx + dx * 22, my + dy * 22), 2)
 
-        if self.is_spectating() and self.state == "play":
-            panel = pygame.Rect(W / 2 - 190, 142, 380, 38)
-            pygame.draw.rect(sc, (8, 15, 26), panel)
-            pygame.draw.rect(sc, (90, 145, 165), panel, 1)
-            text(sc, "SPECTATOR MODE - WASD CAMERA",
-                 self.f_small, (185, 215, 225), panel.center, outline=1)
+        # Статус наблюдателя рисуется отдельным верхним баннером в render(),
+        # чтобы он не занимал центр игрового поля.
 
         self.draw_hint(sc)
 
@@ -3049,6 +3039,12 @@ class Game:
         elif self.state in ("play", "dead"):
             if snap is not None:
                 self.draw_hud(self.screen, snap)
+                if self.is_spectating() and self.state == "play":
+                    panel = pygame.Rect(W / 2 - 230, 18, 460, 38)
+                    pygame.draw.rect(self.screen, (8, 15, 26), panel)
+                    pygame.draw.rect(self.screen, (90, 145, 165), panel, 1)
+                    text(self.screen, "ВЫ ВЫБЫЛИ  •  НАБЛЮДЕНИЕ  •  WASD — КАМЕРА",
+                         self.f_small, (205, 220, 230), panel.center, outline=1)
                 self.draw_upgrade_overlay(self.screen)
                 if self.tutorial_active and self.state == "play":
                     self.draw_tutorial_overlay(self.screen)
