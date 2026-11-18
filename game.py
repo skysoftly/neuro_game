@@ -2120,7 +2120,7 @@ class Game:
                 pygame.draw.rect(sc, (80, 100, 112), panel, 1)
                 for i, (name, value) in enumerate(active):
                     label = {"rapid":"СКОРОСТРЕЛЬНОСТЬ","spread":"ТРОЙНОЙ ВЫСТРЕЛ","shield":"ЩИТ АКТИВЕН"}[name]
-                    col = PICK_COL.get(name, MAGENTA)
+                    col = CYAN if name == "shield" else PICK_COL.get(name, MAGENTA)
                     self.draw_fit_text(sc, "%s  %.1fс" % (label, value), col,
                                        pygame.Rect(panel.x + 8, panel.y + 1 + i * 24,
                                                    panel.w - 16, 20), 18, 10)
