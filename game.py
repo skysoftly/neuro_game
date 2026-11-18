@@ -292,7 +292,7 @@ class Game:
         self.banner_t = 0.0
         self.intermission = False
         self.local_upgrade_waiting = False
-        self.wave = 1
+        self.wave = 0
         self.wave_started = False
         self.debug_overlay = False
         self.debug_timer = 0.0
@@ -554,7 +554,7 @@ class Game:
         self.snapshot_timer = 0.0
         self.snap = None
         self.paused = False
-        self.wave = 1
+        self.wave = 0
         self.wave_started = False
         self.wave_delay = 1.5
         self.spawn_t = 0.0
@@ -1444,11 +1444,10 @@ class Game:
         pygame.mouse.set_visible(True)
 
     def next_wave(self):
-        if self.wave_started:
-            self.wave += 1
-        else:
-            self.wave = 1
-            self.wave_started = True
+        # Номер увеличивается при каждом реальном запуске волны.
+        # Новая игра начинается с wave=0, поэтому первая волна станет 1.
+        self.wave += 1
+        self.wave_started = True
         self.play_sound("wave_start")
         self.wave_delay = 0.0
         self.spawn_t = 1.25
