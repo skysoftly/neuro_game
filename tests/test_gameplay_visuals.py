@@ -36,8 +36,11 @@ class UpgradeTests(unittest.TestCase):
         late = Enemy("chaser", (100, 100), 10)
         self.assertGreaterEqual(late.max_hp, early.max_hp * 2)
 
-    def test_combo_upgrade_is_removed(self):
-        self.assertNotIn("combo", {upgrade["id"] for upgrade in UPGRADES})
+    def test_obsolete_upgrades_are_removed(self):
+        ids = {upgrade["id"] for upgrade in UPGRADES}
+        self.assertNotIn("combo", ids)
+        self.assertNotIn("score_gain", ids)
+        self.assertEqual(len(ids), len(UPGRADES))
 
     def test_player_has_local_damage_timer(self):
         self.assertEqual(self.player.hurt_t, 0.0)
@@ -52,7 +55,6 @@ class UpgradeTests(unittest.TestCase):
         apply_upgrade(self.player, "max_hp")
         self.assertEqual(self.player.max_hp, 6)
         self.assertEqual(self.player.hp, 5)
-        self.assertEqual(self.player.max_hp, 6)
 
     def test_damage_upgrade_changes_damage(self):
         apply_upgrade(self.player, "dmg")
