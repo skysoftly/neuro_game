@@ -16,7 +16,7 @@ class Player:
         self.p = V(WORLD_W / 2, WORLD_H / 2) + off
         self.v = V()
         self.ang = 0.0
-        self.hp = 4
+        self.hp = 5
         self.max_hp = 5
         self.cool = 0.0
         self.inv = 0.0
