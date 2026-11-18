@@ -73,11 +73,28 @@ class Audio:
         try:
             # Softer, more varied synth tones; avoid harsh square-wave blasts.
             self.s = {
-                "shoot": self.make(760, 520, 0.055, 0.035, "tri", 0.0),
-                "hit": self.make(260, 170, 0.075, 0.055, "sin", 0.08),
-                "boom": self.make(115, 42, 0.24, 0.10, "sin", 0.12),
-                "dash": self.make(260, 920, 0.19, 0.065, "sin", 0.0),
-                "pickup": self.make(520, 1040, 0.16, 0.055, "tri", 0.0),
+                "shoot": [
+                    self.make(760, 520, 0.055, 0.035, "tri", 0.0),
+                    self.make(820, 560, 0.050, 0.030, "sin", 0.0),
+                    self.make(690, 470, 0.060, 0.032, "tri", 0.0),
+                ],
+                "hit": [
+                    self.make(260, 170, 0.075, 0.055, "sin", 0.08),
+                    self.make(310, 190, 0.065, 0.045, "tri", 0.04),
+                ],
+                "boom": [
+                    self.make(115, 42, 0.24, 0.10, "sin", 0.12),
+                    self.make(95, 35, 0.28, 0.085, "sin", 0.08),
+                    self.make(135, 48, 0.20, 0.09, "tri", 0.06),
+                ],
+                "dash": [
+                    self.make(260, 920, 0.19, 0.065, "sin", 0.0),
+                    self.make(310, 1080, 0.16, 0.055, "tri", 0.0),
+                ],
+                "pickup": [
+                    self.make(520, 1040, 0.16, 0.055, "tri", 0.0),
+                    self.make(620, 1240, 0.14, 0.050, "sin", 0.0),
+                ],
                 "pulse": self.make(520, 90, 0.42, 0.12, "sin", 0.04),
                 "hurt": self.make(220, 85, 0.20, 0.10, "tri", 0.05),
                 "levelup": self.make(440, 1320, 0.32, 0.085, "sin", 0.0),
@@ -141,7 +158,10 @@ class Audio:
 
     def play(self, name):
         if self.ok and name in self.s:
-            self.s[name].play()
+            sound = self.s[name]
+            if isinstance(sound, list):
+                sound = random.choice(sound)
+            sound.play()
 
 
 # ---------- игра ----------
