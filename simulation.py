@@ -277,7 +277,7 @@ class SimulationMixin:
         self.banner_t = 2.2
         player_count = max(1, sum(1 for p in self.players.values() if p.alive))
         # Лимит 64 относится к размеру одной очереди, а не к номеру волны.
-        n = wave_enemy_count(self.wave, player_count)
+        n = wave_enemy_count(self.wave, player_count, self.difficulty)
         q = []
 
         # Новые архетипы вводятся по одному, с интервалом в одну-две волны.
@@ -329,7 +329,7 @@ class SimulationMixin:
         pos.x = max(50, min(WORLD_W - 50, pos.x))
         pos.y = max(50, min(WORLD_H - 50, pos.y))
         # Выбывшие игроки не усиливают врагов; учитываем только живых.
-        enemy = Enemy(kind, pos, self.wave, len(alive_players))
+        enemy = Enemy(kind, pos, self.wave, len(alive_players), self.difficulty)
         self.enemies.append(enemy)
         if kind.startswith("boss"):
             self.banner_t = max(self.banner_t, 2.8)
@@ -615,7 +615,7 @@ class SimulationMixin:
         self.play_sound("boom")
         if e.kind in ("tank", "splitter"):
             for _ in range(4 if e.kind == "tank" else 3):
-                c = Enemy("swarm", e.p + V(random.uniform(-30, 30), random.uniform(-30, 30)), self.wave)
+                c = Enemy("swarm", e.p + V(random.uniform(-30, 30), random.uniform(-30, 30)), self.wave, max(1, sum(p.alive for p in self.players.values())), self.difficulty)
                 c.age = 0.45
                 self.enemies.append(c)
         if e.kind.startswith("boss"):
@@ -770,6 +770,7 @@ class SimulationMixin:
             "pickups": [],
             "pops": [],
             "wave": self.wave,
+            "difficulty": self.difficulty,
             "wave_started": self.wave_started,
             "intermission": self.intermission,
             "banner": round(self.banner_t, 2),
