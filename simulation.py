@@ -161,7 +161,7 @@ class SimulationMixin:
                     shot_damage = p.dmg * (2.0 if random.random() < p.crit else 1.0)
                     size_damage = 1.0 + 0.08 * p.upgrades.get("bullet_size", 0)
                     self.bullets.append(Bullet(p.p + d * 22, d * (1100 * p.bullet_speed),
-                                               p.pid, shot_damage * 0.55 * size_damage, p.pierce, p.bullet_size))
+                                               p.pid, shot_damage * SIDE_SHOT_DAMAGE_RATIO * size_damage, p.pierce, p.bullet_size))
             fwd = V(math.cos(p.ang), math.sin(p.ang))
             p.v -= fwd * 25
             self.burst(p.p + fwd * 24, CYAN, 3, 260, (0.08, 0.2), 2)
