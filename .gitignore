@@ -6,4 +6,5 @@ build/
 dist/
 .venv/
 venv/
-\n/.idea/\n
+.idea/
+icon.ico
