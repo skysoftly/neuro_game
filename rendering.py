@@ -735,7 +735,8 @@ class RenderingMixin:
             self.draw_button(sc, diff_rect, "СЛОЖНОСТЬ: " + diff_label + "  ‹ ›", YELLOW)
             text(sc, "ХОСТ МОЖЕТ МЕНЯТЬ ДО СТАРТА", font(11), (135, 155, 175), (cx, 210), outline=1)
         else:
-            text(sc, "СЛОЖНОСТЬ: " + diff_label, self.f_small, YELLOW, (cx, 194), outline=2)
+            # Разносим статус сложности и ожидание хоста по разным строкам.
+            text(sc, "СЛОЖНОСТЬ: " + diff_label, self.f_small, YELLOW, (cx, 176), outline=2)
 
         list_rect = pygame.Rect(130, 220, 470, 350)
         edit_rect = pygame.Rect(620, 220, 530, 350)
@@ -822,8 +823,8 @@ class RenderingMixin:
             self.draw_button(sc, action_rect,
                              "НЕ ГОТОВ" if is_ready else "ГОТОВ",
                              GREEN if is_ready else CYAN)
-            text(sc, "Ожидание запуска хостом...", self.f_small, PURPLE,
-                 (cx, 194), outline=2)
+            text(sc, "ОЖИДАНИЕ ЗАПУСКА ХОСТОМ", self.f_small, PURPLE,
+                 (cx, 210), outline=2)
         if self.connect_error:
             text(sc, self.connect_error, self.f_small, RED, (cx, H - 82), outline=2)
         self.draw_button(sc, pygame.Rect(cx - 150, H - 66, 300, 42), "НАЗАД В МЕНЮ", RED)
