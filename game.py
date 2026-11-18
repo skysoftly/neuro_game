@@ -1773,7 +1773,10 @@ class Game:
         fill = dim(base_col, 0.12)
         kind = e["k"]
         if kind not in ("chaser", "swarm"):
-            draw_glow(sc, (sx, sy), base_col, int(r * 2.2 + 12), 22)
+            # Glow radius is tied to the archetype, not the spawn animation.
+            # This keeps the cached glow atlas stable instead of rebuilding it
+            # for every intermediate radius while enemies fade in.
+            draw_glow(sc, (sx, sy), base_col, int(e["r"] * 2.2 + 12), 22)
         if kind in ("chaser", "dasher"):
             pts = shape(DIAMOND, e["ang"], (sx, sy), r)
         elif kind in ("swarm", "splitter"):
