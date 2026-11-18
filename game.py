@@ -2501,7 +2501,7 @@ class Game:
         mvp_pid = players[0]["pid"] if players else -1
 
         # Общая панель итогов одинакова для хоста и клиентов.
-        panel = pygame.Rect(W / 2 - 420, 158, 840, 350)
+        panel = pygame.Rect(W / 2 - 420, 158, 840, 390)
         panel_surface = pygame.Surface(panel.size, pygame.SRCALPHA)
         pygame.draw.rect(panel_surface, (5, 10, 22, 224), panel_surface.get_rect())
         pygame.draw.rect(panel_surface, (105, 48, 70, 220), panel_surface.get_rect(), 2)
