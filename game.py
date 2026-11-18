@@ -1195,7 +1195,7 @@ class Game:
         if not p.alive:
             return
         p.armor_hits += 1
-        if p.armor > 0 and p.armor_hits % 4 == 0:
+        if p.armor > 0 and p.armor_hits % max(2, 5 - p.armor) == 0:
             self.pops.append([V(p.p), "БРОНЯ", 0.8, CYAN])
             self.rings.append(Ring(p.p, 8, 100, 520, CYAN, 3))
             return
@@ -1436,6 +1436,18 @@ class Game:
         if kind.startswith("boss"):
             pygame.draw.circle(sc, dim(col, 0.25), (int(sx), int(sy)), int(r * 0.72), 5)
             pygame.draw.circle(sc, WHITE, (int(sx), int(sy)), max(5, int(r * 0.24)), 2)
+            for spoke in range(6):
+                a = e["ang"] + spoke * math.tau / 6
+                start = (sx + math.cos(a) * r * 0.48, sy + math.sin(a) * r * 0.48)
+                end = (sx + math.cos(a) * r * 0.92, sy + math.sin(a) * r * 0.92)
+                pygame.draw.line(sc, col, start, end, 3)
+        elif kind == "mine":
+            pygame.draw.circle(sc, WHITE, (int(sx), int(sy)), max(3, int(r * 0.28)), 2)
+            for spoke in range(4):
+                a = e["ang"] + spoke * math.pi / 2
+                pygame.draw.line(sc, col,
+                                 (sx + math.cos(a) * r * 0.35, sy + math.sin(a) * r * 0.35),
+                                 (sx + math.cos(a) * r * 0.95, sy + math.sin(a) * r * 0.95), 2)
         if kind == "shooter":
             pygame.draw.circle(sc, col, (int(sx), int(sy)), max(2, int(r * 0.3)))
             if k >= 1 and e["cool"] < 0.35:
