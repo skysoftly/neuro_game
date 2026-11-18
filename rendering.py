@@ -736,7 +736,7 @@ class RenderingMixin:
             pygame.draw.line(sc, accent, (panel.x + 16, panel.y + 42),
                              (panel.right - 16, panel.y + 42), 2)
 
-        text(sc, "ИГРОКИ  ·  %d / %d" % (len(self.lobby_players), MAX_PLAYERS), self.f_mid,
+        text(sc, "ИГРОКИ  ·  %d / %d МАКС." % (len(self.lobby_players), MAX_PLAYERS), self.f_mid,
              WHITE, (list_rect.centerx, list_rect.y + 23), outline=2)
         visible = max(1, (list_rect.h - 62) // 34)
         self.lobby_scroll = max(0, min(self.lobby_scroll, max(0, len(self.lobby_players) - visible)))
