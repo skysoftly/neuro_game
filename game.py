@@ -17,7 +17,7 @@ from config import (
     KINDS, PICK_COL, PICK_LET, PLAYER_COLORS,
 )
 from fonts import font, text
-from draw_utils import shape, dim, make_overlay, bloom, fisheye, read_clipboard
+from draw_utils import shape, dim, make_overlay, bloom, read_clipboard
 from camera import Camera
 from entities import Player, Enemy, Particle, Ring, Bullet
 from upgrades import UPGRADES_BY_ID, apply_upgrade, roll_upgrades
@@ -99,6 +99,7 @@ class Audio:
                 "hurt": self.make(220, 85, 0.20, 0.10, "tri", 0.05),
                 "levelup": self.make(440, 880, 0.28, 0.055, "sin", 0.0),
                 "ui_click": self.make(520, 390, 0.045, 0.025, "sin", 0.0),
+                "ui_hover": self.make(680, 760, 0.025, 0.012, "sin", 0.0),
                 "ready": self.make(440, 990, 0.24, 0.06, "sin", 0.0),
                 "wave": self.make(260, 520, 0.42, 0.06, "tri", 0.0),
                 "pvp_kill": self.make(330, 990, 0.36, 0.075, "sin", 0.0),
@@ -275,6 +276,12 @@ class Game:
         # Старая панельная кнопка: тёмная эмаль, двойная рамка и светлая грань.
         mouse = self.logical_mouse()
         hovered = enabled and rect.collidepoint(mouse)
+        hover_key = (rect.x, rect.y, rect.w, rect.h, label)
+        if hovered and self._last_hovered_button != hover_key:
+            self.audio.play("ui_hover")
+            self._last_hovered_button = hover_key
+        elif not hovered and self._last_hovered_button == hover_key:
+            self._last_hovered_button = None
         fill = (25, 37, 52) if not hovered else (39, 57, 72)
         edge = color if enabled else (75, 82, 94)
         shadow = pygame.Rect(rect.x + 4, rect.y + 5, rect.w, rect.h)
@@ -1567,10 +1574,13 @@ class Game:
         overlay = pygame.Surface((W, H), pygame.SRCALPHA)
         overlay.fill((5, 8, 14, 218))
         sc.blit(overlay, (0, 0))
-        players = self.snap.get("players", []) if (not self.is_host and self.snap) else []
-        roster = list(self.players.values()) if self.is_host else players
-        ready_count = sum(1 for p in roster if (p.alive if self.is_host else p.get("alive", True)) and (p.upgrade_ready if self.is_host else p.get("upgrade_ready", False)))
-        alive_count = sum(1 for p in roster if p.alive if self.is_host) if self.is_host else sum(1 for p in roster if p.get("alive", True))
+        roster = list(self.players.values()) if self.is_host else (self.snap or {}).get("players", [])
+        if self.is_host:
+            ready_count = sum(1 for p in roster if p.alive and p.upgrade_ready)
+            alive_count = sum(1 for p in roster if p.alive)
+        else:
+            ready_count = sum(1 for p in roster if p.get("alive", True) and p.get("upgrade_ready", False))
+            alive_count = sum(1 for p in roster if p.get("alive", True))
         text(sc, "ПЕРЕДЫШКА МЕЖДУ ВОЛНАМИ", self.f_big, YELLOW, (W / 2, 92), outline=2)
         if self.local_choices:
             text(sc, "ВЫБЕРИ ОДНО УЛУЧШЕНИЕ", self.f_mid, WHITE, (W / 2, 148), outline=1)
@@ -1795,9 +1805,9 @@ class Game:
         if self.flash > 0:
             sc.fill((int(70 * self.flash), 0, int(10 * self.flash)), special_flags=pygame.BLEND_RGB_ADD)
 
-        # Gentle CRT lens + restrained glow. Keep HUD text crisp above the filter.
-        post = fisheye(sc, 0.075)
-        bloom(post, W, H, 0.16)
+        # Мягкий CRT glow без геометрических искажений и размытия интерфейса.
+        post = sc.copy()
+        bloom(post, W, H, 0.08)
 
         # Screen shake is applied to the game image, not to the interface.
         shake_amount = self.shake if self.state == "play" and snap is not None else 0.0
@@ -1825,9 +1835,6 @@ class Game:
 
         self.draw_input_overlay(self.screen)
 
-        if self.intermission and self.state == "play":
-            self.draw_mouse_cursor(self.screen)
-
         if self.debug_overlay:
             snap_players = snap.get("players", []) if snap else []
             snap_enemies = snap.get("enemies", []) if snap else []
@@ -1843,6 +1850,10 @@ class Game:
             self.screen.blit(panel, (W - 322, H - 138))
             for i, line in enumerate(debug_lines):
                 text(self.screen, line, self.f_small, GREEN, (W - 312, H - 126 + i * 23), "topleft", outline=1)
+
+        # Курсор рисуется последним: он выше карточек, текста и debug-панели.
+        if self.intermission and self.state == "play":
+            self.draw_mouse_cursor(self.screen)
 
     # ================= главный цикл =================
     def run(self):
