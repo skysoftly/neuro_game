@@ -183,8 +183,13 @@ class Game:
         self.overlay = make_overlay(W, H)
         self.stars = [[random.uniform(0, W), random.uniform(0, H), random.uniform(0.2, 1.0)] for _ in range(200)]
         self.t = 0.0
-        self.state = "menu"
+        self.state = "loading"
+        self.loading_t = 0.0
         self.error_msg = ""
+        self.tutorial_active = False
+        self.tutorial_ready = False
+        self.lobby_scroll = 0
+        self.hud_scroll = 0
         self.paused = False
         self.shake = 0.0
         self.spectator_speed = 620.0
@@ -364,7 +369,11 @@ class Game:
         self.intermission = False
         self.local_upgrade_waiting = False
         self.banner_t = 2.0
-        self.help_t = 10.0
+        self.help_t = 0.0
+        self.tutorial_active = True
+        self.tutorial_ready = False
+        for player in self.players.values():
+            player.tutorial_ready = False
         self.state = "play"
         pygame.mouse.set_visible(False)
         self.camera.follow(self.players[self.my_id].p.x, self.players[self.my_id].p.y, 0, snap=True)
@@ -391,6 +400,11 @@ class Game:
             self.lobby_players.append((cid, name))
             self.server.send(cid, {"t": "welcome", "id": cid})
             self.server.broadcast({"t": "lobby", "players": self.lobby_players})
+        elif t == "tutorial_ready" and self.state == "play" and self.tutorial_active:
+            p = self.players.get(cid)
+            if p:
+                p.tutorial_ready = True
+                self.check_tutorial_ready()
         elif t == "input" and self.state == "play":
             p = self.players.get(cid)
             if p and p.alive:
@@ -447,7 +461,11 @@ class Game:
             self.intermission = False
             self.state = "play"
             self.paused = False
-            self.help_t = 10.0
+            self.tutorial_active = True
+            self.tutorial_ready = False
+            pygame.mouse.set_visible(True)
+        elif t == "begin":
+            self.tutorial_active = False
             pygame.mouse.set_visible(False)
         elif t == "snap":
             self.snap = m
@@ -469,8 +487,28 @@ class Game:
         elif t == "disconnect":
             self.handle_host_disconnect()
 
+    def check_tutorial_ready(self):
+        if not self.is_host or not self.tutorial_active:
+            return
+        if all((not p.alive) or p.tutorial_ready for p in self.players.values()):
+            self.tutorial_active = False
+            self.server.broadcast({"t": "begin"})
+            pygame.mouse.set_visible(False)
+
+    def confirm_tutorial(self):
+        if not self.tutorial_active:
+            return
+        if self.is_host:
+            p = self.players.get(self.my_id)
+            if p:
+                p.tutorial_ready = True
+            self.check_tutorial_ready()
+        elif self.client and not self.tutorial_ready:
+            self.tutorial_ready = True
+            self.client.send({"t": "tutorial_ready"})
+
     def send_input(self):
-        if self.is_host or not self.client or self.state != "play":
+        if self.tutorial_active or self.is_host or not self.client or self.state != "play":
             return
         k = pygame.key.get_pressed()
         x = int(k[pygame.K_d] or k[pygame.K_RIGHT]) - int(k[pygame.K_a] or k[pygame.K_LEFT])
@@ -600,6 +638,11 @@ class Game:
                         self.help_t = 10.0
                     continue
 
+                if self.state == "loading":
+                    continue
+                if self.tutorial_active and e.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    self.confirm_tutorial()
+                    continue
                 if self.state == "menu":
                     if e.key == pygame.K_1:
                         self.start_host()
@@ -632,7 +675,17 @@ class Game:
                 elif self.state == "error":
                     if e.key in (pygame.K_RETURN, pygame.K_ESCAPE):
                         self.state = "menu"
+            elif e.type == pygame.MOUSEWHEEL:
+                mx, my = self.logical_mouse()
+                if self.state == "lobby" and pygame.Rect(245, 430, 790, H - 590).collidepoint(mx, my):
+                    self.lobby_scroll = max(0, min(max(0, len(self.lobby_players) - 3), self.lobby_scroll - e.y))
+                elif self.state in ("play", "dead") and pygame.Rect(14, 16, 238, min(H - 180, 340)).collidepoint(mx, my):
+                    roster = self.players if self.is_host else ((self.snap or {}).get("players", []))
+                    self.hud_scroll = max(0, min(max(0, len(roster) - 6), self.hud_scroll - e.y))
             elif e.type == pygame.MOUSEBUTTONDOWN:
+                if self.tutorial_active and e.button == 1:
+                    self.confirm_tutorial()
+                    continue
                 if e.button == 1:
                     self.audio.play("ui_click")
                 mx, my = self.logical_mouse(e.pos)
@@ -746,6 +799,8 @@ class Game:
 
     # ================= симуляция (хост) =================
     def host_update(self, dt):
+        if self.tutorial_active:
+            return
         if self.intermission:
             self.shake *= math.exp(-8 * dt)
             self.flash = max(0.0, self.flash - dt * 3.0)
@@ -793,6 +848,7 @@ class Game:
         p.inv = max(0.0, p.inv - dt)
         p.cool = max(0.0, p.cool - dt)
         p.pulse_boost = max(0.0, p.pulse_boost - dt)
+        p.shield_t = max(0.0, p.shield_t - dt)
         if p.regen > 0 and p.hp < p.max_hp:
             p.regen_timer += dt
             if p.regen_timer >= 1.0 / p.regen:
@@ -866,22 +922,13 @@ class Game:
         self.shake = max(self.shake, 34)
         self.flash = 0.85
         p.inv = max(p.inv, 0.85)
-        p.pulse_boost = 3.5
-        p.rapid = max(p.rapid, 3.5)
+        p.shield_t = 5.0
+        p.shield_hits = min(4, 2 + int(p.pulse_power - 1.0))
+        p.pulse_boost = 5.0
         self.audio.play("pulse")
-        radius = 560 * (1.0 + 0.12 * (p.pulse_power - 1.0))
-        for i, (r, speed, width) in enumerate(((radius * 0.72, 1100, 7), (radius, 850, 4), (radius * 0.48, 1250, 3))):
-            self.rings.append(Ring(p.p, 5, r, speed, MAGENTA if i != 2 else WHITE, width))
-        self.burst(p.p, MAGENTA, 110, 820, (0.35, 1.15), 4)
-        self.ebullets = []
-        for e in list(self.enemies):
-            delta = e.p - p.p
-            dist = delta.length()
-            if not e.dead and dist < radius:
-                self.damage(e, 12 * p.dmg * p.pulse_power, p)
-                if dist > 0:
-                    e.v += delta.normalize() * (900 * p.pulse_power * (1.0 - dist / radius * 0.35))
-                    e.stun = max(e.stun, 0.18 if e.kind.startswith("boss") else 0.45)
+        self.rings.append(Ring(p.p, 18, 170, 520, CYAN, 5))
+        self.rings.append(Ring(p.p, 12, 125, 760, WHITE, 2))
+        self.burst(p.p, CYAN, 42, 420, (0.25, 0.7), 3)
 
     def update_waves(self, dt):
         if self.intermission:
@@ -896,7 +943,8 @@ class Game:
         elif self.queue:
             self.spawn_t -= dt
             if self.spawn_t <= 0:
-                self.spawn_t = max(0.16, 0.7 - 0.018 * self.wave)
+                player_count = max(1, sum(1 for p in self.players.values() if p.alive))
+                self.spawn_t = max(0.12, (0.7 - 0.018 * self.wave) / (1.0 + 0.08 * (player_count - 1)))
                 self.spawn(self.queue.pop())
 
     def begin_intermission(self):
@@ -910,7 +958,7 @@ class Game:
                 p.upgrade_choices = []
                 p.upgrade_ready = True
                 continue
-            p.pending_upgrades = max(1, p.pending_upgrades)
+            p.pending_upgrades = 1
             p.upgrade_ready = False
             p.upgrade_choices = roll_upgrades(self.rng, 3, p)
             if not p.upgrade_choices:
@@ -936,7 +984,8 @@ class Game:
         self.wave += 1
         self.wave_delay = 2.0
         self.banner_t = 2.2
-        n = min(64, 7 + int(self.wave * 2.7))
+        player_count = max(1, sum(1 for p in self.players.values() if p.alive))
+        n = min(80, int((7 + self.wave * 2.7) * (1.0 + 0.15 * (player_count - 1))))
         q = []
         for _ in range(n):
             r = random.random()
@@ -971,7 +1020,12 @@ class Game:
         pos = tgt.p + V(math.cos(ang), math.sin(ang)) * dist
         pos.x = max(50, min(WORLD_W - 50, pos.x))
         pos.y = max(50, min(WORLD_H - 50, pos.y))
-        self.enemies.append(Enemy(kind, pos, self.wave))
+        enemy = Enemy(kind, pos, self.wave)
+        player_scale = 1.0 + 0.20 * max(0, len(alive_players) - 1)
+        enemy.hp = max(1, math.ceil(enemy.hp * player_scale))
+        enemy.max_hp = enemy.hp
+        enemy.spd *= 1.0 + 0.035 * max(0, len(alive_players) - 1)
+        self.enemies.append(enemy)
 
     def update_enemy(self, e, dt):
         alive_players = [p for p in self.players.values() if p.alive]
@@ -1161,15 +1215,9 @@ class Game:
                     src.lifesteal_progress -= 18
                     src.hp = min(src.max_hp, src.hp + 1)
                     self.pops.append([V(src.p), "+1 HP", 0.9, GREEN])
-            src.charge = min(100.0, src.charge + (22 if e.kind.startswith("boss") else 12 if e.kind == "tank" else 5) * src.pulse_gain)
+            src.charge = min(100.0, src.charge + (26 if e.kind.startswith("boss") else 14 if e.kind == "tank" else 7) * src.pulse_gain)
             self.pops.append([V(e.p), "+%d" % pts, 0.8, e.col])
-            # Уровень растёт сразу, но выбор переносится на перерыв между волнами.
-            src.xp += int(d["xp"] * src.xp_gain)
-            while src.xp >= src.xp_to_next():
-                src.xp -= src.xp_to_next()
-                src.level += 1
-                src.pending_upgrades += 1
-                self.audio.play("levelup")
+            # Одно улучшение выдаётся в конце каждой волны.
         self.audio.play("boom")
         if e.kind in ("tank", "splitter"):
             for _ in range(4 if e.kind == "tank" else 3):
@@ -1193,6 +1241,14 @@ class Game:
 
     def hurt(self, p):
         if not p.alive:
+            return
+        if p.shield_t > 0 and p.shield_hits > 0:
+            p.shield_hits -= 1
+            if p.shield_hits <= 0:
+                p.shield_t = 0.0
+            self.pops.append([V(p.p), "ЩИТ", 0.75, CYAN])
+            self.rings.append(Ring(p.p, 20, 125, 620, CYAN, 4))
+            self.burst(p.p, CYAN, 18, 300, (0.15, 0.35), 2)
             return
         p.armor_hits += 1
         if p.armor > 0 and p.armor_hits % max(2, 5 - p.armor) == 0:
@@ -1314,7 +1370,7 @@ class Game:
                 "score": p.score, "kills": p.kills,
                 "chain": p.chain, "combo_t": round(p.combo_t, 2),
                 "alive": p.alive, "inv": round(p.inv, 2), "dash_t": round(p.dash_t, 2),
-                "level": p.level, "xp": p.xp, "xp_next": p.xp_to_next(),
+                "shield_t": round(p.shield_t, 1), "shield_hits": p.shield_hits,
                 "upgrade_choices": list(p.upgrade_choices),
                 "upgrade_ready": p.upgrade_ready,
                 "pending_upgrades": p.pending_upgrades,
@@ -1390,8 +1446,8 @@ class Game:
                 pygame.draw.circle(sc, dim(col, 0.5), (int(sx), int(sy)), 30, 1)
         if is_local:
             pygame.draw.circle(sc, dim(col, 0.6), (int(sx), int(sy)), 26, 1)
-        # имя + уровень
-        label = "%s  ур.%d" % (data["name"], data.get("level", 1))
+        # имя игрока
+        label = data["name"]
         text(sc, label, self.f_small, col, (sx, sy - 34), outline=2)
 
     def draw_enemy(self, sc, e, cam):
@@ -1539,20 +1595,8 @@ class Game:
 
     # ================= HUD =================
     def draw_hint(self, sc):
-        if not self.show_help:
-            return
-        alpha = 255 if self.help_t > 2.0 else int(255 * self.help_t / 2.0)
-        hint = [
-            "WASD — движение   мышь — прицел   ЛКМ — огонь",
-            "SPACE — рывок   ПКМ — импульс   улучшения выбираются мышью   H — скрыть",
-        ]
-        box = pygame.Surface((min(760, W - 32), 64), pygame.SRCALPHA)
-        box.fill((0, 0, 0, int(145 * alpha / 255)))
-        x = (W - box.get_width()) // 2
-        y = H - 78
-        sc.blit(box, (x, y))
-        for i, line in enumerate(hint):
-            text(sc, line, self.f_small, (220, 240, 255), (W / 2, y + 18 + i * 25), outline=1)
+        # Подсказки управления убраны из боя; клавиши способностей показаны у индикаторов.
+        return
 
     def draw_hud(self, sc, snap):
         me = None
@@ -1601,27 +1645,19 @@ class Game:
             text(sc, "БОСС  •  %d%%" % int(ratio * 100), self.f_small, WHITE,
                  (W / 2, by - 12), outline=1)
 
-        # XP / level локального игрока
         if me:
-            need = me.get("xp_next", 1) or 1
-            cur = me.get("xp", 0)
-            bar_w = 260
-            bx = W / 2 - bar_w / 2
-            by = 20
-            pygame.draw.rect(sc, (20, 20, 40), (bx, by, bar_w, 10))
-            pygame.draw.rect(sc, YELLOW, (bx, by, int(bar_w * cur / need), 10))
-            pygame.draw.rect(sc, (60, 60, 100), (bx, by, bar_w, 10), 1)
-            text(sc, "УР. %d  •  ДО СЛЕДУЮЩЕГО: %d/%d" % (me["level"], cur, need), self.f_mid, YELLOW, (W / 2, by + 26), outline=2)
-
             def bar(x, y, w, frac, col, label):
                 pygame.draw.rect(sc, (20, 20, 40), (x, y, w, 12))
                 pygame.draw.rect(sc, col, (x, y, int(w * frac), 12))
                 pygame.draw.rect(sc, (60, 60, 100), (x, y, w, 12), 1)
                 text(sc, label, self.f_small, col, (x + w + 12, y + 6), "midleft", outline=2)
-            bar(24, H - 54, 154, 1 - me["dash_cd"] / 0.9, CYAN, "РЫВОК")
+            bar(24, H - 54, 154, 1 - me["dash_cd"] / 0.9, CYAN, "РЫВОК [SPACE]")
             full = me["charge"] >= 100
             pc = WHITE if full and int(self.t * 6) % 2 == 0 else MAGENTA
-            bar(24, H - 30, 154, me["charge"] / 100, pc, "ИМПУЛЬС [E]" if full else "ИМПУЛЬС")
+            bar(24, H - 30, 154, me["charge"] / 100, pc, "ЩИТ [ПКМ]" if full else "ЩИТ")
+            if me.get("shield_t", 0) > 0:
+                text(sc, "ЩИТ  %d  •  %.1fс" % (me.get("shield_hits", 0), me["shield_t"]),
+                     self.f_small, CYAN, (24, H - 82), "midleft", outline=1)
 
             # Временные баффы — отдельная компактная панель справа снизу, не под обучением.
             buffs = me.get("buffs", {})
@@ -1641,6 +1677,11 @@ class Game:
                      (W / 2, 100), outline=2)
                 pygame.draw.rect(sc, YELLOW, (W / 2 - 50, 120,
                                               int(100 * max(0, me["combo_t"]) / 2.5), 3))
+
+        if me and me.get("shield_t", 0) > 0:
+            sx, sy = self.camera.to_screen(me["x"], me["y"])
+            pygame.draw.circle(sc, CYAN, (int(sx), int(sy)), 31 + int(2 * math.sin(self.t * 9)), 2)
+            pygame.draw.circle(sc, WHITE, (int(sx), int(sy)), 35, 1)
 
         if me and not me.get("alive", True) and self.state == "play":
             panel = pygame.Surface((460, 48), pygame.SRCALPHA)
@@ -1803,7 +1844,7 @@ class Game:
         text(sc, "ИМЯ", self.f_small, (150, 160, 200), (W / 2 - 320, hdr_y), "midleft", outline=2)
         text(sc, "ОЧКИ", self.f_small, (150, 160, 200), (W / 2 + 60, hdr_y), "midleft", outline=2)
         text(sc, "УБИЙСТВА", self.f_small, (150, 160, 200), (W / 2 + 200, hdr_y), "midleft", outline=2)
-        text(sc, "УРОВЕНЬ", self.f_small, (150, 160, 200), (W / 2 + 340, hdr_y), "midleft", outline=2)
+        text(sc, "ВОЛНЫ", self.f_small, (150, 160, 200), (W / 2 + 340, hdr_y), "midleft", outline=2)
 
         y = 260
         for i, pl in enumerate(players):
@@ -1815,7 +1856,7 @@ class Game:
             text(sc, pl["name"] + mark, self.f_mid, row_col, (W / 2 - 320, y), "midleft", outline=2)
             text(sc, str(pl["score"]), self.f_mid, WHITE, (W / 2 + 60, y), "midleft", outline=2)
             text(sc, str(pl.get("kills", 0)), self.f_mid, WHITE, (W / 2 + 200, y), "midleft", outline=2)
-            text(sc, str(pl.get("level", 1)), self.f_mid, WHITE, (W / 2 + 340, y), "midleft", outline=2)
+            text(sc, str(snap.get("wave", 0)), self.f_mid, WHITE, (W / 2 + 340, y), "midleft", outline=2)
             y += 44
 
         if mvp_pid >= 0:
@@ -1988,11 +2029,17 @@ class Game:
 
             self.update_spectator_camera(real_dt)
 
+            if self.state == "loading":
+                self.loading_t += real_dt
+                if self.loading_t >= 2.8:
+                    self.state = "menu"
+                    if self.first_run:
+                        self.input_mode = "name"
             if self.state == "play" and not self.paused:
                 if self.is_host:
-                    if self.hitstop > 0:
+                    if self.hitstop > 0 and not self.tutorial_active:
                         self.hitstop -= real_dt
-                    else:
+                    elif not self.tutorial_active:
                         self.host_update(real_dt)
                     snap = self.build_snapshot()
                     self.server.broadcast(snap)
