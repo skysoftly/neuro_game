@@ -47,6 +47,7 @@ class Player:
         self.dash_cd_max = 0.9
         self.pierce = 0
         self.lifesteal = 0
+        self.lifesteal_progress = 0
         self.magnet = 1.0
         self.pulse_gain = 1.0
 
