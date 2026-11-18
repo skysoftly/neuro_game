@@ -2986,7 +2986,10 @@ class Game:
             # Это убирает рассинхрон host simulation vs 30 Hz snapshot.
             self.camera.follow(local_draw_pos[0], local_draw_pos[1], camera_dt,
                                snap=not self.is_host)
-        if snap is not None:
+        # Клиент получает номер волны из сетевого снапшота.
+        # У хоста self.wave — авторитетное состояние симуляции: старый снапшот
+        # может быть на долю секунды позади и не должен откатывать прогресс.
+        if snap is not None and not self.is_host:
             self.wave = int(snap.get("wave", self.wave))
 
         # мир
