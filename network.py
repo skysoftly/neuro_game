@@ -4,7 +4,7 @@ import socket
 import struct
 import threading
 
-from config import PORT
+from config import PORT, MAX_PLAYERS
 
 
 def send_msg(sock, obj):
@@ -57,7 +57,7 @@ class HostServer:
         self.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.srv.bind(("0.0.0.0", PORT))
-        self.srv.listen(12)
+        self.srv.listen(MAX_PLAYERS - 1)
         self.srv.settimeout(0.5)
         self.clients = {}   # cid -> (sock, send_lock, ip)
         self.inbox = []     # [(cid, msg)]
