@@ -12,6 +12,7 @@ import pygame
 from pygame import Vector2 as V
 
 from config import (
+    DIFFICULTY_LABELS,
     W, H, WORLD_W, WORLD_H, PORT, CONFIG_FILE, MAX_PLAYERS,
     BG, CYAN, MAGENTA, YELLOW, RED, ORANGE, GREEN, PURPLE, PINK, WHITE,
     SHIP, DIAMOND, TRI, HEX, SQ,
@@ -727,6 +728,14 @@ class RenderingMixin:
             role, shown_ip = "ВЫ - КЛИЕНТ", (self.last_ip or "НЕИЗВЕСТНО")
         self.draw_fit_text(sc, role, YELLOW, pygame.Rect(cx - 380, 132, 360, 38), 27, 16)
         self.draw_fit_text(sc, "IP: " + shown_ip, WHITE, pygame.Rect(cx + 20, 132, 500, 38), 27, 12)
+
+        diff_label = DIFFICULTY_LABELS.get(self.difficulty, "НОРМАЛЬНО")
+        diff_rect = pygame.Rect(cx - 190, 174, 380, 34)
+        if self.is_host:
+            self.draw_button(sc, diff_rect, "СЛОЖНОСТЬ: " + diff_label + "  ‹ ›", YELLOW)
+            text(sc, "ХОСТ МОЖЕТ МЕНЯТЬ ДО СТАРТА", font(11), (135, 155, 175), (cx, 210), outline=1)
+        else:
+            text(sc, "СЛОЖНОСТЬ: " + diff_label, self.f_small, YELLOW, (cx, 194), outline=2)
 
         list_rect = pygame.Rect(130, 220, 470, 350)
         edit_rect = pygame.Rect(620, 220, 530, 350)
