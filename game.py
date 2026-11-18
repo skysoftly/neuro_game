@@ -956,7 +956,7 @@ class Game:
                 q.append("chaser")
         # Every fifth wave ends with a unique-feeling arena boss encounter.
         if self.wave % 5 == 0:
-            q.append("boss")
+            q.append(("boss", "boss_storm", "boss_hunter")[(self.wave // 5 - 1) % 3])
         self.queue = q
         if self.wave % 4 == 0:
             self.pickups.append([V(WORLD_W / 2, WORLD_H / 2), "heal", 12.0])
@@ -1027,19 +1027,23 @@ class Game:
                     a = base + (i - (n - 1) / 2) * 0.25
                     self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * min(430, 300 + self.wave * 8), 6.0])
                 self.audio.play("shoot")
-        elif k == "boss":
+        elif k in ("boss", "boss_storm", "boss_hunter"):
             e.v = e.v.lerp(d * e.spd, min(1.0, 1.4 * dt))
             e.cool -= dt
             if e.cool <= 0:
                 e.cool = max(1.25, 2.5 - self.wave * 0.025)
-                count = 18
+                count = 26 if k == "boss_storm" else 14 if k == "boss_hunter" else 18
+                speed = 350 if k == "boss_storm" else 430 if k == "boss_hunter" else 300
                 for i in range(count):
                     a = i * math.tau / count + e.ang
-                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 300, 7.0])
+                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * speed, 7.0])
                 base = math.atan2(d.y, d.x)
-                for offset in (-0.42, -0.21, 0, 0.21, 0.42):
+                fan = (-0.62, -0.42, -0.21, 0, 0.21, 0.42, 0.62) if k == "boss_hunter" else (-0.42, -0.21, 0, 0.21, 0.42)
+                for offset in fan:
                     a = base + offset
-                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 390, 6.0])
+                    self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * (470 if k == "boss_hunter" else 390), 6.0])
+                if k == "boss_hunter":
+                    e.v += d * 520
                 self.shake = max(self.shake, 9)
                 self.audio.play("boom")
         else:  # tank
@@ -1172,7 +1176,7 @@ class Game:
                 c = Enemy("swarm", e.p + V(random.uniform(-30, 30), random.uniform(-30, 30)), self.wave)
                 c.age = 0.45
                 self.enemies.append(c)
-        if e.kind == "boss":
+        if e.kind.startswith("boss"):
             self.burst(e.p, MAGENTA, 180, 980, (0.5, 1.5), 5)
             self.rings.append(Ring(e.p, 10, 900, 700, YELLOW, 9))
             for _ in range(3):
@@ -1414,7 +1418,7 @@ class Game:
             pts = shape(TRI, e["ang"], (sx, sy), r)
         elif kind in ("shooter", "mine"):
             pts = shape(HEX, e["ang"] * 0.4, (sx, sy), r)
-        elif kind == "boss":
+        elif kind.startswith("boss"):
             pts = shape(HEX, e["ang"] * 0.3, (sx, sy), r * 1.35)
         else:
             pts = shape(SQ, e["ang"], (sx, sy), r)
@@ -1429,7 +1433,7 @@ class Game:
             hp_color = GREEN if hp_ratio > 0.55 else ORANGE if hp_ratio > 0.25 else RED
             pygame.draw.rect(sc, hp_color, (bar.x, bar.y, int(bar.w * hp_ratio), bar.h))
             pygame.draw.rect(sc, (8, 10, 14), bar, 1)
-        if kind == "boss":
+        if kind.startswith("boss"):
             pygame.draw.circle(sc, dim(col, 0.25), (int(sx), int(sy)), int(r * 0.72), 5)
             pygame.draw.circle(sc, WHITE, (int(sx), int(sy)), max(5, int(r * 0.24)), 2)
         if kind == "shooter":
@@ -1575,7 +1579,7 @@ class Game:
                                                           else "БОСС ЧЕРЕЗ %d ВОЛН" % boss_in)
         text(sc, boss_label, self.f_small, MAGENTA, (W - 30, 84), "midright", outline=1)
 
-        bosses = [e for e in snap.get("enemies", []) if e.get("k") == "boss"]
+        bosses = [e for e in snap.get("enemies", []) if e.get("k", "").startswith("boss")]
         if bosses:
             boss = bosses[0]
             bw = 500
