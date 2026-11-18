@@ -3,7 +3,7 @@ import unittest
 
 import pygame
 
-from config import W, H
+from config import W, H, KINDS
 from draw_utils import bloom, make_overlay
 from entities import Enemy, Player
 from upgrades import UPGRADES, apply_upgrade, roll_upgrades
@@ -18,6 +18,12 @@ class UpgradeTests(unittest.TestCase):
         late = Enemy("tank", (100, 100), 10)
         self.assertGreater(late.max_hp, early.max_hp)
         self.assertGreater(late.spd, early.spd)
+
+    def test_three_boss_archetypes_exist(self):
+        for kind in ("boss", "boss_storm", "boss_hunter"):
+            self.assertIn(kind, KINDS)
+            boss = Enemy(kind, (100, 100), 5)
+            self.assertGreater(boss.max_hp, 100)
 
     def test_roll_returns_three_distinct_upgrades(self):
         result = roll_upgrades(random.Random(7), 3)
