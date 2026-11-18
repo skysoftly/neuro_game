@@ -26,8 +26,6 @@ class Player:
         self.spread = 0.0
         self.score = 0
         self.kills = 0
-        self.chain = 0
-        self.combo_t = 0.0
         self.charge = 0.0
         self.alive = True
         self.color = PLAYER_COLORS[(pid - 1) % len(PLAYER_COLORS)]
@@ -61,15 +59,11 @@ class Player:
         self.pulse_power = 1.0
         self.dash_damage = 1.0
         self.score_gain = 1.0
-        self.combo_bonus = 0
         self.pulse_boost = 0.0
         self.shield_t = 0.0
         self.shield_hits = 0
         self.hurt_t = 0.0
         self.tutorial_ready = False
-
-    def mult(self):
-        return min(10 + self.combo_bonus * 2, 1 + self.chain // max(2, 5 - self.combo_bonus))
 
 
 class Enemy:
