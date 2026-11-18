@@ -1296,7 +1296,7 @@ class Game:
                 for i in range(n):
                     a = base + (i - (n - 1) / 2) * 0.25
                     self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * min(430, 300 + self.wave * 8), 6.0])
-                self.audio.play("enemy_shot")
+                self.play_sound("enemy_shot")
         elif k == "orbiter":
             tangent = V(-d.y, d.x) * e.side
             desired = 300
@@ -1313,7 +1313,7 @@ class Game:
                 for offset in (-0.24, 0.0, 0.24):
                     a = base + offset
                     self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 350, 6.0])
-                self.audio.play("enemy_shot")
+                self.play_sound("enemy_shot")
         elif k == "bruiser":
             e.cool -= dt
             if e.windup > 0:
