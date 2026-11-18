@@ -2049,8 +2049,9 @@ class Game:
                 for i, (name, value) in enumerate(active):
                     label = {"rapid":"СКОРОСТРЕЛЬНОСТЬ","spread":"ТРОЙНОЙ ОГОНЬ","pulse_boost":"ИМПУЛЬСНЫЙ БУСТ"}[name]
                     col = PICK_COL.get(name, MAGENTA)
-                    text(sc, "%s  %.1fс" % (label, value), self.f_small, col,
-                         (panel.x + 10, panel.y + 10 + i * 24), "midleft", outline=1)
+                    self.draw_fit_text(sc, "%s  %.1fс" % (label, value), col,
+                                       pygame.Rect(panel.x + 8, panel.y + 1 + i * 24,
+                                                   panel.w - 16, 20), 18, 10)
 
         if me and me.get("shield_t", 0) > 0:
             sx, sy = self.camera.to_screen(me["x"], me["y"])
@@ -2197,8 +2198,8 @@ class Game:
             role, shown_ip = "ВЫ - ХОСТ", (self.lan_ips[0] if self.lan_ips else "IP НЕ НАЙДЕН")
         else:
             role, shown_ip = "ВЫ - КЛИЕНТ", (self.last_ip or "НЕИЗВЕСТНО")
-        text(sc, role, self.f_mid, YELLOW, (cx - 175, 190), outline=2)
-        text(sc, "IP: " + shown_ip, self.f_mid, WHITE, (cx + 190, 190), outline=2)
+        self.draw_fit_text(sc, role, YELLOW, pygame.Rect(cx - 380, 168, 360, 44), 30, 16)
+        self.draw_fit_text(sc, "IP: " + shown_ip, WHITE, pygame.Rect(cx + 20, 168, 500, 44), 30, 12)
 
         py0 = 330
         text(sc, "ИГРОКИ В ЛОББИ  -  %d" % len(self.lobby_players), self.f_mid, WHITE, (cx, py0), outline=2)
@@ -2234,9 +2235,9 @@ class Game:
         self.draw_button(sc, pygame.Rect(cx - 150, H - 66, 300, 42), "НАЗАД В МЕНЮ", RED)
 
     def draw_error(self, sc):
-        text(sc, "ОШИБКА", self.f_huge, RED, (W / 2, 150), outline=3)
-        for i, line in enumerate(self.error_msg.split("\n")):
-            text(sc, line, self.f_mid, WHITE, (W / 2, 290 + i * 46), outline=2)
+        self.draw_fit_text(sc, "ОШИБКА", RED, pygame.Rect(220, 90, W - 440, 120), 96, 52)
+        self.draw_wrapped_text(sc, self.error_msg, self.f_mid, WHITE,
+                               pygame.Rect(120, 230, W - 240, 230), 5)
         self.draw_button(sc, pygame.Rect(W / 2 - 150, H - 102, 300, 46), "В МЕНЮ", CYAN)
 
     def draw_pause_overlay(self, sc):
@@ -2260,7 +2261,8 @@ class Game:
         self.draw_button(sc, pygame.Rect(W / 2 - 175, H / 2 + 108, 350, 48), "ПОКИНУТЬ СЕССИЮ", RED)
 
     def draw_dead(self, sc, snap):
-        text(sc, "СЕССИЯ ЗАВЕРШЕНА", self.f_huge, RED, (W / 2, 100), outline=3)
+        self.draw_fit_text(sc, "СЕССИЯ ЗАВЕРШЕНА", RED,
+                           pygame.Rect(150, 42, W - 300, 112), 96, 52)
         players = sorted(snap.get("players", []), key=lambda p: -p["score"])
         mvp_pid = players[0]["pid"] if players else -1
 
@@ -2288,7 +2290,8 @@ class Game:
 
         if mvp_pid >= 0:
             mvp_name = next((p["name"] for p in players if p["pid"] == mvp_pid), "?")
-            text(sc, "MVP: %s" % mvp_name, self.f_mid, YELLOW, (W / 2, y + 30), outline=2)
+            self.draw_fit_text(sc, "MVP: %s" % mvp_name, YELLOW,
+                               pygame.Rect(W / 2 - 340, y + 8, 680, 42), 30, 14)
 
         if self.is_host:
             self.draw_button(sc, pygame.Rect(W / 2 - 190, H - 126, 380, 52), "ИГРАТЬ СНОВА", CYAN)
@@ -2327,7 +2330,8 @@ class Game:
         pygame.draw.rect(sc, CYAN, panel, 2)
         pygame.draw.line(sc, MAGENTA, (panel.x + 22, panel.y + 64),
                          (panel.right - 22, panel.y + 64), 2)
-        text(sc, "ПЕРЕД ПЕРВОЙ ВОЛНОЙ", self.f_big, CYAN, (W / 2, panel.y + 42), outline=2)
+        self.draw_fit_text(sc, "ПЕРЕД ПЕРВОЙ ВОЛНОЙ", CYAN,
+                           pygame.Rect(panel.x + 20, panel.y + 14, panel.w - 40, 56), 52, 30)
         rows = [
             ("WASD", "движение по арене"),
             ("МЫШЬ", "наводись на врагов"),
@@ -2340,19 +2344,20 @@ class Game:
             y = panel.y + 105 + i * 47
             text(sc, key, self.f_small, YELLOW if i < 4 else MAGENTA,
                  (panel.x + 34, y), "midleft", outline=1)
-            text(sc, desc, self.f_small, WHITE, (panel.x + 210, y), "midleft", outline=1)
+            self.draw_fit_text(sc, desc, WHITE,
+                               pygame.Rect(panel.x + 210, y - 12, panel.w - 232, 26), 18, 11)
         if self.is_host and self.tutorial_ready:
             text(sc, "ГОТОВО - ОЖИДАНИЕ ОСТАЛЬНЫХ ИГРОКОВ",
                  self.f_small, GREEN, (W / 2, panel.bottom - 52), outline=1)
         elif self.is_host:
-            text(sc, "ХОСТ: ENTER ИЛИ КЛИК - НАЧАТЬ, КОГДА ВСЕ ГОТОВЫ",
-                 self.f_small, GREEN, (W / 2, panel.bottom - 52), outline=1)
+            self.draw_fit_text(sc, "ХОСТ: ENTER ИЛИ КЛИК - НАЧАТЬ, КОГДА ВСЕ ГОТОВЫ",
+                               GREEN, pygame.Rect(panel.x + 20, panel.bottom - 66, panel.w - 40, 28), 18, 11)
         elif self.tutorial_ready:
             text(sc, "ГОТОВО - ОЖИДАНИЕ ОСТАЛЬНЫХ ИГРОКОВ",
                  self.f_small, GREEN, (W / 2, panel.bottom - 52), outline=1)
         else:
-            text(sc, "ENTER ИЛИ КЛИК - ПОДТВЕРДИТЬ ГОТОВНОСТЬ",
-                 self.f_small, GREEN, (W / 2, panel.bottom - 52), outline=1)
+            self.draw_fit_text(sc, "ENTER ИЛИ КЛИК - ПОДТВЕРДИТЬ ГОТОВНОСТЬ",
+                               GREEN, pygame.Rect(panel.x + 20, panel.bottom - 66, panel.w - 40, 28), 18, 11)
 
     def draw_splash(self, sc):
         sc.fill((5, 9, 17))
