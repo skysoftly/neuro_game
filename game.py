@@ -323,7 +323,7 @@ class Game:
         self.input_mode = None
         self.connect_error = ""
 
-        self.camera = Camera(W, H, WORLD_W, WORLD_H)
+        self.camera = Camera(W, H, WORLD_W, WORLD_H, margin=180)
 
         self.players = {}
         self.bullets = []
@@ -526,8 +526,8 @@ class Game:
         self.snap = None
         self.paused = False
         self.shake = 0.0
-        self.camera.x = max(0, (WORLD_W - W) / 2)
-        self.camera.y = max(0, (WORLD_H - H) / 2)
+        self.camera.x = max(-180, min(WORLD_W + 180 - W, (WORLD_W - W) / 2))
+        self.camera.y = max(-180, min(WORLD_H + 180 - H, (WORLD_H - H) / 2))
         self.state = "menu"
         pygame.mouse.set_visible(True)
 
@@ -897,8 +897,8 @@ class Game:
             direction.normalize_ip()
             self.camera.x += direction.x * self.spectator_speed * dt
             self.camera.y += direction.y * self.spectator_speed * dt
-            self.camera.x = max(0, min(WORLD_W - W, self.camera.x))
-            self.camera.y = max(0, min(WORLD_H - H, self.camera.y))
+            self.camera.x = max(-180, min(WORLD_W + 180 - W, self.camera.x))
+            self.camera.y = max(-180, min(WORLD_H + 180 - H, self.camera.y))
 
     def gather_local_input(self):
         p = self.players.get(self.my_id)
@@ -1295,9 +1295,27 @@ class Game:
             p.v += p.inp * p.move_spd * dt
         p.v *= math.exp(-6.5 * dt)
         p.p += p.v * dt
-        # границы МИРА
-        p.p.x = max(22, min(WORLD_W - 22, p.p.x))
-        p.p.y = max(22, min(WORLD_H - 22, p.p.y))
+        # За пределами арены можно двигаться ещё немного, но там действует опасная зона.
+        p.p.x = max(-180, min(WORLD_W + 180, p.p.x))
+        p.p.y = max(-180, min(WORLD_H + 180, p.p.y))
+        outside = p.p.x < 0 or p.p.x > WORLD_W or p.p.y < 0 or p.p.y > WORLD_H
+        if outside:
+            p.boundary_t += dt
+            while p.boundary_t >= 1.0 and p.alive:
+                p.boundary_t -= 1.0
+                p.hp -= 1
+                p.hurt_t = 0.35
+                self.play_sound("hurt", p.pid)
+                self.pops.append([V(p.p), "−1 ЗОНА", 0.7, RED, p.pid])
+                if p.pid == self.my_id:
+                    self.shake = max(self.shake, 10)
+                    self.rings.append(Ring(p.p, 8, 90, 360, RED, 3))
+                if p.hp <= 0:
+                    p.alive = False
+                    self.play_sound("player_death", p.pid)
+                    self.burst(p.p, RED, 70, 620, (0.4, 1.0), 3)
+        else:
+            p.boundary_t = 0.0
 
         back = -V(math.cos(p.ang), math.sin(p.ang))
         if p.v.length_squared() > 4000 or p.dash_t > 0:
@@ -1988,10 +2006,24 @@ class Game:
             sy = wy - cy
             if -1 <= sy <= H + 1:
                 pygame.draw.line(sc, (15, 19, 44), (0, sy), (W, sy))
-        # граница мира
-        bx = -cx
-        by = -cy
-        pygame.draw.rect(sc, (30, 40, 80), (bx, by, WORLD_W, WORLD_H), 3)
+        # Красная опасная зона за мягкой границей арены.
+        pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() * 0.003)
+        alpha = int(34 + pulse * 24)
+        danger = pygame.Surface((W, H), pygame.SRCALPHA)
+        left, top = -cx, -cy
+        right, bottom = left + WORLD_W, top + WORLD_H
+        band = 180
+        red = (255, 35, 65, alpha)
+        if left > 0:
+            pygame.draw.rect(danger, red, (0, 0, min(W, int(left)), H))
+        if right < W:
+            pygame.draw.rect(danger, red, (max(0, int(right)), 0, W - max(0, int(right)), H))
+        if top > 0:
+            pygame.draw.rect(danger, red, (0, 0, W, min(H, int(top))))
+        if bottom < H:
+            pygame.draw.rect(danger, red, (0, max(0, int(bottom)), W, H - max(0, int(bottom))))
+        sc.blit(danger, (0, 0))
+        pygame.draw.rect(sc, (255, 55, 85), (left, top, WORLD_W, WORLD_H), 3)
 
     def draw_hat(self, surface, x, y, hat_index, color, scale=1.0):
         x, y = int(x), int(y)
