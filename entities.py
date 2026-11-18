@@ -65,6 +65,9 @@ class Player:
         self.xp_gain = 1.0
         self.combo_bonus = 0
         self.pulse_boost = 0.0
+        self.shield_t = 0.0
+        self.shield_hits = 0
+        self.tutorial_ready = False
 
     def mult(self):
         return min(10 + self.combo_bonus * 2, 1 + self.chain // max(2, 5 - self.combo_bonus))
