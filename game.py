@@ -111,6 +111,7 @@ class Audio:
                 "scene": self.make(330, 660, 0.20, 0.045, "sin", 0.0),
                 "shield_block": self.make(760, 420, 0.12, 0.075, "sin", 0.0),
                 "armor_block": self.make(330, 720, 0.16, 0.07, "tri", 0.0),
+                "player_death": self.make(210, 42, 0.72, 0.13, "sin", 0.10),
             }
             self.ok = True
             self.sfx_volume = 0.75
@@ -1568,6 +1569,7 @@ class Game:
             self.rings.append(Ring(p.p, 10, 280, 900, RED, 5))
         if p.hp <= 0:
             p.alive = False
+            self.play_sound("player_death", p.pid)
             self.burst(p.p, p.color, 120, 800, (0.6, 1.8), 4)
             self.burst(p.p, WHITE, 40, 500, (0.3, 0.9), 3)
             for r, s in ((500, 500), (800, 800)):
@@ -2451,7 +2453,7 @@ class Game:
         hurt_t = local_player.get("hurt_t", 0.0) if local_player else 0.0
         health_ratio = (local_player.get("hp", 1) / max(1, local_player.get("max_hp", 1))
                         if local_player else 1.0)
-        low_hp = max(0.0, min(1.0, (0.42 - health_ratio) / 0.42))
+        low_hp = max(0.0, min(1.0, (0.55 - health_ratio) / 0.55))
         damage_flash = min(1.0, hurt_t / 0.52) * 0.68
         vignette_strength = max(low_hp, damage_flash)
         shake_amount = 0.0
