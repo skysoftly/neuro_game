@@ -532,11 +532,12 @@ class Game:
         pygame.mouse.set_visible(True)
 
     def host_start_game(self):
-        if not self.is_host or self.state != "lobby":
+        if not self.is_host or self.state not in ("lobby", "dead"):
             return
-        required = {entry[0] for entry in self.lobby_players}
-        if not required.issubset(self.lobby_ready):
-            return
+        if self.state == "lobby":
+            required = {entry[0] for entry in self.lobby_players}
+            if not required.issubset(self.lobby_ready):
+                return
         self.players = {}
         for pid, name, color_index, skin_index, hat_index in self.lobby_players:
             player = Player(pid, name)
