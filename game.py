@@ -874,6 +874,13 @@ class Game:
                         p = self.players.get(self.my_id)
                         if p:
                             p.want_pulse = True
+                    elif e.key == pygame.K_F4 and self.is_host:
+                        # DEBUG: добавить себе одно максимальное и текущее HP.
+                        p = self.players.get(self.my_id)
+                        if p and p.alive:
+                            p.max_hp += 1
+                            p.hp += 1
+                            self.play_sound("heal", p.pid)
                 elif self.state == "dead":
                     if e.key == pygame.K_RETURN and self.is_host:
                         self.host_start_game()
@@ -2116,32 +2123,59 @@ class Game:
             score_rect = pygame.Rect(172, y - 10, 62, 22)
             self.draw_fit_text(sc, str(player.get("score", 0)), WHITE, score_rect, 16, 10)
 
-        # Кристаллы здоровья по центру снизу; цвет по-прежнему зависит от оставшегося HP.
+        # Компактная полупрозрачная панель здоровья: не более 10 значков.
+        # При max_hp > 10 первые слоты становятся особыми (11 HP = 1 особый + 9 обычных).
         if me:
-            hp_ratio = max(0.0, min(1.0, me["hp"] / max(1, me["max_hp"])))
+            hp = max(0, int(me["hp"]))
+            max_hp = max(1, int(me["max_hp"]))
+            hp_ratio = max(0.0, min(1.0, hp / max_hp))
             hp_color = GREEN if hp_ratio > 0.55 else ORANGE if hp_ratio > 0.25 else RED
+            slots = min(10, max_hp)
+            special_slots = max(0, slots - 9) if max_hp > 10 else 0
             crystal_w, crystal_gap = 17, 7
-            total_w = me["max_hp"] * crystal_w + max(0, me["max_hp"] - 1) * crystal_gap
-            header_w = 118
-            panel_w = max(total_w + 32, header_w + total_w + 22)
-            panel = pygame.Rect((W - panel_w) // 2, H - 67, panel_w, 60)
-            pygame.draw.rect(sc, (7, 13, 23), panel)
-            pygame.draw.rect(sc, dim(hp_color, 0.48), panel, 1)
-            header_x = panel.x + 14
-            text(sc, "ЗДОРОВЬЕ", self.f_small, hp_color, (header_x, H - 37), "midleft", outline=1)
-            text(sc, "%d / %d" % (me["hp"], me["max_hp"]), self.f_small, WHITE,
-                 (header_x, H - 18), "midleft", outline=1)
-            start_x = panel.right - total_w - 14
-            for crystal in range(me["max_hp"]):
+            total_w = slots * crystal_w + max(0, slots - 1) * crystal_gap
+            panel_w, panel_h = max(250, total_w + 30), 76
+            panel = pygame.Rect((W - panel_w) // 2, H - panel_h - 8, panel_w, panel_h)
+            panel_surface = pygame.Surface((panel.w, panel.h), pygame.SRCALPHA)
+            pygame.draw.rect(panel_surface, (7, 13, 23, 112), panel_surface.get_rect())
+            pygame.draw.rect(panel_surface, (*dim(hp_color, 0.48), 150),
+                             panel_surface.get_rect(), 1)
+            sc.blit(panel_surface, panel.topleft)
+
+            start_x = panel.centerx - total_w // 2
+            heart_y = panel.y + 8
+            for crystal in range(slots):
                 x = int(start_x + crystal * (crystal_w + crystal_gap))
-                points = [(x + 8, H - 53), (x + 15, H - 43),
-                          (x + 8, H - 33), (x + 1, H - 43)]
-                active = crystal < me["hp"]
-                fill = hp_color if active else (25, 32, 45)
+                active = crystal < hp
+                special = crystal < special_slots
+                if special:
+                    # Особое сердце для дополнительного запаса здоровья.
+                    points = [(x + 8, heart_y + 2), (x + 14, heart_y - 1),
+                              (x + 17, heart_y + 5), (x + 8, heart_y + 18),
+                              (x, heart_y + 5), (x + 3, heart_y - 1)]
+                    fill = (255, 190, 75) if active else (48, 38, 31)
+                    edge = (255, 235, 170) if active else (105, 83, 58)
+                else:
+                    # Обычные кристаллы здоровья.
+                    points = [(x + 8, heart_y + 1), (x + 15, heart_y + 9),
+                              (x + 8, heart_y + 18), (x + 1, heart_y + 9)]
+                    fill = hp_color if active else (25, 32, 45)
+                    edge = WHITE if active else (65, 75, 92)
                 pygame.draw.polygon(sc, fill, points)
-                pygame.draw.polygon(sc, WHITE if active else (65, 75, 92), points, 1)
+                pygame.draw.polygon(sc, edge, points, 1)
                 if active:
-                    pygame.draw.line(sc, (245, 252, 255), (x + 8, H - 50), (x + 8, H - 36), 1)
+                    pygame.draw.line(sc, (245, 252, 255), (x + 8, heart_y + 4),
+                                     (x + 8, heart_y + 15), 1)
+
+            label = "ЗДОРОВЬЕ"
+            label_font = self.f_small
+            label_y = panel.bottom - 19
+            label_x = panel.centerx - (label_font.size(label)[0] +
+                                       label_font.size("%d / %d" % (hp, max_hp))[0] + 12) / 2
+            text(sc, label, label_font, hp_color, (label_x, label_y), "midleft", outline=1)
+            count_x = label_x + label_font.size(label)[0] + 12
+            text(sc, "%d / %d" % (hp, max_hp), label_font, WHITE,
+                 (count_x, label_y), "midleft", outline=1)
 
         # правый верх: волна
         wave = max(1, int(snap.get("wave", 1)))
