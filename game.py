@@ -1318,7 +1318,7 @@ class Game:
         pos.x = max(50, min(WORLD_W - 50, pos.x))
         pos.y = max(50, min(WORLD_H - 50, pos.y))
         enemy = Enemy(kind, pos, self.wave)
-        player_scale = 1.0 + 0.20 * max(0, len(self.players) - 1)
+        player_scale = 1.0 + 0.10 * max(0, len(self.players) - 1)
         enemy.hp = max(1, math.ceil(enemy.hp * player_scale))
         enemy.max_hp = enemy.hp
         enemy.spd *= 1.0 + 0.035 * max(0, len(self.players) - 1)
