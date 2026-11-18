@@ -1453,28 +1453,38 @@ class Game:
         self.spawn_t = 1.25
         self.banner_t = 2.2
         player_count = max(1, sum(1 for p in self.players.values() if p.alive))
-        n = min(80, int((7 + self.wave * 2.7) * (1.0 + 0.15 * (player_count - 1))))
+        # Рост количества врагов заметно плавнее: к 16-й волне толпа
+        # становится плотнее, но не превращается в стену из противников.
+        n = min(64, int((7 + self.wave * 1.9) * (1.0 + 0.12 * (player_count - 1))))
         q = []
+
+        # Новые архетипы вводятся по одному, с интервалом в одну-две волны.
+        unlocks = {
+            2: "shooter",
+            3: "swarm",
+            4: "tank",
+            5: "dasher",
+            6: "splitter",
+            7: "mine",
+            8: "orbiter",
+            10: "bruiser",
+        }
+        unlocked = [kind for wave_num, kind in unlocks.items() if self.wave >= wave_num]
+        weights = {
+            "chaser": 48, "shooter": 15, "swarm": 14, "tank": 7,
+            "dasher": 5, "splitter": 5, "mine": 3, "orbiter": 3,
+            "bruiser": 1,
+        }
+        pool = ["chaser"] + unlocked
+        pool_weights = [weights[kind] for kind in pool]
         for _ in range(n):
-            r = random.random()
-            if self.wave >= 6 and r < 0.08:
-                q.append("bruiser")
-            elif self.wave >= 4 and r < 0.17:
-                q.append("orbiter")
-            elif self.wave >= 3 and r < 0.27:
-                q.append("tank")
-            elif self.wave >= 4 and r < 0.37:
-                q.append("splitter")
-            elif self.wave >= 3 and r < 0.47:
-                q.append("dasher")
-            elif self.wave >= 5 and r < 0.56:
-                q.append("mine")
-            elif self.wave >= 2 and r < 0.68:
-                q.append("shooter")
-            elif self.wave >= 2 and r < 0.82:
-                q.append("swarm")
-            else:
-                q.append("chaser")
+            q.append(random.choices(pool, weights=pool_weights, k=1)[0])
+
+        # Волну знакомства с новым типом гарантированно сопровождает
+        # только один такой враг — остальные остаются привычными.
+        new_kind = unlocks.get(self.wave)
+        if new_kind:
+            q[0] = new_kind
         if self.wave == 2:
             q.append("boss_minor")
         elif self.wave % 5 == 0:
@@ -1529,8 +1539,9 @@ class Game:
         elif k == "dasher":
             e.cool -= dt
             if e.cool <= 0:
-                e.cool = 2.0
-                e.v = d * (e.spd * 5.2)
+                e.cool = 2.8
+                # Рывок должен быть опасным, но не пересекать арену за миг.
+                e.v = d * (e.spd * 2.4)
                 self.rings.append(Ring(e.p, 8, 95, 500, e.col, 3))
             else:
                 e.v = e.v.lerp(d * e.spd * 0.75, min(1.0, 2 * dt))
@@ -1583,8 +1594,8 @@ class Game:
                 e.windup -= dt
                 e.v *= math.exp(-8.0 * dt)
                 if e.windup <= 0:
-                    e.charge_t = 0.52
-                    e.v = e.charge_dir * (e.spd * 5.2)
+                    e.charge_t = 0.38
+                    e.v = e.charge_dir * (e.spd * 3.0)
                     self.rings.append(Ring(e.p, 12, 115, 620, ORANGE, 4))
                     self.play_sound("dash")
             elif e.charge_t > 0:
