@@ -21,7 +21,7 @@ UPGRADES = [
     {"id":"dash_damage","name":"Таран","desc":"Рывок наносит огромный урон врагам","color":(255,100,80)},
 ]
 MAX_STACKS = {
-    "max_hp":2,"dmg":4,"fire_rate":3,"move":3,"dash":2,"pierce":2,
+    "max_hp":10,"dmg":4,"fire_rate":3,"move":3,"dash":2,"pierce":2,
     "lifesteal":1,"magnet":2,"pulse_gain":3,"crit":3,"multishot":1,
     "bullet_speed":2,"bullet_size":2,"regen":2,"armor":2,"pulse_power":2,
     "dash_damage":2,
@@ -48,7 +48,7 @@ def apply_upgrade(player,upgrade_id):
 
 def recompute(p):
     u=p.upgrades
-    p.max_hp=5+min(2,u.get("max_hp",0))
+    p.max_hp=5+min(10,u.get("max_hp",0))
     p.dmg=1.0+0.09*min(4,u.get("dmg",0))
     p.fire_rate=0.16/(1.0+0.10*min(3,u.get("fire_rate",0)))
     p.move_spd=2800.0*(1.0+0.05*min(3,u.get("move",0)))
