@@ -1298,7 +1298,7 @@ class Game:
             "banner": round(self.banner_t, 2),
             "shake": round(self.shake, 1),
             "enemies_left": len(self.queue) + sum(1 for e in self.enemies if not e.dead),
-            "boss_in": (5 - (self.wave % 5)) if self.wave % 5 else 5,
+            "boss_in": (5 - ((self.wave + (1 if self.intermission else 0)) % 5)) % 5,
         }
         for p in self.players.values():
             snap["players"].append({
@@ -1570,9 +1570,10 @@ class Game:
         remaining = snap.get("enemies_left", 0)
         text(sc, "УГРОЗ: %d" % remaining, self.f_small, WHITE, (W - 30, 62), "midright", outline=1)
         boss_in = snap.get("boss_in", 5)
-        text(sc, ("БОСС НА АРЕНЕ" if any(e.get("k") == "boss" for e in snap.get("enemies", []))
-                  else "БОСС ЧЕРЕЗ %d ВОЛН" % boss_in),
-             self.f_small, MAGENTA, (W - 30, 84), "midright", outline=1)
+        boss_alive = any(e.get("k") == "boss" for e in snap.get("enemies", []))
+        boss_label = "БОСС НА АРЕНЕ" if boss_alive else ("БОСС В ЭТОЙ ВОЛНЕ" if boss_in == 0
+                                                          else "БОСС ЧЕРЕЗ %d ВОЛН" % boss_in)
+        text(sc, boss_label, self.f_small, MAGENTA, (W - 30, 84), "midright", outline=1)
 
         bosses = [e for e in snap.get("enemies", []) if e.get("k") == "boss"]
         if bosses:
