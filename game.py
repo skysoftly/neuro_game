@@ -2182,12 +2182,16 @@ class Game:
                         shadow = pygame.Color(37, 29, 25)
                         outer = pygame.Color(base)
                         outer.hsva = (hue, min(100, saturation * 0.55), 25, 100)
-                        layer_specs = (
+                        all_layers = (
                             (0.82, (hue, saturation * 0.45, 38)),
                             (0.64, (hue, saturation * 0.35, 48)),
                             (0.46, (hue, saturation * 0.50, 32)),
                             (0.28, (hue, saturation * 0.20, 58)),
                         )
+                        # По мере потери HP погасшие сердца теряют внутренние слои:
+                        # первое пустое сохраняет 3, следующее 2, затем 1 и 0.
+                        remaining_layers = max(0, 4 - (crystal - hp))
+                        layer_specs = all_layers[:remaining_layers]
                         pygame.draw.polygon(sc, tuple(shadow), points)
                         pygame.draw.polygon(sc, tuple(outer), points)
                     cx, cy = x + 8.5, heart_y + 8.5
