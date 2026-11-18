@@ -1024,6 +1024,8 @@ class Game:
         for p in self.players.values():
             if p.alive:
                 self.update_player(p, dt)
+            else:
+                p.hurt_t = max(0.0, p.hurt_t - dt)
         self.update_waves(dt)
         for e in self.enemies:
             self.update_enemy(e, dt)
@@ -2452,7 +2454,7 @@ class Game:
                                  if p.get("pid") == self.my_id), None)
         hurt_t = local_player.get("hurt_t", 0.0) if local_player else 0.0
         health_ratio = (local_player.get("hp", 1) / max(1, local_player.get("max_hp", 1))
-                        if local_player else 1.0)
+                        if local_player and local_player.get("alive", True) else 1.0)
         low_hp = max(0.0, min(1.0, (0.55 - health_ratio) / 0.55))
         damage_flash = min(1.0, hurt_t / 0.52) * 0.68
         vignette_strength = max(low_hp, damage_flash)
