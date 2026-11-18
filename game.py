@@ -481,11 +481,11 @@ class Game:
         self.local_choices = []
         self.local_upgrade_waiting = False
         self.intermission = False
+        self.sound_events.clear()
+        self.snapshot_timer = 0.0
         self.snap = None
         self.paused = False
-        self.hitstop = 0.0
         self.shake = 0.0
-        self.flash = 0.0
         self.camera.x = max(0, (WORLD_W - W) / 2)
         self.camera.y = max(0, (WORLD_H - H) / 2)
         self.state = "menu"
@@ -501,6 +501,8 @@ class Game:
         self.parts, self.rings, self.pickups, self.pops = [], [], [], []
         self.queue = []
         self.local_choices = []
+        self.sound_events.clear()
+        self.snapshot_timer = 0.0
         self.snap = None
         self.paused = False
         self.wave = 0
@@ -509,7 +511,6 @@ class Game:
         self.intermission = False
         self.local_upgrade_waiting = False
         self.banner_t = 2.0
-        self.help_t = 0.0
         self.tutorial_active = True
         self.tutorial_ready = False
         for player in self.players.values():
