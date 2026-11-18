@@ -67,7 +67,7 @@ class Player:
         self.pulse_boost = 0.0
 
     def mult(self):
-        return min(10, 1 + self.chain // 5)
+        return min(10 + self.combo_bonus * 2, 1 + self.chain // max(2, 5 - self.combo_bonus))
 
     def xp_to_next(self):
         return 10 + (self.level - 1) * 8
@@ -129,9 +129,9 @@ class Ring:
 
 class Bullet:
     """Пуля игрока. pierce — сколько ещё врагов может пробить."""
-    __slots__ = ("p", "v", "life", "owner", "dmg", "pierce", "hit_ids")
+    __slots__ = ("p", "v", "life", "owner", "dmg", "pierce", "hit_ids", "size")
 
-    def __init__(self, p, v, owner, dmg, pierce):
+    def __init__(self, p, v, owner, dmg, pierce, size=1.0):
         self.p = V(p)
         self.v = V(v)
         self.life = 0.8
@@ -139,6 +139,7 @@ class Bullet:
         self.dmg = dmg
         self.pierce = pierce
         self.hit_ids = set()
+        self.size = size
 
     def update(self, dt):
         self.p += self.v * dt
