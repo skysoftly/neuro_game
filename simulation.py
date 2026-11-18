@@ -16,6 +16,7 @@ from config import (
     BG, CYAN, MAGENTA, YELLOW, RED, ORANGE, GREEN, PURPLE, PINK, WHITE,
     SHIP, DIAMOND, TRI, HEX, SQ,
     KINDS, PICK_COL, PICK_LET, PLAYER_COLORS, PLAYER_SKINS,
+    wave_enemy_count, boss_kind_for_wave,
 )
 from fonts import font, text
 from draw_utils import shape, dim, make_overlay, bloom, read_clipboard
@@ -269,9 +270,8 @@ class SimulationMixin:
         self.spawn_t = 1.25
         self.banner_t = 2.2
         player_count = max(1, sum(1 for p in self.players.values() if p.alive))
-        # Рост количества врагов заметно плавнее: к 16-й волне толпа
-        # становится плотнее, но не превращается в стену из противников.
-        n = min(64, int((8 + self.wave * 2.2) * (1.0 + 0.12 * (player_count - 1))))
+        # Лимит 64 относится к размеру одной очереди, а не к номеру волны.
+        n = wave_enemy_count(self.wave, player_count)
         q = []
 
         # Новые архетипы вводятся по одному, с интервалом в одну-две волны.
@@ -301,11 +301,9 @@ class SimulationMixin:
         new_kind = unlocks.get(self.wave)
         if new_kind:
             q[0] = new_kind
-        if self.wave == 2:
-            q.append("boss_minor")
-        elif self.wave % 5 == 0:
-            bosses = ("boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege")
-            q.append(bosses[(self.wave // 5 - 1) % len(bosses)])
+        boss_kind = boss_kind_for_wave(self.wave)
+        if boss_kind:
+            q.append(boss_kind)
         self.queue = q
         if self.wave % 4 == 0:
             self.pickups.append([V(WORLD_W / 2, WORLD_H / 2), "heal", 12.0])
@@ -320,11 +318,8 @@ class SimulationMixin:
         pos = tgt.p + V(math.cos(ang), math.sin(ang)) * dist
         pos.x = max(50, min(WORLD_W - 50, pos.x))
         pos.y = max(50, min(WORLD_H - 50, pos.y))
-        enemy = Enemy(kind, pos, self.wave)
-        player_scale = 1.0 + 0.10 * max(0, len(self.players) - 1)
-        enemy.hp = max(1, math.ceil(enemy.hp * player_scale))
-        enemy.max_hp = enemy.hp
-        enemy.spd *= 1.0 + 0.035 * max(0, len(self.players) - 1)
+        # Выбывшие игроки не усиливают врагов; учитываем только живых.
+        enemy = Enemy(kind, pos, self.wave, len(alive_players))
         self.enemies.append(enemy)
         if kind.startswith("boss"):
             self.banner_t = max(self.banner_t, 2.8)
@@ -427,19 +422,23 @@ class SimulationMixin:
             e.v = e.v.lerp(d * e.spd, min(1.0, 1.25 * dt))
             e.cool -= dt
             if e.cool <= 0:
-                e.cool = max(1.25, 2.35 - self.wave * 0.018)
+                if k == "boss":
+                    e.cool = max(1.9, 2.8 - self.wave * 0.012)
+                else:
+                    e.cool = max(1.25, 2.35 - self.wave * 0.018)
                 base = math.atan2(d.y, d.x)
                 if k == "boss_minor":
                     for offset in (-0.22, 0.0, 0.22):
                         a = base + offset
                         self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 300, 5.5])
                 elif k == "boss":
-                    for i in range(18):
-                        a = i * math.tau / 18 + e.ang
-                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 320, 7.0])
-                    for offset in (-0.34, 0.0, 0.34):
+                    # Первый большой босс: меньше снарядов и больше времени на реакцию.
+                    for i in range(12):
+                        a = i * math.tau / 12 + e.ang
+                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 285, 6.0])
+                    for offset in (-0.32, 0.0, 0.32):
                         a = base + offset
-                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 410, 6.0])
+                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 360, 5.5])
                 elif k == "boss_storm":
                     for i in range(30):
                         a = i * math.tau / 30 + e.ang
