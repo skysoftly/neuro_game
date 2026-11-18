@@ -511,6 +511,7 @@ class Game:
             p = self.players.get(self.my_id)
             if p:
                 p.tutorial_ready = True
+            self.tutorial_ready = True
             self.check_tutorial_ready()
         elif self.client and not self.tutorial_ready:
             self.tutorial_ready = True
@@ -1967,7 +1968,10 @@ class Game:
             text(sc, key, self.f_small, YELLOW if i < 4 else MAGENTA,
                  (panel.x + 34, y), "midleft", outline=1)
             text(sc, desc, self.f_small, WHITE, (panel.x + 210, y), "midleft", outline=1)
-        if self.is_host:
+        if self.is_host and self.tutorial_ready:
+            text(sc, "ГОТОВО • ОЖИДАНИЕ ОСТАЛЬНЫХ ИГРОКОВ",
+                 self.f_small, GREEN, (W / 2, panel.bottom - 52), outline=1)
+        elif self.is_host:
             text(sc, "ХОСТ: ENTER ИЛИ КЛИК — НАЧАТЬ, КОГДА ВСЕ ГОТОВЫ",
                  self.f_small, GREEN, (W / 2, panel.bottom - 52), outline=1)
         elif self.tutorial_ready:
