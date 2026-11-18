@@ -600,7 +600,7 @@ class Game:
             value = "".join(ch for ch in value.strip() if ch.isdigit() or ch == ".")
             self.ip_input = value[:15]
         elif self.input_mode == "name":
-            self.name_input = value.replace("\\n", " ").replace("\\r", " ")[:16]
+            self.name_input = value.replace("\n", " ").replace("\r", " ")[:16]
 
     def _handle_input_event(self, e):
         if e.key == pygame.K_RETURN:
