@@ -950,8 +950,8 @@ class Game:
             return
         self.connect_error = ""
         if self.input_mode == "ip":
-            value = "".join(ch for ch in value.strip() if ch.isdigit() or ch == ".")
-            self.ip_input = value[:15]
+            value = "".join(ch for ch in value.strip() if ch.isalnum() or ch in ".:-_%")
+            self.ip_input = value[:253]
         elif self.input_mode == "name":
             self.name_input = value.replace("\n", " ").replace("\r", " ")[:16]
 
@@ -985,8 +985,8 @@ class Game:
         ch = e.unicode
         if ch and ch.isprintable():
             if self.input_mode == "ip":
-                if ch.isdigit() or ch == ".":
-                    self.ip_input = (self.ip_input + ch)[:15]
+                if ch.isalnum() or ch in ".:-_%":
+                    self.ip_input = (self.ip_input + ch)[:253]
             else:
                 self.name_input = (self.name_input + ch)[:16]
 
@@ -1001,7 +1001,7 @@ class Game:
             return
         if self.intermission:
             self.shake *= math.exp(-8 * dt)
-                if all((not p.alive) or p.upgrade_ready for p in self.players.values()):
+            if all((not p.alive) or p.upgrade_ready for p in self.players.values()):
                 self.start_next_wave()
             return
         self.gather_local_input()
