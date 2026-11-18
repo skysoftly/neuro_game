@@ -2334,6 +2334,8 @@ class Game:
         pygame.draw.rect(sc, (5, 12, 28), box)
         pygame.draw.rect(sc, CYAN, box, 2)
         shown = value + ("|" if int(self.t * 2) % 2 == 0 else "")
+        if self.input_mode == "ip" and len(shown) > 45:
+            shown = "..." + shown[-42:]
         if self.input_mode == "name" and self.first_run:
             text(sc, "ЭТО ИМЯ УВИДЯТ ДРУГИЕ ИГРОКИ", self.f_small, (164, 174, 182), (W / 2, H / 2 - 72), outline=1)
         self.draw_fit_text(sc, shown, WHITE, pygame.Rect(W / 2 - 260, H / 2 - 43, 520, 60), 52, 18)
