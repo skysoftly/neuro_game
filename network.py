@@ -93,35 +93,44 @@ class HostServer:
                 continue
             with self.lock:
                 self.inbox.append((cid, msg))
+        self._drop_client(cid)
+
+    def _drop_client(self, cid):
+        """Remove a broken peer once and notify the game thread."""
         with self.lock:
-            if cid in self.clients:
-                try:
-                    self.clients[cid][0].close()
-                except Exception:
-                    pass
-                del self.clients[cid]
+            entry = self.clients.pop(cid, None)
+            if entry is None:
+                return
             self.inbox.append((cid, {"t": "disconnect"}))
+        try:
+            entry[0].shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        try:
+            entry[0].close()
+        except OSError:
+            pass
 
     def send(self, cid, obj):
         with self.lock:
             if cid not in self.clients:
                 return
-            sock, slock, ip = self.clients[cid]
+            sock, slock, _ip = self.clients[cid]
         try:
             with slock:
                 send_msg(sock, obj)
-        except Exception:
-            pass
+        except (OSError, ValueError):
+            self._drop_client(cid)
 
     def broadcast(self, obj):
         with self.lock:
             items = list(self.clients.items())
-        for cid, (sock, slock, ip) in items:
+        for cid, (sock, slock, _ip) in items:
             try:
                 with slock:
                     send_msg(sock, obj)
-            except Exception:
-                pass
+            except (OSError, ValueError):
+                self._drop_client(cid)
 
     def stop(self):
         self.running = False
