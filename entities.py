@@ -36,8 +36,6 @@ class Player:
         self.want_dash = False
         self.want_pulse = False
         # прокачка
-        self.xp = 0
-        self.level = 1
         self.upgrades = {}
         self.upgrade_choices = []
         self.pending_upgrades = 0
@@ -62,7 +60,6 @@ class Player:
         self.armor_hits = 0
         self.pulse_power = 1.0
         self.dash_damage = 1.0
-        self.xp_gain = 1.0
         self.score_gain = 1.0
         self.combo_bonus = 0
         self.pulse_boost = 0.0
@@ -72,9 +69,6 @@ class Player:
 
     def mult(self):
         return min(10 + self.combo_bonus * 2, 1 + self.chain // max(2, 5 - self.combo_bonus))
-
-    def xp_to_next(self):
-        return 10 + (self.level - 1) * 8
 
 
 class Enemy:
