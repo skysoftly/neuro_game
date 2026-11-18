@@ -1250,7 +1250,7 @@ class Game:
         alpha = 255 if self.help_t > 2.0 else int(255 * self.help_t / 2.0)
         hint = [
             "WASD — движение   мышь — прицел   ЛКМ — огонь",
-            "SPACE — рывок   E / ПКМ — импульс   1/2/3 — улучшения   H — скрыть",
+            "SPACE — рывок   ПКМ — импульс   улучшения выбираются мышью   H — скрыть",
         ]
         box = pygame.Surface((820, 76), pygame.SRCALPHA)
         box.fill((0, 0, 0, int(150 * alpha / 255)))
@@ -1352,7 +1352,7 @@ class Game:
         overlay.fill((0, 0, 0, 180))
         sc.blit(overlay, (0, 0))
         text(sc, "УРОВЕНЬ ПОВЫШЕН!", self.f_big, YELLOW, (W / 2, 100), outline=3)
-        text(sc, "Выберите улучшение (1 / 2 / 3)", self.f_mid, WHITE, (W / 2, 160), outline=2)
+        text(sc, "Выберите карточку мышью", self.f_mid, WHITE, (W / 2, 160), outline=2)
 
         card_w, card_h = 320, 220
         gap = 30
@@ -1397,24 +1397,25 @@ class Game:
     def draw_menu(self, sc):
         cx, cy = W / 2, H / 2 - 140
         for i in range(5):
-            a = self.t * (0.3 + i * 0.15) * (1 if i % 2 else -1)
-            col = [CYAN, MAGENTA, PURPLE, YELLOW, RED][i]
-            pygame.draw.polygon(sc, dim(col, 0.5),
-                                shape(HEX if i % 2 else SQ, a, (cx, cy), 120 + i * 30), 1)
+            angle = self.t * (0.3 + i * 0.15) * (1 if i % 2 else -1)
+            color = [CYAN, MAGENTA, PURPLE, YELLOW, RED][i]
+            pygame.draw.polygon(sc, dim(color, 0.5),
+                                shape(HEX if i % 2 else SQ, angle, (cx, cy), 120 + i * 30), 1)
         pulse = 0.8 + 0.2 * math.sin(self.t * 3)
         draw_glow(sc, (cx, cy), CYAN, 190, 18)
         text(sc, "NEON VOID", self.f_huge, dim(CYAN, pulse), (cx, cy), outline=3)
-        text(sc, "СЕТЕВАЯ ИГРА ПО ЛОКАЛЬНОЙ СЕТИ", self.f_mid, MAGENTA, (cx, cy + 78), outline=2)
+        text(sc, "СЕТЕВАЯ ИГРА ПО ЛОКАЛЬНОЙ СЕТИ", self.f_mid, MAGENTA,
+             (cx, cy + 78), outline=2)
 
         y = cy + 160
-        text(sc, "1 — СОЗДАТЬ ЛОББИ (ХОСТ)", self.f_mid, WHITE, (cx, y), outline=2)
-        text(sc, "2 — ПОДКЛЮЧИТЬСЯ (ввести IP)", self.f_mid, WHITE, (cx, y + 44), outline=2)
-        if self.last_ip:
-            text(sc, "4 — БЫСТРО К ПОСЛЕДНЕМУ IP (%s)" % self.last_ip,
-                 self.f_small, YELLOW, (cx, y + 86), outline=2)
-        text(sc, "3 — СМЕНИТЬ ИМЯ   (сейчас: %s)" % self.name_input,
-             self.f_small, (150, 170, 220), (cx, y + 122), outline=2)
-        text(sc, "Esc — выход", self.f_small, (130, 140, 190), (cx, H - 40), outline=2)
+        self.draw_button(sc, pygame.Rect(cx - 210, y - 20, 420, 52), "СОЗДАТЬ ЛОББИ", CYAN)
+        self.draw_button(sc, pygame.Rect(cx - 210, y + 42, 420, 52), "ПОДКЛЮЧИТЬСЯ ПО IP", MAGENTA)
+        quick = "ПОДКЛЮЧИТЬСЯ: " + (self.last_ip if self.last_ip else "НЕТ СОХРАНЁННОГО IP")
+        self.draw_button(sc, pygame.Rect(cx - 210, y + 104, 420, 44), quick,
+                         YELLOW, enabled=bool(self.last_ip))
+        self.draw_button(sc, pygame.Rect(cx - 210, y + 158, 420, 44),
+                         "ИМЯ ИГРОКА: " + self.name_input, PURPLE)
+        text(sc, "Esc — выход", self.f_small, (130, 140, 190), (cx, H - 28), outline=2)
 
     def draw_lobby(self, sc):
         cx = W / 2
@@ -1445,22 +1446,22 @@ class Game:
                  (cx, py0 + 55), outline=2)
 
         if self.is_host:
-            text(sc, "Enter — НАЧАТЬ ИГРУ", self.f_mid, CYAN, (cx, H - 110), outline=2)
+            self.draw_button(sc, pygame.Rect(cx - 190, H - 136, 380, 52), "НАЧАТЬ ИГРУ", CYAN)
         else:
             text(sc, "Ожидание, пока хост начнёт игру...", self.f_mid, PURPLE,
                  (cx, H - 110), outline=2)
         if self.connect_error:
-            text(sc, self.connect_error, self.f_small, RED, (cx, H - 66), outline=2)
-        text(sc, "Esc — выйти из лобби", self.f_small, (140, 140, 180), (cx, H - 32), outline=2)
+            text(sc, self.connect_error, self.f_small, RED, (cx, H - 82), outline=2)
+        self.draw_button(sc, pygame.Rect(cx - 150, H - 66, 300, 42), "НАЗАД В МЕНЮ", RED)
 
     def draw_error(self, sc):
         text(sc, "ОШИБКА", self.f_huge, RED, (W / 2, 150), outline=3)
-        for i, ln in enumerate(self.error_msg.split("\n")):
-            text(sc, ln, self.f_mid, WHITE, (W / 2, 290 + i * 46), outline=2)
-        text(sc, "Enter / Esc — в меню", self.f_small, (160, 160, 200), (W / 2, H - 80), outline=2)
+        for i, line in enumerate(self.error_msg.split("\\n")):
+            text(sc, line, self.f_mid, WHITE, (W / 2, 290 + i * 46), outline=2)
+        self.draw_button(sc, pygame.Rect(W / 2 - 150, H - 102, 300, 46), "В МЕНЮ", CYAN)
 
     def draw_dead(self, sc, snap):
-        text(sc, "СИГНАЛ ПОТЕРЯН", self.f_huge, RED, (W / 2, 100), outline=3)
+        text(sc, "СЕССИЯ ЗАВЕРШЕНА", self.f_huge, RED, (W / 2, 100), outline=3)
         players = sorted(snap.get("players", []), key=lambda p: -p["score"])
         mvp_pid = players[0]["pid"] if players else -1
 
@@ -1490,27 +1491,31 @@ class Game:
             text(sc, "★ MVP: %s" % mvp_name, self.f_mid, YELLOW, (W / 2, y + 30), outline=2)
 
         if self.is_host:
-            text(sc, "Enter — сыграть снова", self.f_mid, CYAN, (W / 2, H - 100), outline=2)
-        text(sc, "Esc — в меню", self.f_small, (160, 160, 200), (W / 2, H - 50), outline=2)
+            self.draw_button(sc, pygame.Rect(W / 2 - 190, H - 126, 380, 52), "ИГРАТЬ СНОВА", CYAN)
+        self.draw_button(sc, pygame.Rect(W / 2 - 150, H - 70, 300, 42), "В МЕНЮ", RED)
 
     def draw_input_overlay(self, sc):
         if not self.input_mode:
             return
         overlay = pygame.Surface((W, H), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 200))
+        overlay.fill((0, 0, 0, 205))
         sc.blit(overlay, (0, 0))
         label = "ВВЕДИТЕ IP ХОСТА" if self.input_mode == "ip" else "ВВЕДИТЕ ИМЯ"
-        text(sc, label, self.f_big, CYAN, (W / 2, H / 2 - 90), outline=3)
-        val = self.ip_input if self.input_mode == "ip" else self.name_input
-        box = pygame.Rect(W / 2 - 280, H / 2 - 30, 560, 64)
-        pygame.draw.rect(sc, (20, 20, 40), box)
+        text(sc, label, self.f_big, CYAN, (W / 2, H / 2 - 110), outline=3)
+        value = self.ip_input if self.input_mode == "ip" else self.name_input
+        box = pygame.Rect(W / 2 - 280, H / 2 - 45, 560, 64)
+        pygame.draw.rect(sc, (5, 12, 28), box)
         pygame.draw.rect(sc, CYAN, box, 2)
-        shown = val + ("|" if int(self.t * 2) % 2 == 0 else "")
-        text(sc, shown, self.f_big, WHITE, (W / 2, H / 2), outline=2)
-        text(sc, "Enter — подтвердить    Esc — отмена",
-             self.f_small, (170, 190, 220), (W / 2, H / 2 + 76), outline=2)
-        text(sc, "Ctrl+V — вставить из буфера",
-             self.f_small, (140, 170, 210), (W / 2, H / 2 + 108), outline=2)
+        shown = value + ("|" if int(self.t * 2) % 2 == 0 else "")
+        text(sc, shown, self.f_big, WHITE, (W / 2, H / 2 - 13), outline=2)
+        self.draw_button(sc, pygame.Rect(W / 2 - 115, H / 2 + 32, 230, 38),
+                         "ВСТАВИТЬ ИЗ БУФЕРА", PURPLE)
+        self.draw_button(sc, pygame.Rect(W / 2 - 135, H / 2 + 80, 270, 46),
+                         "ПОДТВЕРДИТЬ", CYAN)
+        self.draw_button(sc, pygame.Rect(W / 2 - 135, H / 2 + 136, 270, 40),
+                         "ОТМЕНА", RED)
+        text(sc, "Можно также нажать Ctrl+V и Enter", self.f_small,
+             (170, 190, 220), (W / 2, H / 2 + 202), outline=2)
 
     # ================= главный render =================
     def render(self):
