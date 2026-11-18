@@ -19,11 +19,19 @@ class UpgradeTests(unittest.TestCase):
         self.assertGreater(late.max_hp, early.max_hp)
         self.assertGreater(late.spd, early.spd)
 
-    def test_three_boss_archetypes_exist(self):
-        for kind in ("boss", "boss_storm", "boss_hunter"):
+    def test_five_boss_archetypes_exist_and_are_durable(self):
+        for kind in ("boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege"):
             self.assertIn(kind, KINDS)
             boss = Enemy(kind, (100, 100), 5)
-            self.assertGreater(boss.max_hp, 100)
+            self.assertGreater(boss.max_hp, 500)
+
+    def test_nine_regular_enemy_archetypes_exist(self):
+        regular = {"chaser", "swarm", "shooter", "tank", "dasher",
+                   "splitter", "mine", "orbiter", "bruiser"}
+        self.assertTrue(regular.issubset(KINDS))
+
+    def test_player_has_local_damage_timer(self):
+        self.assertEqual(self.player.hurt_t, 0.0)
 
     def test_roll_returns_three_distinct_upgrades(self):
         result = roll_upgrades(random.Random(7), 3)
