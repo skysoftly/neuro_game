@@ -519,6 +519,7 @@ class Game:
                 if p.pending_upgrades <= 0:
                     p.upgrade_choices = []
                     p.upgrade_ready = True
+                    self.local_choices = []
                     self.local_upgrade_waiting = True
                 else:
                     self.local_choices = list(p.upgrade_choices)
