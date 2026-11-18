@@ -304,7 +304,7 @@ class Game:
             self.client = ClientConn(ip)
         except Exception as e:
             log.exception("Не удалось подключиться к %s:%d", ip, PORT)
-            self.set_error("ИГРА НЕ НАЙДЕНА\\nПо адресу %s:%d никто не отвечает.\\nПроверь IP и убедись, что хост запущен." % (ip, PORT))
+            self.set_error("ИГРА НЕ НАЙДЕНА\nПо адресу %s:%d никто не отвечает.\nПроверь IP и убедись, что хост запущен." % (ip, PORT))
             return
         self.is_host = False
         self.last_ip = ip
