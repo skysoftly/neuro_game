@@ -2348,7 +2348,10 @@ class Game:
             y = 24 + rank * 25
             is_me = player["pid"] == self.my_id
             raw_color = player.get("color")
-            color = YELLOW if is_me else (tuple(raw_color) if isinstance(raw_color, (list, tuple)) and len(raw_color) == 3 else PLAYER_COLORS[(player["pid"] - 1) % len(PLAYER_COLORS)])
+            # Цвет в таблице лидеров всегда совпадает с цветом корабля.
+            # Своего игрока выделяем подчёркиванием, а не заменой цвета на жёлтый.
+            color = (tuple(raw_color) if isinstance(raw_color, (list, tuple)) and len(raw_color) == 3
+                     else PLAYER_COLORS[(player["pid"] - 1) % len(PLAYER_COLORS)])
             rank_rect = pygame.Rect(18, y - 10, 18, 22)
             text(sc, "%d." % (rank + 1), self.f_small, color, rank_rect.midleft, "midleft", outline=1)
             name_rect = pygame.Rect(40, y - 10, 126, 22)
