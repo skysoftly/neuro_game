@@ -19,7 +19,7 @@ UPGRADES = [
     {"id":"armor","name":"Бронепластина","desc":"Каждый четвёртый полученный удар игнорируется","color":(150,180,220)},
     {"id":"pulse_power","name":"Сингулярность","desc":"Импульс бьёт сильнее и отбрасывает дальше","color":(210,130,235)},
     {"id":"dash_damage","name":"Таран","desc":"Рывок наносит огромный урон врагам","color":(255,130,110)},
-    {"id":"xp_gain","name":"Нейроускоритель","desc":"Получай больше опыта за убийства","color":(235,220,120)},
+    {"id":"xp_gain","name":"Охотничий контракт","desc":"Получай на 20% больше очков за каждое убийство","color":(235,220,120)},
     {"id":"combo","name":"Азарт охоты","desc":"Комбо держится дольше и множитель выше","color":(255,150,190)},
 ]
 MAX_STACKS = {
@@ -68,4 +68,5 @@ def recompute(p):
     p.pulse_power=1.0+0.35*min(4,u.get("pulse_power",0))
     p.dash_damage=1.0+0.65*min(3,u.get("dash_damage",0))
     p.xp_gain=1.0+0.20*min(4,u.get("xp_gain",0))
+    p.score_gain=1.0+0.20*min(4,u.get("xp_gain",0))
     p.combo_bonus=min(3,u.get("combo",0))
