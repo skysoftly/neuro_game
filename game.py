@@ -963,7 +963,7 @@ class Game:
 
     def spawn(self, kind):
         alive_players = [p for p in self.players.values() if p.alive]
-        if not alive_players or (len(self.enemies) >= 90 and kind != "boss"):
+        if not alive_players or (len(self.enemies) >= 90 and not kind.startswith("boss")):
             return
         tgt = random.choice(alive_players)
         ang = random.uniform(0, math.tau)
