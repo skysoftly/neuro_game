@@ -806,6 +806,8 @@ class Game:
 
         if not any(p.alive for p in self.players.values()):
             self.state = "dead"
+            self.intermission = False
+            self.local_upgrade_waiting = False
             self.local_choices = []
             for player in self.players.values():
                 player.upgrade_choices = []
