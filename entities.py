@@ -74,11 +74,14 @@ class Enemy:
         self.kind = kind
         self.p = V(pos)
         self.v = V()
-        hp_scale = 1.0 + 0.10 * max(0, wave - 1)
+        # Враги усиливаются постепенно: к 16-й волне HP примерно в 1.6 раза,
+        # скорость — максимум на 12% выше базовой.
+        wave_steps = max(0, wave - 1)
+        hp_scale = 1.0 + min(0.60, 0.04 * wave_steps)
         self.hp = max(1, math.ceil(d["hp"] * hp_scale))
         self.max_hp = self.hp
         self.r = d["r"]
-        self.spd = d["spd"] * min(1.5, 1.0 + 0.012 * max(0, wave - 1))
+        self.spd = d["spd"] * min(1.12, 1.0 + 0.008 * wave_steps)
         self.col = d["col"]
         self.age = 0.0
         self.cool = random.uniform(0.8, 2.0)
