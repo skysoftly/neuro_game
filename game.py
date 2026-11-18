@@ -14,7 +14,7 @@ from config import (
     W, H, WORLD_W, WORLD_H, PORT, CONFIG_FILE,
     BG, CYAN, MAGENTA, YELLOW, RED, ORANGE, GREEN, PURPLE, PINK, WHITE,
     SHIP, DIAMOND, TRI, HEX, SQ,
-    KINDS, PICK_COL, PICK_LET, PLAYER_COLORS,
+    KINDS, PICK_COL, PICK_LET, PLAYER_COLORS, PLAYER_SKINS,
 )
 from fonts import font, text
 from draw_utils import shape, dim, make_overlay, bloom, read_clipboard
@@ -299,6 +299,9 @@ class Game:
 
         cfg = load_config()
         self.last_ip = cfg.get("last_ip", "")
+        self.local_color_index = max(0, min(len(PLAYER_COLORS) - 1, int(cfg.get("player_color", 0))))
+        self.local_skin_index = max(0, min(len(PLAYER_SKINS) - 1, int(cfg.get("player_skin", 0))))
+        self.local_hat_index = max(0, min(9, int(cfg.get("player_hat", 0))))
         self.music_volume = max(0.0, min(1.0, float(cfg.get("music_volume", 0.12))))
         self.sfx_volume = max(0.0, min(1.0, float(cfg.get("sfx_volume", 0.75))))
         self.screen_shake_enabled = bool(cfg.get("screen_shake", True))
@@ -355,7 +358,9 @@ class Game:
     def persist(self):
         save_config({"last_ip": self.last_ip, "name": self.name_input,
                      "music_volume": self.music_volume, "sfx_volume": self.sfx_volume,
-                     "screen_shake": self.screen_shake_enabled, "target_fps": self.target_fps})
+                     "screen_shake": self.screen_shake_enabled, "target_fps": self.target_fps,
+                     "player_color": self.local_color_index, "player_skin": self.local_skin_index,
+                     "player_hat": self.local_hat_index})
 
     def logical_mouse(self, pos=None):
         if pos is None:
@@ -460,7 +465,8 @@ class Game:
             return
         self.is_host = True
         self.my_id = 0
-        self.lobby_players = [(0, self.name_input or "Хост")]
+        self.lobby_players = [(0, self.name_input or "Хост", self.local_color_index,
+                               self.local_skin_index, self.local_hat_index)]
         self.state = "lobby"
 
     def join_server(self, ip):
@@ -479,7 +485,9 @@ class Game:
         self.is_host = False
         self.last_ip = ip
         self.persist()
-        self.client.send({"t": "hello", "name": self.name_input or "Клиент"})
+        self.client.send({"t": "hello", "name": self.name_input or "Клиент",
+                           "color": self.local_color_index, "skin": self.local_skin_index,
+                           "hat": self.local_hat_index})
         self.state = "lobby"
         self.lobby_players = []
 
@@ -520,8 +528,13 @@ class Game:
         if not self.is_host:
             return
         self.players = {}
-        for pid, name in self.lobby_players:
-            self.players[pid] = Player(pid, name)
+        for pid, name, color_index, skin_index, hat_index in self.lobby_players:
+            player = Player(pid, name)
+            player.color_index = color_index
+            player.color = PLAYER_COLORS[color_index]
+            player.skin = skin_index
+            player.hat = hat_index
+            self.players[pid] = player
         self.bullets, self.ebullets, self.enemies = [], [], []
         self.parts, self.rings, self.pickups, self.pops = [], [], [], []
         self.queue = []
@@ -564,10 +577,32 @@ class Game:
     def on_host_msg(self, cid, m):
         t = m.get("t")
         if t == "hello":
+            if len(self.lobby_players) >= 12:
+                self.server.send(cid, {"t": "full"})
+                self.server._drop_client(cid)
+                return
             name = (m.get("name") or "Игрок")[:16]
-            self.lobby_players.append((cid, name))
+            used = {entry[2] for entry in self.lobby_players}
+            requested = max(0, min(len(PLAYER_COLORS) - 1, int(m.get("color", 0))))
+            color_index = requested if requested not in used else next(
+                (index for index in range(len(PLAYER_COLORS)) if index not in used), 0)
+            skin_index = max(0, min(len(PLAYER_SKINS) - 1, int(m.get("skin", 0))))
+            hat_index = max(0, min(9, int(m.get("hat", 0))))
+            self.lobby_players.append((cid, name, color_index, skin_index, hat_index))
             self.server.send(cid, {"t": "welcome", "id": cid})
             self.server.broadcast({"t": "lobby", "players": self.lobby_players})
+        elif t == "customize" and self.state == "lobby":
+            for index, entry in enumerate(self.lobby_players):
+                if entry[0] != cid:
+                    continue
+                used = {other[2] for other in self.lobby_players if other[0] != cid}
+                requested = max(0, min(len(PLAYER_COLORS) - 1, int(m.get("color", entry[2]))))
+                color_index = requested if requested not in used else entry[2]
+                skin_index = max(0, min(len(PLAYER_SKINS) - 1, int(m.get("skin", entry[3]))))
+                hat_index = max(0, min(9, int(m.get("hat", entry[4]))))
+                self.lobby_players[index] = (cid, entry[1], color_index, skin_index, hat_index)
+                self.server.broadcast({"t": "lobby", "players": self.lobby_players})
+                break
         elif t == "tutorial_ready" and self.state == "play" and self.tutorial_active:
             p = self.players.get(cid)
             if p:
@@ -622,7 +657,26 @@ class Game:
             self.my_id = int(m.get("id", 0))
             log.info("Подключено к хосту, client_id=%d", self.my_id)
         elif t == "lobby":
-            self.lobby_players = [(int(a), b) for a, b in m.get("players", [])]
+            parsed = []
+            for item in m.get("players", []):
+                pid, name = int(item[0]), str(item[1])
+                color_index = int(item[2]) if len(item) > 2 else max(0, (pid - 1) % len(PLAYER_COLORS))
+                skin_index = int(item[3]) if len(item) > 3 else 0
+                hat_index = int(item[4]) if len(item) > 4 else 0
+                parsed.append((pid, name,
+                               max(0, min(len(PLAYER_COLORS) - 1, color_index)),
+                               max(0, min(len(PLAYER_SKINS) - 1, skin_index)),
+                               max(0, min(9, hat_index))))
+            self.lobby_players = parsed
+            mine = next((entry for entry in parsed if entry[0] == self.my_id), None)
+            if mine:
+                self.local_color_index, self.local_skin_index, self.local_hat_index = mine[2], mine[3], mine[4]
+                self.persist()
+        elif t == "full":
+            if self.client:
+                self.client.stop()
+                self.client = None
+            self.set_error("Лобби заполнено. Максимум игроков: 12.")
         elif t == "start":
             self.snap = None
             self.camera_target_previous = None
@@ -980,6 +1034,51 @@ class Game:
                         self.host_start_game()
                     elif pygame.Rect(W / 2 - 150, H - 66, 300, 42).collidepoint(mx, my):
                         self.leave_net()
+                    else:
+                        own = next((entry for entry in self.lobby_players if entry[0] == self.my_id), None)
+                        current_color = own[2] if own else self.local_color_index
+                        current_skin = own[3] if own else self.local_skin_index
+                        current_hat = own[4] if own else self.local_hat_index
+                        occupied = {entry[2] for entry in self.lobby_players if entry[0] != self.my_id}
+                        changed = False
+                        edit_x, edit_y = 620, 220
+                        for idx in range(len(PLAYER_COLORS)):
+                            row, column = divmod(idx, 5)
+                            cell = pygame.Rect(edit_x + 22 + column * 48, edit_y + 82 + row * 27, 32, 20)
+                            if cell.collidepoint(mx, my) and idx not in occupied:
+                                current_color = idx
+                                changed = True
+                                break
+                        if not changed:
+                            for idx in range(len(PLAYER_SKINS)):
+                                row, column = divmod(idx, 5)
+                                cell = pygame.Rect(edit_x + 22 + column * 96, edit_y + 188 + row * 34, 76, 28)
+                                if cell.collidepoint(mx, my):
+                                    current_skin = idx
+                                    changed = True
+                                    break
+                        if not changed:
+                            for idx in range(10):
+                                row, column = divmod(idx, 5)
+                                cell = pygame.Rect(edit_x + 22 + column * 96, edit_y + 284 + row * 29, 76, 25)
+                                if cell.collidepoint(mx, my):
+                                    current_hat = idx
+                                    changed = True
+                                    break
+                        if changed:
+                            self.local_color_index = current_color
+                            self.local_skin_index = current_skin
+                            self.local_hat_index = current_hat
+                            self.persist()
+                            if self.is_host:
+                                for index, entry in enumerate(self.lobby_players):
+                                    if entry[0] == self.my_id:
+                                        self.lobby_players[index] = (self.my_id, entry[1], current_color, current_skin, current_hat)
+                                        self.server.broadcast({"t": "lobby", "players": self.lobby_players})
+                                        break
+                            elif self.client:
+                                self.client.send({"t": "customize", "color": current_color,
+                                                  "skin": current_skin, "hat": current_hat})
                 elif self.state == "play" and self.local_choices and e.button == 1:
                     card_w, card_h, gap = 320, 238, 30
                     total = len(self.local_choices) * card_w + (len(self.local_choices) - 1) * gap
@@ -1762,6 +1861,7 @@ class Game:
         for p in self.players.values():
             snap["players"].append({
                 "pid": p.pid, "name": p.name,
+                "color": list(p.color), "skin": p.skin, "hat": p.hat,
                 "x": round(p.p.x, 1), "y": round(p.p.y, 1),
                 "ang": round(p.ang, 2), "hp": p.hp, "max_hp": p.max_hp,
                 "dash_cd": round(p.dash_cd, 2), "charge": round(p.charge, 1),
@@ -1834,19 +1934,60 @@ class Game:
         by = -cy
         pygame.draw.rect(sc, (30, 40, 80), (bx, by, WORLD_W, WORLD_H), 3)
 
+    def draw_hat(self, surface, x, y, hat_index, color, scale=1.0):
+        x, y = int(x), int(y)
+        k = max(0.45, float(scale))
+        def pt(dx, dy):
+            return (int(x + dx * k), int(y + dy * k))
+        dark = dim(color, 0.48)
+        if hat_index == 0:  # кепка
+            pygame.draw.polygon(surface, color, [pt(-8, 0), pt(-6, -6), pt(5, -6), pt(8, 0)])
+            pygame.draw.line(surface, color, pt(-9, 1), pt(10, 1), max(1, int(2*k)))
+        elif hat_index == 1:  # корона
+            pygame.draw.polygon(surface, color, [pt(-8, 1), pt(-8, -6), pt(-3, -2), pt(0, -8), pt(3, -2), pt(8, -6), pt(8, 1)])
+            pygame.draw.line(surface, dark, pt(-8, 2), pt(8, 2), max(1, int(2*k)))
+        elif hat_index == 2:  # рожки
+            pygame.draw.line(surface, color, pt(-5, 0), pt(-8, -8), max(2, int(3*k)))
+            pygame.draw.line(surface, color, pt(5, 0), pt(8, -8), max(2, int(3*k)))
+        elif hat_index == 3:  # нимб
+            pygame.draw.ellipse(surface, color, pygame.Rect(int(x-9*k), int(y-9*k), int(18*k), int(5*k)), max(1, int(2*k)))
+        elif hat_index == 4:  # колпак
+            pygame.draw.polygon(surface, color, [pt(-7, 1), pt(1, -12), pt(8, 1)])
+            pygame.draw.circle(surface, WHITE, pt(1, -12), max(2, int(2*k)))
+        elif hat_index == 5:  # антенна
+            pygame.draw.line(surface, color, pt(0, 0), pt(0, -10), max(1, int(2*k)))
+            pygame.draw.circle(surface, color, pt(0, -11), max(2, int(3*k)))
+        elif hat_index == 6:  # ушки
+            pygame.draw.polygon(surface, color, [pt(-8, 1), pt(-8, -8), pt(-1, -2)])
+            pygame.draw.polygon(surface, color, [pt(8, 1), pt(8, -8), pt(1, -2)])
+        elif hat_index == 7:  # пропеллер
+            pygame.draw.line(surface, color, pt(0, 0), pt(0, -7), max(1, int(2*k)))
+            pygame.draw.line(surface, color, pt(-8, -8), pt(8, -8), max(2, int(3*k)))
+            pygame.draw.circle(surface, WHITE, pt(0, -8), max(2, int(2*k)))
+        elif hat_index == 8:  # цветок
+            for dx, dy in ((0,-7), (6,-3), (4,4), (-4,4), (-6,-3)):
+                pygame.draw.circle(surface, color, pt(dx, dy), max(2, int(3*k)))
+            pygame.draw.circle(surface, YELLOW, pt(0, 0), max(2, int(2*k)))
+        else:  # визор
+            pygame.draw.line(surface, color, pt(-9, -2), pt(9, -2), max(3, int(4*k)))
+            pygame.draw.line(surface, WHITE, pt(-5, -3), pt(5, -3), max(1, int(k)))
+
     def draw_player(self, sc, data, is_local, cam):
         sx, sy = cam.to_screen(data["x"], data["y"])
         if not (-40 <= sx <= W + 40 and -40 <= sy <= H + 40):
             return
-        col = PLAYER_COLORS[(data["pid"] - 1) % len(PLAYER_COLORS)]
+        raw_color = data.get("color")
+        col = tuple(raw_color) if isinstance(raw_color, (list, tuple)) and len(raw_color) == 3 else PLAYER_COLORS[(data["pid"] - 1) % len(PLAYER_COLORS)]
         if data.get("dash_t", 0) > 0:
             col = WHITE
         if data["alive"] and (data.get("inv", 0) <= 0 or data.get("dash_t", 0) > 0
                               or int(self.t * 22) % 2 == 0):
             draw_glow(sc, (sx, sy), col, 48, 28)
-            pts = shape(SHIP, data["ang"], (sx, sy), 20)
+            skin_index = max(0, min(len(PLAYER_SKINS) - 1, int(data.get("skin", 0))))
+            pts = shape(PLAYER_SKINS[skin_index], data["ang"], (sx, sy), 20)
             pygame.draw.polygon(sc, (6, 40, 56), pts)
             pygame.draw.polygon(sc, col, pts, 2)
+            self.draw_hat(sc, sx, sy - 17, max(0, min(9, int(data.get("hat", 0)))), col, 0.9)
             if data.get("inv", 0) > 0.3:
                 pygame.draw.circle(sc, dim(col, 0.5), (int(sx), int(sy)), 30, 1)
         if is_local:
@@ -2113,7 +2254,8 @@ class Game:
         for rank, player in enumerate(roster):
             y = 24 + rank * 25
             is_me = player["pid"] == self.my_id
-            color = YELLOW if is_me else PLAYER_COLORS[(player["pid"] - 1) % len(PLAYER_COLORS)]
+            raw_color = player.get("color")
+            color = YELLOW if is_me else (tuple(raw_color) if isinstance(raw_color, (list, tuple)) and len(raw_color) == 3 else PLAYER_COLORS[(player["pid"] - 1) % len(PLAYER_COLORS)])
             rank_rect = pygame.Rect(18, y - 10, 18, 22)
             text(sc, "%d." % (rank + 1), self.f_small, color, rank_rect.midleft, "midleft", outline=1)
             name_rect = pygame.Rect(40, y - 10, 126, 22)
@@ -2426,42 +2568,90 @@ class Game:
 
     def draw_lobby(self, sc):
         cx = W / 2
-        text(sc, "ЛОББИ", self.f_huge, CYAN, (cx, 90), outline=3)
+        text(sc, "ЛОББИ", self.f_huge, CYAN, (cx, 76), outline=3)
         if self.is_host:
             role, shown_ip = "ВЫ - ХОСТ", (self.lan_ips[0] if self.lan_ips else "IP НЕ НАЙДЕН")
         else:
             role, shown_ip = "ВЫ - КЛИЕНТ", (self.last_ip or "НЕИЗВЕСТНО")
-        self.draw_fit_text(sc, role, YELLOW, pygame.Rect(cx - 380, 168, 360, 44), 30, 16)
-        self.draw_fit_text(sc, "IP: " + shown_ip, WHITE, pygame.Rect(cx + 20, 168, 500, 44), 30, 12)
+        self.draw_fit_text(sc, role, YELLOW, pygame.Rect(cx - 380, 132, 360, 38), 27, 16)
+        self.draw_fit_text(sc, "IP: " + shown_ip, WHITE, pygame.Rect(cx + 20, 132, 500, 38), 27, 12)
 
-        py0 = 330
-        text(sc, "ИГРОКИ В ЛОББИ  -  %d" % len(self.lobby_players), self.f_mid, WHITE, (cx, py0), outline=2)
-        list_rect = pygame.Rect(245, 360, 790, H - 520)
-        pygame.draw.rect(sc, (5, 10, 18), list_rect)
-        pygame.draw.rect(sc, (48, 72, 82), list_rect, 1)
-        visible = max(1, (list_rect.h - 12) // 34)
+        list_rect = pygame.Rect(130, 220, 470, 350)
+        edit_rect = pygame.Rect(620, 220, 530, 350)
+        for panel, accent in ((list_rect, CYAN), (edit_rect, PURPLE)):
+            pygame.draw.rect(sc, (5, 10, 18), panel)
+            pygame.draw.rect(sc, (48, 72, 82), panel, 1)
+            pygame.draw.line(sc, accent, (panel.x + 16, panel.y + 42),
+                             (panel.right - 16, panel.y + 42), 2)
+
+        text(sc, "ИГРОКИ  ·  %d / 12" % len(self.lobby_players), self.f_mid,
+             WHITE, (list_rect.centerx, list_rect.y + 23), outline=2)
+        visible = max(1, (list_rect.h - 62) // 34)
         self.lobby_scroll = max(0, min(self.lobby_scroll, max(0, len(self.lobby_players) - visible)))
         old_clip = sc.get_clip()
-        sc.set_clip(list_rect.inflate(-4, -4))
-        for i, (pid, name) in enumerate(self.lobby_players[self.lobby_scroll:self.lobby_scroll + visible]):
-            col = PLAYER_COLORS[(pid - 1) % len(PLAYER_COLORS)] if pid > 0 else YELLOW
-            mark = " - ВЫ" if pid == self.my_id else ""
-            role = " - ХОСТ" if pid == 0 else ""
-            text(sc, "%02d  %s%s%s" % (self.lobby_scroll + i + 1, name, role, mark),
-                 self.f_small, col, (list_rect.x + 18, list_rect.y + 17 + i * 34), "midleft", outline=1)
+        sc.set_clip(list_rect.inflate(-8, -52))
+        for i, (pid, name, color_index, skin_index, hat_index) in enumerate(
+                self.lobby_players[self.lobby_scroll:self.lobby_scroll + visible]):
+            col = PLAYER_COLORS[color_index]
+            mark = "  ·  ВЫ" if pid == self.my_id else ""
+            role_mark = "  ·  ХОСТ" if pid == 0 else ""
+            row_y = list_rect.y + 62 + i * 34
+            pygame.draw.circle(sc, col, (list_rect.x + 22, row_y), 7)
+            text(sc, "%02d  %s%s%s" % (self.lobby_scroll + i + 1, name, role_mark, mark),
+                 self.f_small, col, (list_rect.x + 42, row_y), "midleft", outline=1)
         sc.set_clip(old_clip)
         if len(self.lobby_players) > visible:
-            text(sc, "SCROLL  %d-%d OF %d" %
-                 (self.lobby_scroll + 1, min(len(self.lobby_players), self.lobby_scroll + visible), len(self.lobby_players)),
-                 self.f_small, (150, 175, 185), (cx, list_rect.bottom - 12), outline=1)
+            text(sc, "ПРОКРУТКА: КОЛЁСИКО МЫШИ", font(12), (145, 165, 180),
+                 (list_rect.centerx, list_rect.bottom - 14), outline=1)
         if not self.lobby_players:
             text(sc, "ожидание подключений...", self.f_small, (150, 150, 180),
-                 (cx, list_rect.centery), outline=2)
+                 (list_rect.centerx, list_rect.centery), outline=2)
+
+        text(sc, "ВАШ ВНЕШНИЙ ВИД", self.f_mid, WHITE, (edit_rect.centerx, edit_rect.y + 23), outline=2)
+        own = next((entry for entry in self.lobby_players if entry[0] == self.my_id), None)
+        current_color = own[2] if own else self.local_color_index
+        current_skin = own[3] if own else self.local_skin_index
+        current_hat = own[4] if own else self.local_hat_index
+        occupied = {entry[2] for entry in self.lobby_players if entry[0] != self.my_id}
+
+        text(sc, "ЦВЕТ", font(15), CYAN, (edit_rect.x + 22, edit_rect.y + 66), "midleft", outline=1)
+        for idx, col in enumerate(PLAYER_COLORS):
+            row, column = divmod(idx, 5)
+            cell = pygame.Rect(edit_rect.x + 22 + column * 48, edit_rect.y + 82 + row * 27, 32, 20)
+            unavailable = idx in occupied
+            pygame.draw.rect(sc, (25, 29, 38) if unavailable else col, cell)
+            pygame.draw.rect(sc, (95, 105, 120) if unavailable else
+                             (WHITE if idx == current_color else dim(col, 0.55)),
+                             cell, 2 if idx == current_color else 1)
+            if unavailable:
+                pygame.draw.line(sc, (135, 75, 85), cell.topleft, cell.bottomright, 2)
+                pygame.draw.line(sc, (135, 75, 85), cell.topright, cell.bottomleft, 2)
+
+        text(sc, "КОРПУС", font(15), CYAN, (edit_rect.x + 22, edit_rect.y + 174), "midleft", outline=1)
+        for idx, skin_shape in enumerate(PLAYER_SKINS):
+            row, column = divmod(idx, 5)
+            cell = pygame.Rect(edit_rect.x + 22 + column * 96, edit_rect.y + 188 + row * 34, 76, 28)
+            selected = idx == current_skin
+            pygame.draw.rect(sc, (15, 25, 38), cell)
+            pygame.draw.rect(sc, CYAN if selected else (55, 72, 88), cell, 2 if selected else 1)
+            pts = shape(skin_shape, -math.pi / 2, cell.center, 10)
+            pygame.draw.polygon(sc, current_color and PLAYER_COLORS[current_color], pts, 2)
+            text(sc, str(idx + 1), font(11), WHITE, (cell.right - 8, cell.centery), "midright", outline=1)
+
+        text(sc, "ШАПОЧКА", font(15), CYAN, (edit_rect.x + 22, edit_rect.y + 270), "midleft", outline=1)
+        for idx in range(10):
+            row, column = divmod(idx, 5)
+            cell = pygame.Rect(edit_rect.x + 22 + column * 96, edit_rect.y + 284 + row * 29, 76, 25)
+            selected = idx == current_hat
+            pygame.draw.rect(sc, (15, 25, 38), cell)
+            pygame.draw.rect(sc, PURPLE if selected else (55, 72, 88), cell, 2 if selected else 1)
+            self.draw_hat(sc, cell.centerx, cell.centery + 3, idx, PLAYER_COLORS[current_color], 0.52)
+            text(sc, str(idx + 1), font(10), WHITE, (cell.right - 5, cell.centery), "midright", outline=1)
 
         if self.is_host:
             self.draw_button(sc, pygame.Rect(cx - 190, H - 136, 380, 52), "НАЧАТЬ ИГРУ", CYAN)
         else:
-            text(sc, "Ожидание, пока хост начнёт игру...", self.f_mid, PURPLE,
+            text(sc, "Ожидание, пока хост начнёт игру...", self.f_small, PURPLE,
                  (cx, H - 110), outline=2)
         if self.connect_error:
             text(sc, self.connect_error, self.f_small, RED, (cx, H - 82), outline=2)
@@ -2518,7 +2708,8 @@ class Game:
 
         y = 228
         for i, pl in enumerate(players):
-            col = PLAYER_COLORS[(pl["pid"] - 1) % len(PLAYER_COLORS)]
+            raw_color = pl.get("color")
+            col = tuple(raw_color) if isinstance(raw_color, (list, tuple)) and len(raw_color) == 3 else PLAYER_COLORS[(pl["pid"] - 1) % len(PLAYER_COLORS)]
             is_mvp = pl["pid"] == mvp_pid
             row_col = YELLOW if is_mvp else col
             text(sc, "%d" % (i + 1), self.f_mid, row_col, (W / 2 - 380, y), "midleft", outline=2)
