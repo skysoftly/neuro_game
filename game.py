@@ -1476,7 +1476,9 @@ class Game:
                 q.append("swarm")
             else:
                 q.append("chaser")
-        if self.wave % 5 == 0:
+        if self.wave == 2:
+            q.append("boss_minor")
+        elif self.wave % 5 == 0:
             bosses = ("boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege")
             q.append(bosses[(self.wave // 5 - 1) % len(bosses)])
         self.queue = q
@@ -1595,13 +1597,17 @@ class Game:
                     e.cool = 3.4
                     e.windup = 0.62
                     e.charge_dir = V(d)
-        elif k in ("boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege"):
+        elif k in ("boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege", "boss_minor"):
             e.v = e.v.lerp(d * e.spd, min(1.0, 1.25 * dt))
             e.cool -= dt
             if e.cool <= 0:
                 e.cool = max(1.25, 2.35 - self.wave * 0.018)
                 base = math.atan2(d.y, d.x)
-                if k == "boss":
+                if k == "boss_minor":
+                    for offset in (-0.22, 0.0, 0.22):
+                        a = base + offset
+                        self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 300, 5.5])
+                elif k == "boss":
                     for i in range(18):
                         a = i * math.tau / 18 + e.ang
                         self.ebullets.append([V(e.p), V(math.cos(a), math.sin(a)) * 320, 7.0])
@@ -2492,6 +2498,7 @@ class Game:
                 "boss_hunter": "ОХОТНИК",
                 "boss_void": "ПУСТОТА",
                 "boss_siege": "ОСАДА",
+                "boss_minor": "РАЗВЕДЧИК",
             }
             boss_name = boss_names.get(boss.get("k"), "БОСС")
             text(sc, "%s  -  %d%%" % (boss_name, int(ratio * 100)), self.f_small, WHITE,
