@@ -345,16 +345,24 @@ class Game:
 
     def draw_wrapped_text(self, surface, value, f, color, rect, max_lines=2):
         words = str(value).split()
-        lines, current = [], ""
-        for word in words:
-            candidate = (current + " " + word).strip()
-            if current and f.size(candidate)[0] > rect.width:
+        size = f.get_height()
+        lines = []
+        while size > 12:
+            candidate_font = font(size)
+            lines, current = [], ""
+            for word in words:
+                candidate = (current + " " + word).strip()
+                if current and candidate_font.size(candidate)[0] > rect.width:
+                    lines.append(current)
+                    current = word
+                else:
+                    current = candidate
+            if current:
                 lines.append(current)
-                current = word
-            else:
-                current = candidate
-        if current:
-            lines.append(current)
+            if len(lines) <= max_lines and all(candidate_font.size(line)[0] <= rect.width for line in lines):
+                f = candidate_font
+                break
+            size -= 1
         if len(lines) > max_lines:
             lines = lines[:max_lines]
             last = lines[-1]
@@ -364,6 +372,9 @@ class Game:
         old_clip = surface.get_clip()
         surface.set_clip(rect)
         line_h = f.get_linesize()
+        if line_h * len(lines) > rect.height:
+            f = font(max(10, rect.height // max(1, len(lines))))
+            line_h = f.get_linesize()
         y = rect.centery - len(lines) * line_h / 2 + line_h / 2
         for line in lines:
             text(surface, line, f, color, (rect.centerx, y), outline=1)
@@ -400,9 +411,6 @@ class Game:
         pygame.draw.line(surface, dim(edge, 0.75), pts[7], pts[0], 2)
         pygame.draw.line(surface, dim(edge, 0.22), pts[4], pts[5], 2)
         pygame.draw.polygon(surface, edge, pts, 1)
-        if hovered:
-            pygame.draw.line(surface, WHITE, (r.left + cut + 12, r.top + 7),
-                             (r.right - cut - 12, r.top + 7), 1)
         self.draw_fit_text(surface, label, WHITE if enabled else (112, 120, 132),
                            r.inflate(-18, -8), 30 if r.height >= 50 else 18, 12)
         return hovered
@@ -999,6 +1007,8 @@ class Game:
         self.update_pickups(dt)
         self.update_bullets(dt)
         self.collide()
+        if len(self.rings) > 120:
+            self.rings = self.rings[-120:]
         for lst in (self.parts, self.rings):
             for o in lst:
                 o.update(dt)
@@ -1036,6 +1046,7 @@ class Game:
             if p.regen_timer >= 1.0 / p.regen:
                 p.regen_timer = 0.0
                 p.hp = min(p.max_hp, p.hp + 1)
+                self.audio.play("heal")
         p.rapid = max(0.0, p.rapid - dt)
         p.spread = max(0.0, p.spread - dt)
         if p.want_dash:
@@ -1446,7 +1457,7 @@ class Game:
         self.rings.append(Ring(pk[0], 8, 120, 450, col, 3))
         self.burst(pk[0], col, 20, 350)
         self.pops.append([V(pk[0]), {"rapid": "БЫСТРЫЙ ОГОНЬ", "spread": "ТРОЙНОЙ ВЫСТРЕЛ", "heal": "+1 HP"}[kind], 1.2, col])
-        self.audio.play("pickup")
+        self.audio.play("heal" if kind == "heal" else "pickup")
 
     def damage(self, e, n, src):
         e.hp -= n
@@ -1521,7 +1532,8 @@ class Game:
             return
         p.hp -= 1
         p.inv = 0.58
-        self.shake = max(self.shake, 24)
+        if p.pid == self.my_id:
+            self.shake = max(self.shake, 18)
         p.hurt_t = 0.52
         self.hitstop = 0.07
         self.burst(p.p, CYAN, 40, 520, (0.3, 0.9), 3)
@@ -1598,8 +1610,8 @@ class Game:
         self.enemies = [e for e in self.enemies if not e.dead]
 
     def burst(self, pos, col, n=20, speed=300, life=(0.3, 0.8), size=3.0):
-        if len(self.parts) > 950:
-            return
+        particle_budget = max(0, 520 - len(self.parts))
+        n = min(n, particle_budget)
         for _ in range(n):
             a = random.uniform(0, math.tau)
             sp = random.uniform(0.15, 1.0) * speed
@@ -1858,6 +1870,28 @@ class Game:
         for pl in snap.get("players", []):
             self.draw_player(sc, pl, pl["pid"] == self.my_id, cam)
 
+        # Указатель ближайшего противника рисуется в мировом слое, под HUD.
+        if snap.get("enemies"):
+            nearest = None
+            for enemy in snap["enemies"]:
+                ex, ey = cam.to_screen(enemy["x"], enemy["y"])
+                if ex < 18 or ex > W - 18 or ey < 18 or ey > H - 18:
+                    dx, dy = ex - W / 2, ey - H / 2
+                    distance_sq = dx * dx + dy * dy
+                    if nearest is None or distance_sq < nearest[0]:
+                        nearest = (distance_sq, dx, dy)
+            if nearest:
+                _, dx, dy = nearest
+                angle = math.atan2(dy, dx)
+                scale = min((W / 2 - 34) / max(1, abs(dx)),
+                            (H / 2 - 34) / max(1, abs(dy)))
+                ax, ay = W / 2 + dx * scale, H / 2 + dy * scale
+                tip = (ax + math.cos(angle) * 13, ay + math.sin(angle) * 13)
+                left = (ax + math.cos(angle + 2.45) * 11, ay + math.sin(angle + 2.45) * 11)
+                right = (ax + math.cos(angle - 2.45) * 11, ay + math.sin(angle - 2.45) * 11)
+                pygame.draw.polygon(sc, MAGENTA, (tip, left, right))
+                pygame.draw.circle(sc, WHITE, (int(ax), int(ay)), 3)
+
         # локальные эффекты - частицы, кольца (только у себя, т.к. в снапшоте их нет)
         if self.is_host:
             for q in self.parts:
@@ -1897,29 +1931,26 @@ class Game:
                 me = pl
                 break
 
-        # Прокручиваемая панель игроков: число участников не раздвигает HUD.
-        roster = snap.get("players", [])
-        panel = pygame.Rect(14, 16, 238, min(H - 180, 340))
-        pygame.draw.rect(sc, (5, 10, 18), panel)
-        pygame.draw.rect(sc, (48, 72, 82), panel, 1)
-        visible = max(1, (panel.h - 28) // 42)
-        self.hud_scroll = max(0, min(self.hud_scroll, max(0, len(roster) - visible)))
-        old_clip = sc.get_clip()
-        sc.set_clip(panel.inflate(-4, -4))
-        for idx, pl in enumerate(roster[self.hud_scroll:self.hud_scroll + visible]):
-            y = panel.y + 9 + idx * 42
-            col = PLAYER_COLORS[(pl["pid"] - 1) % len(PLAYER_COLORS)]
-            label = pl["name"] + ("  -  ВЫ" if pl["pid"] == self.my_id else "")
-            text(sc, label, self.f_small, col, (panel.x + 10, y + 2), "midleft", outline=1)
-            text(sc, "%d" % pl["score"], self.f_small, WHITE, (panel.right - 12, y + 2), "midright", outline=1)
-            for i in range(pl["max_hp"]):
-                pts = shape(SHIP, -math.pi / 2, (panel.x + 17 + i * 18, y + 25), 6)
-                pygame.draw.polygon(sc, col if i < pl["hp"] else (40, 50, 60), pts,
-                                    1 if i >= pl["hp"] else 0)
-        sc.set_clip(old_clip)
-        if len(roster) > visible:
-            text(sc, "^ %d/%d v" % (self.hud_scroll + 1, len(roster)),
-                 self.f_small, (155, 180, 190), (panel.centerx, panel.bottom - 11), outline=1)
+        # Компактный топ-4 без непрозрачной панели и чужих индикаторов здоровья.
+        roster = sorted(snap.get("players", []), key=lambda player: player.get("score", 0), reverse=True)[:4]
+        for rank, player in enumerate(roster):
+            y = 24 + rank * 25
+            color = YELLOW if player["pid"] == self.my_id else PLAYER_COLORS[(player["pid"] - 1) % len(PLAYER_COLORS)]
+            label = "%d. %s" % (rank + 1, player["name"])
+            if player["pid"] == self.my_id:
+                label += "  ВЫ"
+            self.draw_fit_text(sc, label, color, pygame.Rect(18, y - 10, 172, 22), 16, 11)
+            text(sc, str(player.get("score", 0)), self.f_small, WHITE, (202, y + 1), "midright", outline=1)
+
+        # Здоровье показываем только владельцу экрана.
+        if me:
+            hp_ratio = max(0.0, min(1.0, me["hp"] / max(1, me["max_hp"])))
+            hp_color = GREEN if hp_ratio > 0.55 else ORANGE if hp_ratio > 0.25 else RED
+            text(sc, "HP %d/%d" % (me["hp"], me["max_hp"]), self.f_small, hp_color,
+                 (430, 25), "midleft", outline=1)
+            pygame.draw.rect(sc, (14, 19, 27), (430, 39, 150, 8))
+            pygame.draw.rect(sc, hp_color, (430, 39, int(150 * hp_ratio), 8))
+            pygame.draw.rect(sc, (90, 105, 112), (430, 39, 150, 8), 1)
 
         # правый верх: волна
         wave = snap.get("wave", 1)
@@ -1931,26 +1962,6 @@ class Game:
         boss_label = "БОСС НА АРЕНЕ" if boss_alive else ("БОСС В ЭТОЙ ВОЛНЕ" if boss_in == 0
                                                           else "БОСС ЧЕРЕЗ %d ВОЛН" % boss_in)
         text(sc, boss_label, self.f_small, MAGENTA, (W - 30, 84), "midright", outline=1)
-
-        # Стрелка к ближайшему врагу, если он за пределами экрана.
-        if me and snap.get("enemies"):
-            offscreen = []
-            for enemy in snap["enemies"]:
-                ex, ey = self.camera.to_screen(enemy["x"], enemy["y"])
-                if ex < 18 or ex > W - 18 or ey < 18 or ey > H - 18:
-                    dx, dy = ex - W / 2, ey - H / 2
-                    offscreen.append((dx * dx + dy * dy, dx, dy))
-            if offscreen:
-                _, dx, dy = min(offscreen, key=lambda item: item[0])
-                angle = math.atan2(dy, dx)
-                scale = min((W / 2 - 30) / max(1, abs(dx)),
-                            (H / 2 - 30) / max(1, abs(dy)))
-                ax, ay = W / 2 + dx * scale, H / 2 + dy * scale
-                tip = (ax + math.cos(angle) * 13, ay + math.sin(angle) * 13)
-                left = (ax + math.cos(angle + 2.45) * 11, ay + math.sin(angle + 2.45) * 11)
-                right = (ax + math.cos(angle - 2.45) * 11, ay + math.sin(angle - 2.45) * 11)
-                pygame.draw.polygon(sc, MAGENTA, (tip, left, right))
-                pygame.draw.circle(sc, WHITE, (int(ax), int(ay)), 3)
 
         bosses = [e for e in snap.get("enemies", []) if e.get("k", "").startswith("boss")]
         if bosses:
@@ -2012,11 +2023,11 @@ class Game:
             text(sc, "YOU ARE OUT - SPECTATING",
                  self.f_small, RED, (W / 2, 166), outline=2)
 
-        # баннер волны
+        # Баннер волны всегда помещается в экран независимо от номера волны.
         if snap.get("banner", 0) > 0 and self.state == "play":
             k = min(1.0, snap["banner"])
-            text(sc, "ВОЛНА %d" % snap.get("wave", 1), self.f_huge, dim(WHITE, k),
-                 (W / 2, H / 2 - 140), outline=3)
+            self.draw_fit_text(sc, "ВОЛНА %d" % snap.get("wave", 1), dim(WHITE, k),
+                               pygame.Rect(180, H / 2 - 205, W - 360, 130), 88, 48)
 
         # прицел
         if self.state == "play" and not self.paused:
