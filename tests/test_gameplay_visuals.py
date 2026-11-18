@@ -28,7 +28,16 @@ class UpgradeTests(unittest.TestCase):
     def test_nine_regular_enemy_archetypes_exist(self):
         regular = {"chaser", "swarm", "shooter", "tank", "dasher",
                    "splitter", "mine", "orbiter", "bruiser"}
+        self.assertEqual(len(regular), 9)
         self.assertTrue(regular.issubset(KINDS))
+
+    def test_enemy_hp_scaling_is_noticeable(self):
+        early = Enemy("chaser", (100, 100), 1)
+        late = Enemy("chaser", (100, 100), 10)
+        self.assertGreaterEqual(late.max_hp, early.max_hp * 2)
+
+    def test_combo_upgrade_is_removed(self):
+        self.assertNotIn("combo", {upgrade["id"] for upgrade in UPGRADES})
 
     def test_player_has_local_damage_timer(self):
         self.assertEqual(self.player.hurt_t, 0.0)
