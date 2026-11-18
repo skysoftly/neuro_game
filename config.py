@@ -50,5 +50,5 @@ KINDS = {
 
 # ---------- подбираемое ----------
 PICK_COL = {"rapid": YELLOW, "spread": CYAN, "heal": GREEN}
-PICK_LET = {"rapid": "R", "spread": "S", "heal": "+"}
+PICK_LET = {"rapid": "R", "spread": "3", "heal": "+"}
 PLAYER_COLORS = [CYAN, YELLOW, GREEN, ORANGE]
