@@ -28,6 +28,7 @@ class Player:
         self.kills = 0
         self.charge = 0.0
         self.alive = True
+        self.boundary_t = 0.0
         self.color = PLAYER_COLORS[(pid - 1) % len(PLAYER_COLORS)]
         self.color_index = (pid - 1) % len(PLAYER_COLORS)
         self.skin = 0
