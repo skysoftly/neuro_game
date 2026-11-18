@@ -56,7 +56,7 @@ class UpgradeTests(unittest.TestCase):
         self.assertEqual(self.player.shield_hits, 0)
 
     def test_hunting_contract_increases_score_multiplier(self):
-        apply_upgrade(self.player, "xp_gain")
+        apply_upgrade(self.player, "score_gain")
         self.assertAlmostEqual(self.player.score_gain, 1.2)
 
     def test_new_combat_upgrades_change_stats(self):
