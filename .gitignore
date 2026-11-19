@@ -8,3 +8,8 @@ dist/
 venv/
 .idea/
 icon.ico
+
+# Local user data (settings and statistics)
+config.json
+stats.json
+user_data/
