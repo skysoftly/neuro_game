@@ -135,7 +135,8 @@ class ControlsMixin:
     def draw_touch_controls(self):
         if sys.platform not in ("android", "emscripten") or self.state != "play" or self.paused:
             return
-        layer = pygame.Surface((W, H), pygame.SRCALPHA)
+        layer = self.touch_overlay
+        layer.fill((0, 0, 0, 0))
         base = V(145, H - 145)
         pygame.draw.circle(layer, (90, 220, 255, 34), base, 76, 3)
         pygame.draw.circle(layer, (90, 220, 255, 75), base + self.touch_move * 58, 31, 2)
