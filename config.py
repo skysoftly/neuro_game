@@ -1,6 +1,7 @@
 """Константы игры: размеры, цвета, формы, характеристики."""
 import math
 import os
+import shutil
 
 # Логическое разрешение (буфер рендера)
 W, H = 1280, 720
@@ -69,8 +70,27 @@ def boss_kind_for_wave(wave, rng=None, previous=None):
     bosses = ("boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege")
     choices = [kind for kind in bosses if kind != previous] or list(bosses)
     return chooser.choice(choices)
-# Файл сохранения имени и последнего IP
-CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+# Храним настройки в доступной для записи папке пользователя.
+# Старый config.json рядом с игрой переносим при первом запуске.
+def _get_config_file():
+    legacy = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+    try:
+        import pygame
+        private_dir = os.environ.get("ANDROID_PRIVATE")
+        if private_dir:
+            directory = private_dir
+        else:
+            directory = pygame.system.get_pref_path("SkySoftly", "NEON VOID")
+        os.makedirs(directory, exist_ok=True)
+        target = os.path.join(directory, "config.json")
+        if os.path.isfile(legacy) and not os.path.exists(target):
+            shutil.copy2(legacy, target)
+        return target
+    except Exception:
+        return legacy
+
+
+CONFIG_FILE = _get_config_file()
 
 # ---------- цвета ----------
 BG = (6, 9, 18)
