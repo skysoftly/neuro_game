@@ -18,6 +18,7 @@ from config import (
     BG, CYAN, MAGENTA, YELLOW, RED, ORANGE, GREEN, PURPLE, PINK, WHITE,
     SHIP, DIAMOND, TRI, HEX, SQ,
     KINDS, PICK_COL, PICK_LET, PLAYER_COLORS, PLAYER_SKINS,
+    GRAPHICS_BLOOM, GRAPHICS_QUALITY_LABELS, PARTICLE_STYLE_LABELS,
 )
 from fonts import font, text
 from draw_utils import shape, dim, make_overlay, bloom, read_clipboard
@@ -362,7 +363,24 @@ class RenderingMixin:
                     k = max(0.0, q.life / q.max)
                     col = dim(q.col, k)
                     w = max(1, int(q.size * k))
-                    pygame.draw.circle(sc, col, (int(sx), int(sy)), w)
+                    if self.particle_style == "spark":
+                        tail = (sx - q.v.x * 0.018, sy - q.v.y * 0.018)
+                        pygame.draw.line(sc, col, tail, (sx, sy), max(1, w))
+                        pygame.draw.circle(sc, WHITE if k > 0.72 else col,
+                                           (int(sx), int(sy)), max(1, w // 2))
+                    elif self.particle_style == "diamond":
+                        angle = math.atan2(q.v.y, q.v.x)
+                        ca, sa = math.cos(angle), math.sin(angle)
+                        radius = w + 1
+                        points = [
+                            (sx + ca * radius, sy + sa * radius),
+                            (sx - sa * radius * 0.65, sy + ca * radius * 0.65),
+                            (sx - ca * radius, sy - sa * radius),
+                            (sx + sa * radius * 0.65, sy - ca * radius * 0.65),
+                        ]
+                        pygame.draw.polygon(sc, col, points)
+                    else:
+                        pygame.draw.circle(sc, col, (int(sx), int(sy)), w)
             for r in self.rings:
                 sx, sy = cam.to_screen(r.p.x, r.p.y)
                 if -r.max <= sx <= W + r.max and -r.max <= sy <= H + r.max:
@@ -694,27 +712,40 @@ class RenderingMixin:
 
     def draw_settings(self, sc):
         cx = W / 2
-        text(sc, "НАСТРОЙКИ", self.f_huge, CYAN, (cx, 112), outline=3)
-        text(sc, "МУЗЫКА", self.f_mid, WHITE, (cx, 220), outline=1)
-        self.draw_button(sc, pygame.Rect(cx - 205, 244, 70, 48), "-", RED)
-        self.draw_button(sc, pygame.Rect(cx + 135, 244, 70, 48), "+", CYAN)
-        text(sc, "%d%%" % round(self.music_volume * 100), self.f_big, YELLOW, (cx, 268), outline=2)
-        text(sc, "ЗВУКОВЫЕ ЭФФЕКТЫ", self.f_mid, WHITE, (cx, 320), outline=1)
-        self.draw_button(sc, pygame.Rect(cx - 205, 344, 70, 48), "-", RED)
-        self.draw_button(sc, pygame.Rect(cx + 135, 344, 70, 48), "+", CYAN)
-        text(sc, "%d%%" % round(self.sfx_volume * 100), self.f_big, YELLOW, (cx, 368), outline=2)
-        self.draw_button(sc, pygame.Rect(cx - 210, 444, 420, 48),
+        text(sc, "НАСТРОЙКИ", self.f_big, CYAN, (cx, 48), outline=3)
+
+        text(sc, "МУЗЫКА", self.f_small, WHITE, (cx, 92), outline=1)
+        self.draw_button(sc, pygame.Rect(cx - 205, 112, 70, 38), "-", RED)
+        self.draw_button(sc, pygame.Rect(cx + 135, 112, 70, 38), "+", CYAN)
+        text(sc, "%d%%" % round(self.music_volume * 100), self.f_mid, YELLOW, (cx, 131), outline=2)
+
+        text(sc, "ЗВУКОВЫЕ ЭФФЕКТЫ", self.f_small, WHITE, (cx, 152), outline=1)
+        self.draw_button(sc, pygame.Rect(cx - 205, 172, 70, 38), "-", RED)
+        self.draw_button(sc, pygame.Rect(cx + 135, 172, 70, 38), "+", CYAN)
+        text(sc, "%d%%" % round(self.sfx_volume * 100), self.f_mid, YELLOW, (cx, 191), outline=2)
+
+        self.draw_button(sc, pygame.Rect(cx - 210, 230, 420, 38),
                          "ТРЯСКА ЭКРАНА: " + ("ВКЛ" if self.screen_shake_enabled else "ВЫКЛ"),
                          CYAN if self.screen_shake_enabled else RED)
+        self.draw_button(sc, pygame.Rect(cx - 210, 274, 420, 38),
+                         "ГРЯЗНЫЙ CRT-ФИЛЬТР: " + ("ВКЛ" if self.dirty_filter_enabled else "ВЫКЛ"),
+                         CYAN if self.dirty_filter_enabled else RED)
+        self.draw_button(sc, pygame.Rect(cx - 210, 318, 420, 38),
+                         "КАЧЕСТВО ГРАФИКИ: " + GRAPHICS_QUALITY_LABELS[self.graphics_quality], PURPLE)
+        self.draw_button(sc, pygame.Rect(cx - 210, 362, 420, 38),
+                         "СТИЛЬ ЧАСТИЦ: " + PARTICLE_STYLE_LABELS[self.particle_style], MAGENTA)
+        self.draw_button(sc, pygame.Rect(cx - 210, 406, 420, 38),
+                         "КОЛИЧЕСТВО ЧАСТИЦ: %d%%" % self.particle_density, YELLOW)
         fps_label = "БЕЗ ЛИМИТА" if self.target_fps == 0 else str(self.target_fps)
-        self.draw_button(sc, pygame.Rect(cx - 210, 514, 420, 48),
+        self.draw_button(sc, pygame.Rect(cx - 210, 450, 420, 38),
                          "ЛИМИТ FPS: " + fps_label, PURPLE)
-        self.draw_button(sc, pygame.Rect(cx - 210, 584, 420, 48),
-                         "БЕЗРАМОЧНЫЙ НА ВЕСЬ ЭКРАН: " + ("ВКЛ" if self.borderless_fullscreen else "ВЫКЛ"),
+        self.draw_button(sc, pygame.Rect(cx - 210, 494, 420, 38),
+                         "БЕЗРАМОЧНЫЙ НА ВЕСЬ ЭКРАН: " +
+                         ("ВКЛ" if self.borderless_fullscreen else "ВЫКЛ"),
                          CYAN if self.borderless_fullscreen else RED)
-        text(sc, "F11 — переключить в любой момент", font(13), (135, 155, 175),
-             (cx, 642), outline=1)
-        self.draw_button(sc, pygame.Rect(cx - 150, H - 58, 300, 42), "НАЗАД", RED)
+        text(sc, "Качество меняет свечение. Частицы: круги, искры или осколки.",
+             font(13), (135, 155, 175), (cx, 570), outline=1)
+        self.draw_button(sc, pygame.Rect(cx - 150, 650, 300, 42), "НАЗАД", RED)
 
     def draw_lobby(self, sc):
         cx = W / 2
@@ -1087,7 +1118,7 @@ class RenderingMixin:
         # Hit feedback is rendered locally from the local player's snapshot.
 
         # Low-cost bloom works directly on the scene buffer; no full-screen copy.
-        bloom(sc, W, H, 0.055, self.bloom_small, self.bloom_full)
+        bloom(sc, W, H, GRAPHICS_BLOOM[self.graphics_quality], self.bloom_small, self.bloom_full)
 
         local_player = None
         if snap is not None and self.state == "play":
@@ -1104,7 +1135,8 @@ class RenderingMixin:
         ox = oy = 0
         self.screen.fill((0, 0, 0))
         self.screen.blit(sc, (ox, oy))
-        self.screen.blit(self.overlay, (0, 0))
+        if self.dirty_filter_enabled:
+            self.screen.blit(self.overlay, (0, 0))
         if vignette_strength > 0.01 and self.state == "play":
             self.red_vignette.set_alpha(int(175 * vignette_strength))
             self.screen.blit(self.red_vignette, (0, 0))

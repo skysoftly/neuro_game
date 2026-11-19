@@ -91,6 +91,7 @@ class NetworkingMixin:
         self.players = {}
         self.bullets, self.ebullets, self.enemies = [], [], []
         self.parts, self.rings, self.pickups, self.pops = [], [], [], []
+        self.damage_contributions = {}
         self.queue = []
         self.local_choices = []
         self.local_upgrade_waiting = False
