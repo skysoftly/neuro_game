@@ -8,7 +8,7 @@ on:
       release_tag:
         description: "Release tag (for example v0.1.0)"
         required: true
-        default: "v0.1.0"
+        default: "v0.2.0"
         type: string
 
 permissions:
@@ -48,11 +48,11 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Publish GitHub Release
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'release: publish v0.2.0'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.release_tag }}
-          name: "NEON VOID ${{ inputs.release_tag }}"
+          tag_name: ${{ inputs.release_tag || 'v0.2.0' }}
+          name: "NEON VOID ${{ inputs.release_tag || 'v0.2.0' }}"
           generate_release_notes: true
           make_latest: true
           files: dist/NEON VOID.exe
