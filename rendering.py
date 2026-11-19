@@ -686,6 +686,8 @@ class RenderingMixin:
         text(sc, "NEON VOID", self.f_huge, dim(CYAN, pulse), (cx, cy), outline=3)
         text(sc, "ВОЛНЫ. ХАОС. ВЫЖИВИ.", self.f_mid, MAGENTA,
              (cx, cy + 78), outline=2)
+        text(sc, "BUILD 7.42  //  ABSOLUTELY UNSTABLE", self.f_small, YELLOW,
+             (cx, cy + 112), outline=1)
 
         y = cy + 160
         self.draw_button(sc, pygame.Rect(cx - 210, y - 20, 420, 52), "СОЗДАТЬ ЛОББИ", CYAN)

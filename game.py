@@ -11,7 +11,7 @@ import pygame
 from pygame import Vector2 as V
 
 from config import (
-    W, H, WORLD_W, WORLD_H, PORT, CONFIG_FILE, STATS_FILE,
+    W, H, WORLD_W, WORLD_H, PORT, CONFIG_FILE, STATS_FILE, VERSION,
     BG, CYAN, MAGENTA, YELLOW, RED, ORANGE, GREEN, PURPLE, PINK, WHITE,
     SHIP, DIAMOND, TRI, HEX, SQ,
     KINDS, PICK_COL, PICK_LET, PLAYER_COLORS, PLAYER_SKINS,
@@ -77,7 +77,7 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
     def __init__(self):
         pygame.mixer.pre_init(44100, -16, 1, 512)
         pygame.init()
-        pygame.display.set_caption("NEON VOID")
+        pygame.display.set_caption(f"NEON VOID // {VERSION}")
         self.screen = pygame.display.set_mode((W, H), pygame.SCALED | pygame.RESIZABLE)
         icon = pygame.Surface((64, 64), pygame.SRCALPHA)
         icon.fill((7, 13, 23))

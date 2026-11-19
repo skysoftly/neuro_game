@@ -121,6 +121,38 @@ class UpgradeTests(unittest.TestCase):
         self.assertEqual(self.player.pierce, 2)
         self.assertEqual(self.player.upgrades["pierce"], 2)
 
+    def test_742_chaos_upgrades_have_real_effects(self):
+        from upgrades import UPGRADES_BY_ID
+        chaos_ids = {"banana_thrusters", "espresso_core", "tax_evasion", "dumpling_hull", "wifi_crit"}
+        self.assertTrue(chaos_ids.issubset(UPGRADES_BY_ID))
+        base_speed = self.player.move_spd
+        base_fire_rate = self.player.fire_rate
+        base_hp = self.player.max_hp
+        apply_upgrade(self.player, "banana_thrusters")
+        apply_upgrade(self.player, "espresso_core")
+        apply_upgrade(self.player, "tax_evasion")
+        apply_upgrade(self.player, "dumpling_hull")
+        apply_upgrade(self.player, "wifi_crit")
+        self.assertGreater(self.player.move_spd, base_speed)
+        self.assertLess(self.player.fire_rate, base_fire_rate)
+        self.assertEqual(self.player.armor, 1)
+        self.assertEqual(self.player.max_hp, base_hp + 1)
+        self.assertEqual(self.player.hp, self.player.max_hp)
+        self.assertAlmostEqual(self.player.crit, 0.08)
+
+    def test_742_chaos_upgrades_obey_stack_caps(self):
+        for upgrade_id in ("banana_thrusters", "espresso_core", "tax_evasion", "dumpling_hull", "wifi_crit"):
+            for _ in range(5):
+                apply_upgrade(self.player, upgrade_id)
+        self.assertEqual(self.player.upgrades["banana_thrusters"], 2)
+        self.assertEqual(self.player.upgrades["espresso_core"], 2)
+        self.assertEqual(self.player.upgrades["tax_evasion"], 2)
+        self.assertEqual(self.player.upgrades["dumpling_hull"], 2)
+        self.assertEqual(self.player.upgrades["wifi_crit"], 2)
+        self.assertEqual(self.player.max_hp, 7)
+        self.assertEqual(self.player.armor, 2)
+        self.assertAlmostEqual(self.player.crit, 0.16)
+
     def test_piercing_bullet_loses_damage_after_each_hit(self):
         bullet = Bullet((0, 0), (1, 0), 1, 100, 2)
         self.assertTrue(bullet.register_hit())

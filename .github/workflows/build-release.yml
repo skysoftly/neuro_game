@@ -2,17 +2,22 @@ name: Build Windows x64 and publish release
 
 on:
   push:
-    branches: [master]
+    branches: [release/7.42]
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release tag (for example v0.2.0)"
+        description: "Release tag for the isolated 7.42 build"
         required: true
-        default: "v0.2.0"
+        default: "v7.42"
         type: string
 
 permissions:
   contents: write
+
+# Do not run several release builds for every rapid commit in this branch.
+concurrency:
+  group: neon-void-742-release
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -47,12 +52,45 @@ jobs:
           path: dist/NEON VOID.exe
           if-no-files-found: error
           retention-days: 14
+      - name: Point v7.42 tag at this branch build
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $headers = @{
+            Authorization = "Bearer $env:GITHUB_TOKEN"
+            Accept = "application/vnd.github+json"
+            "X-GitHub-Api-Version" = "2022-11-28"
+          }
+          $body = @{
+            sha = "$env:GITHUB_SHA"
+            force = $true
+          } | ConvertTo-Json
+          Invoke-RestMethod -Method Patch -Uri "https://api.github.com/repos/$env:GITHUB_REPOSITORY/git/refs/tags/v7.42" -Headers $headers -Body $body -ContentType "application/json"
+
       - name: Publish GitHub Release
-        if: github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'release: publish v0.2.0'
+        if: github.ref == 'refs/heads/release/7.42'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.release_tag || 'v0.2.0' }}
-          name: "NEON VOID ${{ inputs.release_tag || 'v0.2.0' }}"
-          generate_release_notes: true
-          make_latest: true
+          tag_name: v7.42
+          target_commitish: release/7.42
+          name: "NEON VOID 7.42 — CHAOS BUILD"
+          generate_release_notes: false
+          body: |
+            ## NEON VOID 7.42 — CHAOS BUILD
+
+            Отдельная экспериментальная сборка из ветки `release/7.42`. Не объединена с `master` и не заменяет основную версию.
+
+            ### Что нового
+            - Пять новых шуточных улучшений с настоящими эффектами.
+            - Банановый турбо-режим: скорость движения +8% за уровень.
+            - Эспрессо из бездны: скорострельность выше.
+            - Налоговая броня: дополнительная броня.
+            - Пельменный корпус: +1 максимум HP и лечение.
+            - Критический Wi-Fi: +8% шанса критического урона.
+            - Версия 7.42 отображается в окне и главном меню.
+            - Автотесты на эффекты и ограничения новых улучшений.
+
+            **Важно:** это отдельная ветка и отдельный релиз. Основная `master` не затронута.
+          make_latest: false
           files: dist/NEON VOID.exe
