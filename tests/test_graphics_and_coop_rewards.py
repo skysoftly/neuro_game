@@ -77,9 +77,8 @@ class DamageRewardTests(unittest.TestCase):
 
     def test_score_is_shared_by_damage_percentage(self):
         self.game.damage(self.enemy, 20, self.game.players[1])
-        self.game.damage(self.enemy, 80, self.game.players[2])
         self.assertEqual(self.game.players[1].score, 0)
-        self.game.kill(self.enemy, self.game.players[2])
+        self.game.damage(self.enemy, 80, self.game.players[2])
         self.assertEqual(self.game.players[1].score, 2)
         self.assertEqual(self.game.players[2].score, 8)
 
