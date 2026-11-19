@@ -54,6 +54,7 @@ class DisplayModeTests(unittest.TestCase):
 
             self.assertTrue(Game.set_display_mode(game, False))
             self.assertEqual(game.display_surface.get_size(), (1280, 720))
+            self.assertEqual(game.restored_position, (120, 80))
             self.assertIsNone(game._windowed_geometry)
 
     def test_repeated_toggles_restore_original_size(self):
