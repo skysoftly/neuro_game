@@ -30,8 +30,9 @@ def _ws_url(room, role):
 
 class _NativeSocket:
     def __init__(self, url, on_message, on_open=None, on_close=None):
-        import websocket
-        self._websocket = websocket.create_connection(url, timeout=10, enable_multithread=True)
+        import importlib
+        websocket = importlib.import_module("websocket")
+        self._websocket = websocket.create_connection(url, timeout=45, enable_multithread=True)
         self._websocket.settimeout(1)
         self._on_message = on_message
         self._on_close = on_close
@@ -225,6 +226,8 @@ class RelayClientConn:
             return
         if packet.get("t") == "welcome":
             self.client_id = int(packet.get("id", 0))
+            with self.lock:
+                self.inbox.append(packet)
             pending, self._pending = self._pending, []
             for message in pending:
                 self.socket.send(message)
