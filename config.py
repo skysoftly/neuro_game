@@ -69,8 +69,12 @@ def boss_kind_for_wave(wave, rng=None, previous=None):
     bosses = ("boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege")
     choices = [kind for kind in bosses if kind != previous] or list(bosses)
     return chooser.choice(choices)
-# Файл сохранения имени и последнего IP
-CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+# Пользовательские данные находятся вне каталога проекта и сборки.
+# Windows: %APPDATA%/NEON VOID; Linux: ~/.local/share/NEON VOID.
+_APP_DATA_ROOT = os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), ".local", "share")
+APP_DATA_DIR = os.path.join(_APP_DATA_ROOT, "NEON VOID")
+CONFIG_FILE = os.path.join(APP_DATA_DIR, "config.json")
+STATS_FILE = os.path.join(APP_DATA_DIR, "stats.json")
 
 # ---------- цвета ----------
 BG = (6, 9, 18)
