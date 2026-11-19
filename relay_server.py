@@ -129,10 +129,17 @@ async def handler(ws):
                     pass
 
 
+async def process_request(connection, request):
+    if request.path == "/health":
+        return connection.respond(200, "NEON VOID relay OK")
+    return None
+
+
 async def main():
     port = int(os.environ.get("PORT", "10000"))
     async with serve(handler, "0.0.0.0", port, max_size=MAX_MESSAGE,
-                     ping_interval=20, ping_timeout=20):
+                     ping_interval=20, ping_timeout=20,
+                     process_request=process_request):
         print(f"NEON VOID relay listening on {port}", flush=True)
         await asyncio.Future()
 
