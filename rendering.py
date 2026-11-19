@@ -14,6 +14,7 @@ from pygame import Vector2 as V
 from config import (
     DIFFICULTY_LABELS,
     W, H, WORLD_W, WORLD_H, PORT, CONFIG_FILE, MAX_PLAYERS,
+    LOBBY_HOST_ACTION_RECT, LOBBY_CLIENT_STATUS_RECT, LOBBY_CLIENT_ACTION_RECT,
     BG, CYAN, MAGENTA, YELLOW, RED, ORANGE, GREEN, PURPLE, PINK, WHITE,
     SHIP, DIAMOND, TRI, HEX, SQ,
     KINDS, PICK_COL, PICK_LET, PLAYER_COLORS, PLAYER_SKINS,
@@ -813,18 +814,26 @@ class RenderingMixin:
             self.draw_hat(sc, cell.centerx, cell.centery + 3, idx, PLAYER_COLORS[current_color], 0.52)
             text(sc, str(idx + 1), font(10), WHITE, (cell.right - 5, cell.centery), "midright", outline=1)
 
-        action_rect = pygame.Rect(cx - 190, H - 136, 380, 52)
         if self.is_host:
+            action_rect = pygame.Rect(*LOBBY_HOST_ACTION_RECT)
             all_ready = self.lobby_all_ready()
             label = "НАЧАТЬ ИГРУ" if all_ready else "ЖДЁМ ГОТОВНОСТИ ИГРОКОВ"
             self.draw_button(sc, action_rect, label, CYAN, enabled=all_ready)
         else:
+            # Статус ожидания вынесен в отдельную нижнюю панель, подальше
+            # от сложности и подсказок лобби.
+            status_rect = pygame.Rect(*LOBBY_CLIENT_STATUS_RECT)
+            pygame.draw.rect(sc, (8, 12, 24), status_rect)
+            pygame.draw.rect(sc, (82, 65, 125), status_rect, 1)
+            self.draw_fit_text(
+                sc, "ОЖИДАНИЕ ЗАПУСКА ХОСТОМ", PURPLE,
+                status_rect.inflate(-18, -8), 18, 13
+            )
+            action_rect = pygame.Rect(*LOBBY_CLIENT_ACTION_RECT)
             is_ready = self.my_id in self.lobby_ready
             self.draw_button(sc, action_rect,
                              "НЕ ГОТОВ" if is_ready else "ГОТОВ",
                              GREEN if is_ready else CYAN)
-            text(sc, "ОЖИДАНИЕ ЗАПУСКА ХОСТОМ", self.f_small, PURPLE,
-                 (cx, 210), outline=2)
         if self.connect_error:
             text(sc, self.connect_error, self.f_small, RED, (cx, H - 82), outline=2)
         self.draw_button(sc, pygame.Rect(cx - 150, H - 66, 300, 42), "НАЗАД В МЕНЮ", RED)
