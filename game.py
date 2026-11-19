@@ -1,4 +1,5 @@
 """Основной класс игры: логика, рендер, сеть, состояния."""
+import asyncio
 import json
 import logging
 import math
@@ -345,13 +346,13 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
     # ================= сеть =================
     def quit(self):
         self.leave_net()
-        pygame.quit()
-        sys.exit()
+        self.running = False
 
     # ================= симуляция (хост) =================
-    def run(self):
+    async def run(self):
+        self.running = True
         log.info("Игра запущена | разрешение=%dx%d | порт=%d", W, H, PORT)
-        while True:
+        while self.running:
             real_dt = min(self.clock.tick(self.target_fps) / 1000.0, 1 / 20)
             self.t += real_dt
             self.camera_lerp_elapsed += real_dt
@@ -403,3 +404,8 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
 
             self.render()
             pygame.display.flip()
+            await asyncio.sleep(0)
+
+        # Pygbag owns the browser event loop and must not shut down SDL itself.
+        if sys.platform != "emscripten":
+            pygame.quit()
