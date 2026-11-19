@@ -42,6 +42,8 @@
 
 **Windows:** откройте [страницу Releases](https://github.com/skysoftly/neuro_game/releases) и скачайте `NEON VOID.exe` из последнего релиза.
 
+**Браузер:** [Запустить Web-версию](https://skysoftly.github.io/neuro_game/play/). Пока доступен одиночный режим; сетевой режим для браузера будет добавлен отдельно.
+
 - Установка не требуется — это самостоятельный EXE.
 - При первом запуске Windows может показать предупреждение SmartScreen для неизвестного издателя. Это обычное предупреждение для неподписанных сборок.
 - Для сетевой игры разрешите приложению доступ в частной сети Windows Firewall.
@@ -105,8 +107,9 @@ py -3.12 -m PyInstaller --noconfirm --clean --onefile --windowed --name "NEON VO
 ## 🛠️ Технологии
 
 - **Python 3.12**
-- **Pygame 2.6.1**
+- **Pygame / pygame-ce** — десктоп и WebAssembly
 - **TCP sockets** для сетевого взаимодействия
+- **Pygbag** для браузерной сборки WebAssembly
 - **PyInstaller** для сборки Windows EXE
 - **GitHub Actions** для автоматических проверок и сборки релизов
 
@@ -114,7 +117,7 @@ py -3.12 -m PyInstaller --noconfirm --clean --onefile --windowed --name "NEON VO
 
 | Файл | Назначение |
 |---|---|
-| `main.py` | Точка входа |
+| `main.py` | Асинхронная точка входа для desktop и WebAssembly |
 | `game.py` | Игровой цикл, состояние и настройки |
 | `audio.py` | Музыка и звуковые эффекты |
 | `rendering.py` | Игровой мир, HUD, меню и оверлеи |
