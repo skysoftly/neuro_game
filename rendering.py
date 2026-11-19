@@ -597,11 +597,7 @@ class RenderingMixin:
 
         # прицел
         if self.state == "play" and not self.paused:
-            mx, my = pygame.mouse.get_pos()
-            sw, sh = self.screen.get_size()
-            if sw and sh:
-                mx = mx * W / sw
-                my = my * H / sh
+            mx, my = self.logical_mouse()
             pygame.draw.circle(sc, WHITE, (int(mx), int(my)), 12, 1)
             for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                 pygame.draw.line(sc, WHITE, (mx + dx * 16, my + dy * 16),
