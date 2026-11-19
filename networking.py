@@ -94,6 +94,7 @@ class NetworkingMixin:
             self.client.stop()
             self.client = None
         self.is_host = False
+        self.online_room_code = ""
         self.my_id = 0
         self.lobby_players = []
         self.lobby_ready = set()
