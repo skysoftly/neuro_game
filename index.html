@@ -3,117 +3,132 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#090a12">
-  <meta name="description" content="NEON VOID — кооперативный top-down arena shooter. Собирайте команду, переживайте волны и побеждайте боссов.">
-  <title>NEON VOID — кооперативный арена-шутер</title>
+  <meta name="theme-color" content="#080910">
+  <meta name="description" content="NEON VOID — кооперативный арена-шутер. Собери команду, переживи волны и выберись из неонового хаоса. Только Windows.">
+  <title>NEON VOID — Survive the signal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800;900&family=Russo+One&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Russo+One&display=swap');
-    :root{color-scheme:dark;--bg:#090a12;--panel:#111321;--line:#292c43;--muted:#9b9db4;--text:#f4f2ff;--violet:#a78bfa;--pink:#f472b6;--cyan:#67e8f9}
-    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:Manrope,system-ui,sans-serif;overflow-x:hidden}
-    body:before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;background:linear-gradient(rgba(167,139,250,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(167,139,250,.035) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom,black,transparent 78%)}
-    a{color:inherit;text-decoration:none}.wrap{width:min(1120px,calc(100% - 48px));margin:auto}
-    header{height:76px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.07)}
-    .brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:.04em}.brand-mark{width:32px;height:32px;background:linear-gradient(135deg,var(--violet),var(--pink));clip-path:polygon(0 0,100% 0,100% 72%,72% 72%,72% 100%,0 100%);box-shadow:0 0 28px #a78bfa55}
-    nav{display:flex;gap:28px;color:var(--muted);font-size:13px;font-weight:700}nav a:hover{color:white}
-    .hero{min-height:670px;display:grid;grid-template-columns:1.05fr .95fr;align-items:center;gap:42px;padding:72px 0 90px}
-    .eyebrow{display:inline-flex;align-items:center;gap:9px;color:var(--cyan);font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}.dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 14px var(--cyan)}
-    h1{font-family:"Russo One",Impact,sans-serif;font-size:clamp(46px,6.5vw,82px);line-height:.99;letter-spacing:-.035em;margin:24px 0 22px;text-transform:uppercase}h1 span{display:block;color:var(--violet);text-shadow:0 0 36px #a78bfa55}
-    .lead{max-width:520px;color:#b7b8ca;font-size:16px;line-height:1.8}
-    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:32px}.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:15px 21px;font-size:13px;font-weight:800;border:1px solid var(--line);transition:.2s;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)}
-    .btn-primary{background:linear-gradient(110deg,#8b5cf6,#c084fc);color:#090812;border:0;box-shadow:0 10px 34px #8b5cf633}.btn:hover{transform:translateY(-3px);filter:brightness(1.12)}.btn-secondary:hover{border-color:var(--violet)}
-    .fine{font-size:11px;color:#777991;margin-top:16px}
-    .visual{position:relative;min-height:430px;display:grid;place-items:center}.glow{position:absolute;width:76%;aspect-ratio:1;border-radius:50%;background:#8b5cf622;filter:blur(65px)}
-    .screen{position:relative;width:min(100%,490px);aspect-ratio:1.16;border:1px solid #55506f;background:linear-gradient(145deg,#19172b,#090b14 70%);padding:13px;box-shadow:0 28px 90px #0009,0 0 55px #8b5cf622;transform:perspective(1000px) rotateY(-7deg) rotateX(3deg)}
-    .screen-inner{height:100%;position:relative;overflow:hidden;background-color:#111322;background-image:linear-gradient(#7770 1px,transparent 1px),linear-gradient(90deg,#7770 1px,transparent 1px);background-size:24px 24px;border:1px solid #34334d}
-    .screen-inner:before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at center,#8b5cf622,transparent 65%),linear-gradient(0deg,transparent 48%,#fff05 50%,transparent 52%);background-size:auto,100% 7px;opacity:.8}
-    .arena{position:absolute;inset:12%;border:1px solid #6b5a9a66;clip-path:polygon(12% 0,88% 0,100% 15%,100% 85%,88% 100%,12% 100%,0 85%,0 15%);background:radial-gradient(circle at 50% 50%,#33264b66,transparent 62%)}
-    .player{position:absolute;left:49%;top:49%;width:25px;height:25px;background:var(--cyan);box-shadow:0 0 22px var(--cyan);clip-path:polygon(50% 0,100% 100%,50% 76%,0 100%)}
-    .enemy{position:absolute;width:17px;height:17px;background:var(--pink);box-shadow:0 0 17px #f472b6;transform:rotate(45deg)}.e1{left:20%;top:25%}.e2{right:18%;top:33%;background:#fb923c;box-shadow:0 0 17px #fb923c}.e3{left:27%;bottom:20%}.e4{right:24%;bottom:18%;width:25px;height:25px;background:#c084fc}
-    .beam{position:absolute;left:51%;top:49%;width:38%;height:2px;transform:rotate(-26deg);transform-origin:left;background:linear-gradient(90deg,var(--cyan),transparent);filter:drop-shadow(0 0 5px var(--cyan))}
-    .hud{position:absolute;left:14px;right:14px;top:12px;display:flex;justify-content:space-between;color:#c9c4e8;font:10px monospace;letter-spacing:.12em}.health{position:absolute;bottom:15px;left:14px;display:flex;gap:4px}.health i{display:block;width:20px;height:6px;background:var(--pink);box-shadow:0 0 8px #f472b6}
-    .wave{position:absolute;bottom:13px;right:14px;color:var(--cyan);font:11px monospace;letter-spacing:.12em}.float-tag{position:absolute;padding:9px 13px;background:#171629;border:1px solid #51466f;color:#d8caff;font:10px monospace;letter-spacing:.1em;box-shadow:0 10px 30px #0008}.tag-a{top:9%;right:-2%}.tag-b{bottom:10%;left:-4%;color:var(--cyan)}
-    .stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:25px 0}.stat{text-align:center;border-right:1px solid var(--line)}.stat:last-child{border:0}.stat strong{display:block;font:25px "Russo One",sans-serif;color:var(--violet)}.stat small{color:var(--muted);font-size:10px;letter-spacing:.12em;text-transform:uppercase}
-    section{padding:100px 0}.section-kicker{color:var(--pink);font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}h2{font:clamp(30px,4vw,46px) "Russo One",sans-serif;margin:13px 0 14px;text-transform:uppercase}.section-lead{max-width:620px;color:var(--muted);line-height:1.8;font-size:14px}
-    .features{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:42px}.feature{background:linear-gradient(145deg,#151728,#0d0f19);border:1px solid var(--line);padding:25px;min-height:190px;position:relative;overflow:hidden}.feature:after{content:"";position:absolute;width:110px;height:110px;right:-48px;bottom:-52px;border:1px solid #a78bfa44;transform:rotate(45deg)}.feature .num{font:12px monospace;color:var(--violet)}.feature h3{font-size:16px;margin:19px 0 9px}.feature p{color:var(--muted);font-size:12px;line-height:1.75;margin:0}
-    .how{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}.steps{display:grid;gap:18px;margin-top:30px}.step{display:grid;grid-template-columns:38px 1fr;gap:14px}.step b{width:34px;height:34px;display:grid;place-items:center;border:1px solid #6f5ca5;color:var(--violet);font:13px monospace}.step strong{font-size:13px}.step p{font-size:12px;color:var(--muted);line-height:1.65;margin:5px 0 0}
-    .controls{border:1px solid var(--line);background:#10121e;padding:25px}.controls h3{margin:0 0 17px;font-size:14px}.keyrow{display:flex;justify-content:space-between;gap:20px;padding:11px 0;border-bottom:1px solid #ffffff0d;color:var(--muted);font-size:12px}.keyrow:last-child{border:0}.keys{color:#e5ddff;font:11px monospace;text-align:right}
-    .cta{padding:64px 34px;text-align:center;border:1px solid #514174;background:radial-gradient(ellipse at 50% 0,#8b5cf633,transparent 65%),#111321;position:relative;overflow:hidden}.cta h2{margin-top:0}.cta p{color:var(--muted);font-size:13px;line-height:1.8;max-width:540px;margin:0 auto 25px}
-    footer{padding:28px 0;border-top:1px solid var(--line);color:#777991;font-size:11px}.foot{display:flex;justify-content:space-between;gap:20px;align-items:center}.foot a{color:#b9a5f7}
-    @media(max-width:800px){.hero{grid-template-columns:1fr;padding:66px 0 58px;gap:20px}.visual{min-height:350px}.screen{width:min(92%,490px)}.features{grid-template-columns:repeat(2,1fr)}.how{grid-template-columns:1fr;gap:34px}.stats{grid-template-columns:repeat(2,1fr);row-gap:22px}.stat:nth-child(2){border:0}.stat:nth-child(3),.stat:nth-child(4){padding-top:17px;border-top:1px solid var(--line)}section{padding:72px 0}}
-    @media(max-width:520px){.wrap{width:calc(100% - 34px)}header{height:64px}.brand{font-size:12px}nav{gap:14px;font-size:10px}nav a:nth-child(2){display:none}.hero{padding-top:52px;min-height:auto}h1{font-size:clamp(43px,13vw,62px)}.lead{font-size:14px}.actions{display:grid;grid-template-columns:1fr}.btn{width:100%}.visual{min-height:285px;margin:4px -7px}.screen{width:100%;padding:8px}.float-tag{font-size:8px}.tag-a{right:0}.tag-b{left:0}.stats{padding:20px 0}.stat strong{font-size:22px}.stat small{font-size:9px}.features{grid-template-columns:1fr;gap:10px}.feature{min-height:155px;padding:21px}.how{gap:26px}.controls{padding:20px}.cta{padding:45px 20px}.foot{align-items:flex-start;flex-direction:column;gap:9px}section{padding:62px 0}}
-    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important}}
+    :root{color-scheme:dark;--bg:#080910;--panel:#10121d;--panel2:#151827;--line:#292d40;--muted:#9297aa;--text:#f2f1f7;--violet:#a78bfa;--pink:#ff6bcb;--cyan:#73e5e8;--lime:#c8ff65;--mono:"DM Mono",monospace;--display:"Russo One",Impact,sans-serif}
+    *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:90px}body{margin:0;background:var(--bg);color:var(--text);font-family:Manrope,system-ui,sans-serif;overflow-x:hidden}
+    body:before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;background:linear-gradient(90deg,transparent 49.9%,#fff06 50%,transparent 50.1%),linear-gradient(#fff05 1px,transparent 1px);background-size:100% 100%,100% 64px;opacity:.18}
+    body:after{content:"";position:fixed;inset:0;z-index:5;pointer-events:none;opacity:.12;background:repeating-linear-gradient(0deg,transparent 0 3px,#000 4px 5px);mix-blend-mode:multiply}
+    a{color:inherit;text-decoration:none}button{font:inherit}.wrap{width:min(1180px,calc(100% - 48px));margin:auto}.mono{font-family:var(--mono)}
+    .topline{height:3px;background:linear-gradient(90deg,var(--violet),var(--pink),var(--cyan));}
+    header{height:78px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #ffffff12;position:relative;z-index:10;background:#080910c9;backdrop-filter:blur(16px)}
+    .brand{display:flex;align-items:center;gap:12px;font-weight:900;letter-spacing:.13em;font-size:13px}.brand-mark{width:30px;height:30px;position:relative;background:var(--violet);clip-path:polygon(0 0,100% 0,100% 72%,72% 72%,72% 100%,0 100%);box-shadow:0 0 24px #a78bfa80}.brand-mark:after{content:"";position:absolute;inset:7px;background:var(--bg);clip-path:polygon(0 0,100% 0,100% 100%,0 100%)}
+    nav{display:flex;align-items:center;gap:30px;color:#a4a7b8;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}nav a{transition:color .2s}nav a:hover{color:white}.nav-cta{padding:11px 15px;border:1px solid #a78bfa77;color:#d9ccff}
+    .hero{min-height:690px;display:grid;grid-template-columns:.93fr 1.07fr;align-items:center;gap:42px;padding:70px 0 86px;position:relative}
+    .hero:before{content:"";position:absolute;width:520px;height:520px;left:-240px;top:60px;border-radius:50%;background:#7c3aed20;filter:blur(100px);pointer-events:none}
+    .eyebrow{display:flex;align-items:center;gap:11px;font:11px var(--mono);letter-spacing:.2em;color:var(--cyan);text-transform:uppercase}.signal{width:7px;height:7px;border-radius:50%;background:var(--lime);box-shadow:0 0 15px var(--lime);animation:pulse 1.8s infinite}
+    @keyframes pulse{50%{opacity:.3;box-shadow:0 0 3px var(--lime)}}
+    h1{font:clamp(54px,7vw,92px)/.92 var(--display);letter-spacing:-.045em;margin:25px 0 25px;text-transform:uppercase}h1 span{display:block;color:var(--violet);text-shadow:0 0 42px #a78bfa55}.hero-copy{max-width:490px;color:#aeb1c1;font-size:15px;line-height:1.9}.hero-copy strong{color:#f4f0ff;font-weight:700}
+    .hero-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:31px}.btn{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:52px;padding:0 21px;font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;transition:transform .2s,filter .2s,border-color .2s;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)}.btn:hover{transform:translateY(-3px);filter:brightness(1.12)}.btn-primary{background:var(--lime);color:#11150a;box-shadow:0 8px 34px #c8ff6526}.btn-ghost{border:1px solid #ffffff2b;color:#e7e3f4;background:#ffffff06}.btn-ghost:hover{border-color:var(--violet)}.btn-arrow{font-size:17px}
+    .platform{display:flex;align-items:center;gap:9px;margin-top:19px;color:#73788d;font:10px var(--mono);letter-spacing:.08em}.platform svg{width:15px;height:15px;fill:#8f94a7}
+    .art-wrap{position:relative;min-width:0}.art-frame{position:relative;padding:12px;border:1px solid #a78bfa50;background:linear-gradient(145deg,#24223a,#0e101a 55%);box-shadow:0 35px 100px #000a,0 0 80px #a78bfa17;transform:perspective(1100px) rotateY(-5deg) rotateX(2deg)}.art-frame:before,.art-frame:after{content:"";position:absolute;width:48px;height:48px;pointer-events:none}.art-frame:before{top:-5px;left:-5px;border-top:2px solid var(--cyan);border-left:2px solid var(--cyan)}.art-frame:after{right:-5px;bottom:-5px;border-right:2px solid var(--pink);border-bottom:2px solid var(--pink)}
+    .art-image{display:block;width:100%;aspect-ratio:1.24;object-fit:cover;background:#101321}.art-meta{position:absolute;left:25px;right:25px;bottom:24px;display:flex;justify-content:space-between;align-items:end;text-shadow:0 2px 12px #000}.art-meta span{font:10px var(--mono);letter-spacing:.13em;color:#d4d5e3}.art-meta strong{display:block;font:20px var(--display);margin-top:6px}
+    .float-label{position:absolute;padding:11px 14px;background:#111321ed;border:1px solid #ffffff22;box-shadow:0 12px 40px #0008;font:10px var(--mono);letter-spacing:.1em}.float-label b{color:var(--lime);font-weight:400}.float-a{top:12%;right:-28px}.float-b{bottom:11%;left:-32px;color:var(--cyan)}
+    .scroll-note{position:absolute;bottom:24px;left:0;display:flex;gap:13px;align-items:center;color:#74798d;font:9px var(--mono);letter-spacing:.16em;text-transform:uppercase}.scroll-line{width:44px;height:1px;background:var(--violet)}
+    .ticker{border-block:1px solid #ffffff16;background:#0e1019;overflow:hidden}.ticker-inner{display:flex;justify-content:space-around;gap:35px;white-space:nowrap;padding:18px 0;color:#85899d;font:10px var(--mono);letter-spacing:.17em}.ticker em{font-style:normal;color:var(--violet)}
+    section{padding:112px 0}.section-head{display:flex;justify-content:space-between;align-items:end;gap:30px}.kicker{color:var(--pink);font:10px var(--mono);letter-spacing:.2em;text-transform:uppercase}.section-title{font:clamp(32px,4vw,52px)/1.05 var(--display);text-transform:uppercase;margin:14px 0 0}.section-title span{color:var(--violet)}.section-intro{max-width:380px;color:var(--muted);font-size:13px;line-height:1.85;margin:0}
+    .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:48px}.feature{min-height:220px;background:var(--panel);padding:27px;position:relative;overflow:hidden;transition:background .25s}.feature:hover{background:#171a29}.feature:after{content:"";position:absolute;width:110px;height:110px;right:-55px;bottom:-55px;border:1px solid #a78bfa40;transform:rotate(45deg)}.feature-top{display:flex;justify-content:space-between;align-items:center}.feature-no{font:11px var(--mono);color:var(--violet)}.feature-icon{width:34px;height:34px;display:grid;place-items:center;border:1px solid #ffffff20;color:var(--cyan);font:17px var(--mono)}.feature h3{font-size:16px;margin:27px 0 9px;letter-spacing:-.02em}.feature p{max-width:290px;color:#969bad;font-size:12px;line-height:1.8;margin:0}
+    .gameplay{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center}.gameplay-visual{min-height:420px;position:relative;border:1px solid #ffffff1a;background:radial-gradient(ellipse at 50% 50%,#7c3aed26,transparent 58%),linear-gradient(145deg,#141625,#0b0c14);display:grid;place-items:center;overflow:hidden}.gameplay-visual:before{content:"";position:absolute;inset:0;background:linear-gradient(#ffffff08 1px,transparent 1px),linear-gradient(90deg,#ffffff08 1px,transparent 1px);background-size:32px 32px;mask-image:radial-gradient(ellipse,#000,transparent 80%)}.ring{width:245px;height:245px;border:1px solid #a78bfa70;border-radius:50%;position:relative;box-shadow:0 0 70px #8b5cf733,inset 0 0 50px #8b5cf71a}.ring:before,.ring:after{content:"";position:absolute;border:1px dashed #73e5e866;border-radius:50%;inset:25px;animation:spin 24s linear infinite}.ring:after{inset:57px;border-color:#ff6bcb80;animation-direction:reverse;animation-duration:17s}.core{position:absolute;left:50%;top:50%;width:44px;height:44px;transform:translate(-50%,-50%) rotate(45deg);background:var(--cyan);box-shadow:0 0 40px var(--cyan)}.orbit{position:absolute;width:13px;height:13px;background:var(--pink);box-shadow:0 0 20px var(--pink);border-radius:2px;top:14%;left:25%}.orbit.two{top:auto;left:auto;right:13%;bottom:25%;background:var(--lime);box-shadow:0 0 20px var(--lime)}@keyframes spin{to{transform:rotate(360deg)}}
+    .visual-caption{position:absolute;left:20px;right:20px;bottom:18px;display:flex;justify-content:space-between;color:#858ba0;font:9px var(--mono);letter-spacing:.1em}.steps{margin-top:32px;display:grid;gap:0}.step{display:grid;grid-template-columns:42px 1fr;gap:17px;padding:20px 0;border-bottom:1px solid #ffffff14}.step:last-child{border:0}.step-no{font:12px var(--mono);color:var(--violet);padding-top:2px}.step strong{font-size:14px}.step p{font-size:12px;line-height:1.7;color:var(--muted);margin:6px 0 0}
+    .controls-section{background:linear-gradient(180deg,transparent,#111321 18%,#111321 82%,transparent);}.controls-layout{display:grid;grid-template-columns:.8fr 1.2fr;gap:75px;align-items:center}.controls-copy p{max-width:360px;color:var(--muted);font-size:13px;line-height:1.9}.control-panel{border:1px solid #ffffff20;background:#0b0d16;padding:27px;box-shadow:0 25px 80px #0006}.panel-top{display:flex;justify-content:space-between;padding-bottom:19px;border-bottom:1px solid #ffffff17;font:10px var(--mono);letter-spacing:.14em;color:#a6abc0}.panel-top span:last-child{color:var(--lime)}.key-row{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:14px 0;border-bottom:1px solid #ffffff0c;color:#9fa4b6;font-size:12px}.key-row:last-child{border:0;padding-bottom:0}.keys{display:flex;gap:5px;flex-wrap:wrap;justify-content:end}.key{min-width:28px;padding:6px 8px;text-align:center;background:#1a1d2b;border:1px solid #363b52;color:#e9e5f5;font:10px var(--mono)}
+    .download{padding:35px 0 115px}.download-card{position:relative;overflow:hidden;padding:65px 70px;border:1px solid #a78bfa70;background:radial-gradient(ellipse at 90% 10%,#a78bfa2d,transparent 43%),linear-gradient(110deg,#171729,#10121d 60%,#171326);display:flex;justify-content:space-between;align-items:center;gap:40px}.download-card:before{content:"VOID";position:absolute;right:5%;bottom:-50px;font:clamp(110px,20vw,230px)/1 var(--display);color:#ffffff05;pointer-events:none}.download-content{position:relative;z-index:1}.download-content p{max-width:510px;color:#a6a9ba;font-size:13px;line-height:1.8;margin:16px 0 26px}.download-side{position:relative;z-index:1;text-align:right;min-width:170px}.download-side strong{display:block;font:27px var(--display);color:var(--lime)}.download-side span{display:block;margin-top:7px;color:#85899d;font:9px var(--mono);letter-spacing:.12em}
+    footer{border-top:1px solid #ffffff15;padding:28px 0 35px;color:#72778b;font:10px var(--mono);letter-spacing:.05em}.footer-inner{display:flex;justify-content:space-between;gap:20px;align-items:center}.footer-links{display:flex;gap:22px}.footer-links a:hover{color:white}.footer-brand{color:#d8d5e3;letter-spacing:.12em}
+    @media(max-width:900px){.hero{grid-template-columns:1fr;gap:50px;padding-top:65px}.hero-copy{max-width:620px}.art-wrap{width:min(100%,700px);margin:0 auto}.scroll-note{display:none}.gameplay{gap:40px}.controls-layout{gap:35px}.download-card{padding:50px 40px}}
+    @media(max-width:650px){.wrap{width:calc(100% - 34px)}header{height:68px}nav{gap:15px;font-size:9px}nav a:nth-child(1),nav a:nth-child(2){display:none}.brand{font-size:11px}.hero{padding:55px 0 65px;min-height:0;gap:38px}h1{font-size:clamp(53px,15vw,78px)}.hero-copy{font-size:13px}.hero-actions{display:grid;grid-template-columns:1fr}.btn{width:100%}.art-frame{padding:7px;transform:none}.float-a{right:-3px;top:-20px}.float-b{left:-4px;bottom:-18px}.float-label{font-size:8px;padding:9px}.art-meta{left:15px;right:15px;bottom:15px}.art-meta strong{font-size:15px}.ticker-inner{justify-content:flex-start;padding-left:18px;font-size:9px}.ticker-inner span:nth-child(n+4){display:none}section{padding:75px 0}.section-head{display:block}.section-intro{margin-top:18px}.feature-grid{grid-template-columns:1fr;margin-top:30px}.feature{min-height:175px}.gameplay,.controls-layout{grid-template-columns:1fr;gap:32px}.gameplay-visual{min-height:310px}.ring{width:205px;height:205px}.download{padding:20px 0 75px}.download-card{padding:38px 24px;display:block}.download-side{text-align:left;margin-top:30px}.download-side strong{font-size:23px}.control-panel{padding:19px}.key-row{font-size:11px}.footer-inner{align-items:flex-start;flex-direction:column}.footer-links{flex-wrap:wrap}.section-title{font-size:35px}}
+    @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
   </style>
 </head>
 <body>
-  <header class="wrap">
-    <a class="brand" href="#"><span class="brand-mark"></span><span>NEON VOID</span></a>
-    <nav aria-label="Навигация"><a href="#about">ОБ ИГРЕ</a><a href="#features">ОСОБЕННОСТИ</a><a href="#start">КАК ИГРАТЬ</a></nav>
+  <div class="topline"></div>
+  <header>
+    <div class="wrap" style="display:flex;align-items:center;justify-content:space-between">
+      <a class="brand" href="#"><span class="brand-mark"></span><span>NEON VOID</span></a>
+      <nav aria-label="Навигация"><a href="#game">Игра</a><a href="#features">Особенности</a><a href="#controls">Управление</a><a class="nav-cta" href="https://github.com/skysoftly/neuro_game/releases">Релизы ↗</a></nav>
+    </div>
   </header>
   <main>
-    <div class="wrap hero">
+    <div class="wrap hero" id="game">
       <div>
-        <div class="eyebrow"><span class="dot"></span> CO-OP ARENA SHOOTER</div>
-        <h1>ОДИН НЕ <span>ВЫВЕЗЕШЬ.</span></h1>
-        <p class="lead">Собери команду, держи оборону и переживи бесконечные волны. Враги становятся сильнее, боссы не дают передышки, а каждое улучшение меняет ход боя.</p>
-        <div class="actions">
-          <a class="btn btn-primary" href="https://github.com/skysoftly/neuro_game/releases">СМОТРЕТЬ РЕЛИЗЫ <span>↗</span></a>
-          <a class="btn btn-secondary" href="https://github.com/skysoftly/neuro_game">ИСХОДНЫЙ КОД <span>↗</span></a>
+        <div class="eyebrow"><i class="signal"></i> CO-OP SURVIVAL / WINDOWS</div>
+        <h1>WELCOME<br>TO THE <span>VOID.</span></h1>
+        <p class="hero-copy">Арена уже проснулась. <strong>Собери команду, переживи волну за волной</strong> и не дай неоновому хаосу поглотить тебя. Здесь каждая ошибка стоит жизни, а каждый новый раунд — ещё один повод стать сильнее.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="https://github.com/skysoftly/neuro_game/releases/latest">Скачать игру <span class="btn-arrow">↗</span></a>
+          <a class="btn btn-ghost" href="#features">Исследовать игру <span class="btn-arrow">↓</span></a>
         </div>
-        <div class="fine">Только Windows · локальная сеть · кооператив до 12 игроков</div>
+        <div class="platform">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 5.2 10.8 4v7.2H2V5.2Zm10.2-1.4L22 2.5v8.7h-9.8V3.8ZM2 12.8h8.8V20L2 18.8v-6Zm10.2 0H22v8.7l-9.8-1.3v-7.4Z"/></svg>
+          WINDOWS 10 / 11 <span>·</span> PC GAME <span>·</span> LAN CO-OP
+        </div>
       </div>
-      <div class="visual" aria-label="Стилизованная иллюстрация арены">
-        <div class="glow"></div>
-        <div class="screen"><div class="screen-inner">
-          <div class="hud"><span>SECTOR 07 // SURVIVE</span><span>CO-OP LINK: ON</span></div>
-          <div class="arena"></div><div class="beam"></div><div class="player"></div>
-          <i class="enemy e1"></i><i class="enemy e2"></i><i class="enemy e3"></i><i class="enemy e4"></i>
-          <div class="health"><i></i><i></i><i></i><i></i><i></i></div><div class="wave">WAVE 08</div>
-        </div></div>
-        <div class="float-tag tag-a">HOSTILE SIGNAL DETECTED</div><div class="float-tag tag-b">▰ TEAM ALIVE: 04</div>
+      <div class="art-wrap">
+        <div class="art-frame">
+          <img class="art-image" src="assets/hero-art.png" alt="Арт NEON VOID — изображение игры" onerror="this.onerror=null;this.src='assets/hero-art-placeholder.svg'">
+          <div class="art-meta"><div><span>THE ARENA IS WAITING</span><strong>NO WAY OUT.</strong></div><span>NV // 001</span></div>
+        </div>
+        <div class="float-label float-a"><b>●</b> SIGNAL DETECTED</div>
+        <div class="float-label float-b">SURVIVE / ADAPT / REPEAT</div>
       </div>
+      <div class="scroll-note"><span class="scroll-line"></span> SCROLL TO DESCEND</div>
     </div>
-    <div class="wrap stats">
-      <div class="stat"><strong>12</strong><small>игроков в команде</small></div>
-      <div class="stat"><strong>∞</strong><small>волн на выживание</small></div>
-      <div class="stat"><strong>5</strong><small>типов боссов</small></div>
-      <div class="stat"><strong>17+</strong><small>улучшений</small></div>
-    </div>
-    <section class="wrap" id="about">
-      <div class="section-kicker">01 / ОПИСАНИЕ</div><h2>АРЕНА НЕ ПРОЩАЕТ ОШИБОК</h2>
-      <p class="section-lead">Это кооперативный top-down шутер, где вы вместе отбиваетесь от всё более опасных противников. Держитесь рядом, прикрывайте друг друга и собирайте билд, который позволит дожить до следующей волны.</p>
-      <div class="features" id="features">
-        <article class="feature"><div class="num">[ 01 ]</div><h3>ВОЛНЫ БЕЗ КОНЦА</h3><p>С каждой волной давление растёт. Обычные враги становятся опаснее, а арена постепенно превращается в хаос.</p></article>
-        <article class="feature"><div class="num">[ 02 ]</div><h3>БОССЫ С ХАРАКТЕРОМ</h3><p>Разные боссы со своими паттернами атак. Победа над ними приносит отдельную награду каждому выжившему.</p></article>
-        <article class="feature"><div class="num">[ 03 ]</div><h3>СБИРАЙ СВОЙ БИЛД</h3><p>Выбирай улучшение после волны, усиливай урон или выживаемость и подстраивайся под ситуацию.</p></article>
-        <article class="feature"><div class="num">[ 04 ]</div><h3>ИГРАЙТЕ ВМЕСТЕ</h3><p>Создай лобби по локальной сети и пригласи друзей по IP-адресу.</p></article>
-        <article class="feature"><div class="num">[ 05 ]</div><h3>КАЖДЫЙ ВЫСТРЕЛ ВАЖЕН</h3><p>У врагов разные роли и поведение: кто-то давит вблизи, кто-то атакует издалека.</p></article>
-        <article class="feature"><div class="num">[ 06 ]</div><h3>РЕТРО-АТМОСФЕРА</h3><p>Неоновая арена, CRT-эффекты, тряска экрана и отдельные музыкальные темы для разных этапов игры.</p></article>
+    <div class="ticker"><div class="wrap ticker-inner"><span><em>✳</em> SURVIVE TOGETHER</span><span>ENDLESS WAVES</span><span><em>✳</em> BUILD YOUR POWER</span><span>NO SECOND CHANCES</span><span><em>✳</em> STAY ALIVE</span></div></div>
+    <section class="wrap" id="features">
+      <div class="section-head">
+        <div><div class="kicker">01 / THE EXPERIENCE</div><h2 class="section-title">ОДНА АРЕНА.<br><span>ТЫСЯЧА УГРОЗ.</span></h2></div>
+        <p class="section-intro">NEON VOID — кооперативный top-down arena shooter, в котором выживание зависит не только от меткости, но и от того, насколько хорошо команда держится вместе.</p>
       </div>
-    </section>
-    <section class="wrap" id="start">
-      <div class="how">
-        <div><div class="section-kicker">02 / БЫСТРЫЙ СТАРТ</div><h2>ЗАЛЕТАЙ С ДРУЗЬЯМИ</h2><p class="section-lead">NEON VOID запускается на Windows. Чтобы играть вместе, подключитесь к одной локальной сети.</p>
-          <div class="steps">
-            <div class="step"><b>01</b><div><strong>Создай лобби</strong><p>Один игрок запускает игру и выбирает создание лобби.</p></div></div>
-            <div class="step"><b>02</b><div><strong>Позови команду</strong><p>Отправь друзьям IP-адрес хоста, который отображается в лобби.</p></div></div>
-            <div class="step"><b>03</b><div><strong>Переживите волну</strong><p>Подключайтесь, выбирайте улучшения и не дайте арене вас съесть.</p></div></div>
-          </div>
-        </div>
-        <div class="controls"><h3>УПРАВЛЕНИЕ</h3>
-          <div class="keyrow"><span>Движение</span><span class="keys">W A S D / ↑ ↓ ← →</span></div>
-          <div class="keyrow"><span>Прицел и стрельба</span><span class="keys">МЫШЬ / ЛКМ</span></div>
-          <div class="keyrow"><span>Рывок</span><span class="keys">SPACE / SHIFT</span></div>
-          <div class="keyrow"><span>Щит</span><span class="keys">ПКМ / E</span></div>
-          <div class="keyrow"><span>Пауза</span><span class="keys">P / ESC</span></div>
-          <div class="keyrow"><span>Полный экран</span><span class="keys">F11</span></div>
-          <div class="keyrow"><span>Подключение</span><span class="keys">IP-АДРЕС ХОСТА</span></div>
-        </div>
+      <div class="feature-grid">
+        <article class="feature"><div class="feature-top"><span class="feature-no">01 / WAVES</span><span class="feature-icon">∞</span></div><h3>Волны без передышки</h3><p>Враги становятся опаснее с каждым раундом. Чем дольше держитесь — тем жёстче проверка.</p></article>
+        <article class="feature"><div class="feature-top"><span class="feature-no">02 / BOSSES</span><span class="feature-icon">✳</span></div><h3>Боссы с характером</h3><p>Пять боссов с разными паттернами атак. Изучай поведение и выбирай момент для удара.</p></article>
+        <article class="feature"><div class="feature-top"><span class="feature-no">03 / BUILDS</span><span class="feature-icon">⌁</span></div><h3>Собери свой билд</h3><p>Выбирай улучшения между волнами. Каждое решение меняет твои шансы на выживание.</p></article>
+        <article class="feature"><div class="feature-top"><span class="feature-no">04 / CO-OP</span><span class="feature-icon">⌘</span></div><h3>Держитесь вместе</h3><p>Создавай лобби и зови друзей по IP в одной локальной сети. До 12 игроков в команде.</p></article>
+        <article class="feature"><div class="feature-top"><span class="feature-no">05 / ENEMIES</span><span class="feature-icon">◇</span></div><h3>Разные угрозы</h3><p>Девять типов противников со своим поведением. Не стой на месте и следи за ареной.</p></article>
+        <article class="feature"><div class="feature-top"><span class="feature-no">06 / ATMOSPHERE</span><span class="feature-icon">▧</span></div><h3>Ретро. Но живое.</h3><p>Неоновая палитра, CRT-эффекты, динамичный звук и атмосфера старых аркад.</p></article>
       </div>
     </section>
     <section class="wrap">
-      <div class="cta"><div class="section-kicker">03 / ГОТОВ К ЗАБЕГУ?</div><h2>СОБИРАЙ КОМАНДУ.</h2><p>Загляни в репозиторий, посмотри доступные сборки и следи за обновлениями проекта.</p><a class="btn btn-primary" href="https://github.com/skysoftly/neuro_game/releases">ОТКРЫТЬ РЕЛИЗЫ ↗</a></div>
+      <div class="gameplay">
+        <div class="gameplay-visual" aria-label="Абстрактная иллюстрация сигнала">
+          <div class="ring"><i class="orbit"></i><i class="orbit two"></i><i class="core"></i></div>
+          <div class="visual-caption"><span>VOID CORE / ACTIVE</span><span>THREAT LEVEL: RISING</span></div>
+        </div>
+        <div>
+          <div class="kicker">02 / PLAY TOGETHER</div><h2 class="section-title">ОДИН ЗА ВСЕХ.<br><span>ВСЕ ЗА ЖИЗНЬ.</span></h2>
+          <p class="section-intro" style="margin-top:18px">Выживание — командная работа. Один игрок создаёт лобби, остальные подключаются по локальному IP. Никаких аккаунтов и браузерных версий — просто запускайте игру на Windows и зовите друзей.</p>
+          <div class="steps">
+            <div class="step"><span class="step-no">01</span><div><strong>Создай лобби</strong><p>Запусти NEON VOID и выбери создание игры.</p></div></div>
+            <div class="step"><span class="step-no">02</span><div><strong>Пригласи друзей</strong><p>Отправь IP хоста. Все игроки должны быть в одной локальной сети.</p></div></div>
+            <div class="step"><span class="step-no">03</span><div><strong>Выживите вместе</strong><p>Поддерживайте друг друга, выбирайте улучшения и побеждайте боссов.</p></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="controls-section" id="controls">
+      <div class="wrap controls-layout">
+        <div class="controls-copy"><div class="kicker">03 / CONTROL SCHEME</div><h2 class="section-title">РУКИ НА<br><span>КЛАВИАТУРУ.</span></h2><p>Управление простое, но на арене некогда медлить. Настрой удобную позицию и не выпускай противников из виду.</p></div>
+        <div class="control-panel">
+          <div class="panel-top"><span>PLAYER INPUT / DEFAULT</span><span>● ONLINE</span></div>
+          <div class="key-row"><span>Движение</span><span class="keys"><i class="key">W</i><i class="key">A</i><i class="key">S</i><i class="key">D</i></span></div>
+          <div class="key-row"><span>Прицел и стрельба</span><span class="keys"><i class="key">MOUSE</i><i class="key">LMB</i></span></div>
+          <div class="key-row"><span>Рывок</span><span class="keys"><i class="key">SPACE</i><i class="key">SHIFT</i></span></div>
+          <div class="key-row"><span>Щит</span><span class="keys"><i class="key">RMB</i><i class="key">E</i></span></div>
+          <div class="key-row"><span>Пауза</span><span class="keys"><i class="key">P</i><i class="key">ESC</i></span></div>
+          <div class="key-row"><span>Полный экран</span><span class="keys"><i class="key">F11</i></span></div>
+        </div>
+      </div>
+    </section>
+    <section class="wrap download" id="download">
+      <div class="download-card">
+        <div class="download-content"><div class="kicker">04 / YOUR NEXT RUN STARTS HERE</div><h2 class="section-title">ГОТОВ ВОЙТИ<br><span>В ПУСТОТУ?</span></h2><p>Скачай последнюю Windows-сборку, собери друзей и проверь, сколько волн выдержит ваша команда.</p><a class="btn btn-primary" href="https://github.com/skysoftly/neuro_game/releases/latest">Забрать свой билд <span class="btn-arrow">↗</span></a></div>
+        <div class="download-side"><strong>NEON VOID</strong><span>WINDOWS x64 / PC ONLY</span><span style="margin-top:15px">NO WEB. NO MOBILE. JUST GAME.</span></div>
+      </div>
     </section>
   </main>
-  <footer><div class="wrap foot"><span>© 2026 · NEON VOID</span><span>Сделано <a href="https://github.com/skysoftly">SkySoftly</a> · <a href="https://github.com/skysoftly/neuro_game">GitHub</a></span></div></footer>
+  <footer><div class="wrap footer-inner"><span class="footer-brand">NEON VOID <span style="color:#77778a">© 2026</span></span><span>BUILT TO SURVIVE THE VOID.</span><div class="footer-links"><a href="https://github.com/skysoftly/neuro_game">GITHUB ↗</a><a href="https://github.com/skysoftly/neuro_game/releases">RELEASES ↗</a></div></div></footer>
 </body>
 </html>
