@@ -635,6 +635,10 @@ class SimulationMixin:
         self.rings.append(Ring(e.p, e.r, e.r * 4 + 30, 520, e.col, 3))
         self.shake = max(self.shake, 5 + e.r * 0.4)
         contributions = getattr(self, "damage_contributions", {}).pop(id(e), {})
+        # Некоторые мгновенные убийства (например, рывком по мелкому врагу)
+        # проходят без damage(); в таком случае награда целиком достаётся убийце.
+        if not contributions and src is not None:
+            contributions = {src.pid: max(1.0, float(getattr(e, "max_hp", 1.0)))}
         total_damage = sum(contributions.values())
         if total_damage > 0:
             base_score = int(d["score"])
