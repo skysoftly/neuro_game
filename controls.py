@@ -13,6 +13,7 @@ from pygame import Vector2 as V
 
 from config import (
     W, H, WORLD_W, WORLD_H, PORT, CONFIG_FILE,
+    LOBBY_HOST_ACTION_RECT, LOBBY_CLIENT_ACTION_RECT,
     BG, CYAN, MAGENTA, YELLOW, RED, ORANGE, GREEN, PURPLE, PINK, WHITE,
     SHIP, DIAMOND, TRI, HEX, SQ,
     KINDS, PICK_COL, PICK_LET, PLAYER_COLORS, PLAYER_SKINS,
@@ -247,7 +248,10 @@ class ControlsMixin:
                     elif pygame.Rect(cx - 150, H - 58, 300, 42).collidepoint(mx, my):
                         self.state = "menu"
                 elif self.state == "lobby" and e.button == 1:
-                    if pygame.Rect(W / 2 - 190, H - 136, 380, 52).collidepoint(mx, my):
+                    action_rect = pygame.Rect(
+                        *(LOBBY_HOST_ACTION_RECT if self.is_host else LOBBY_CLIENT_ACTION_RECT)
+                    )
+                    if action_rect.collidepoint(mx, my):
                         if self.is_host:
                             self.host_start_game()
                         else:
