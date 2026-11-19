@@ -272,7 +272,7 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
                 if entering:
                     current = pygame.display.get_surface()
                     size = current.get_size() if current else (W, H)
-                    previous = {"size": size}
+                    previous = {"size": size, "position": self.get_window_position()}
 
                 sizes = pygame.display.get_desktop_sizes()
                 if sizes:
@@ -290,6 +290,7 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
                 self.display_surface = pygame.display.set_mode(
                     geometry["size"], pygame.RESIZABLE
                 )
+                self.restore_window_position(geometry.get("position"))
                 self._windowed_geometry = None
 
             return True
@@ -305,6 +306,36 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
             except Exception:
                 log.exception("Не удалось восстановить размер окна")
             return False
+
+    def get_window_position(self):
+        if sys.platform != "win32":
+            return None
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            rect = wintypes.RECT()
+            hwnd = pygame.display.get_wm_info().get("window")
+            if hwnd and ctypes.windll.user32.GetWindowRect(int(hwnd), ctypes.byref(rect)):
+                return (rect.left, rect.top)
+        except (AttributeError, OSError, TypeError, ValueError):
+            log.exception("Не удалось сохранить позицию окна")
+        return None
+
+    def restore_window_position(self, position):
+        if sys.platform != "win32" or position is None:
+            return
+        try:
+            import ctypes
+
+            hwnd = pygame.display.get_wm_info().get("window")
+            if hwnd:
+                ctypes.windll.user32.SetWindowPos(
+                    int(hwnd), 0, int(position[0]), int(position[1]),
+                    0, 0, 0x0001 | 0x0002 | 0x0010
+                )
+        except (AttributeError, OSError, TypeError, ValueError):
+            log.exception("Не удалось восстановить позицию окна")
 
     def move_fullscreen_window_to_origin(self, size):
         """Прижимает borderless-окно к левому верхнему углу рабочего стола."""
