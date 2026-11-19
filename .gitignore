@@ -13,3 +13,6 @@ icon.ico
 config.json
 stats.json
 user_data/
+
+# Local isolated build environment
+.venv-build/
