@@ -1,4 +1,5 @@
 """Точка входа."""
+import asyncio
 import logging
 
 from game import Game
@@ -10,7 +11,7 @@ if __name__ == "__main__":
         datefmt="%H:%M:%S",
     )
     try:
-        Game().run()
+        asyncio.run(Game().run())
     except Exception:
         logging.getLogger("neuro_game").exception("Критическая ошибка игры")
         raise
