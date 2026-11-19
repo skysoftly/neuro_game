@@ -78,7 +78,10 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
         pygame.mixer.pre_init(44100, -16, 1, 512)
         pygame.init()
         pygame.display.set_caption("NEON VOID")
-        self.screen = pygame.display.set_mode((W, H), pygame.SCALED | pygame.RESIZABLE)
+        if sys.platform in ("android", "emscripten"):
+            self.screen = pygame.display.set_mode((W, H), pygame.SCALED)
+        else:
+            self.screen = pygame.display.set_mode((W, H), pygame.SCALED | pygame.RESIZABLE)
         icon = pygame.Surface((64, 64), pygame.SRCALPHA)
         icon.fill((7, 13, 23))
         pygame.draw.polygon(icon, CYAN, [(32, 3), (57, 18), (57, 46), (32, 61), (7, 46), (7, 18)], 4)
@@ -86,6 +89,12 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
         pygame.draw.circle(icon, WHITE, (32, 32), 5)
         pygame.display.set_icon(icon)
         self.clock = pygame.time.Clock()
+        self.touch_points = {}
+        self.touch_move = V()
+        self.touch_aim = None
+        self.touch_shoot = False
+        self.touch_dash_pressed = False
+        self.touch_pulse_pressed = False
         self.scene = pygame.Surface((W, H)).convert()
 
         self.audio = Audio()
@@ -225,11 +234,11 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
                      "player_hat": self.local_hat_index})
 
     def set_display_mode(self, fullscreen):
-        """Switch between a true display fullscreen mode and a resizable window.
-
-        SCALED keeps the game's 1280x720 logical canvas while SDL presents it
-        at the monitor's fullscreen resolution.
-        """
+        """Switch desktop fullscreen; mobile/browser stay in the platform's fullscreen canvas."""
+        if sys.platform in ("android", "emscripten"):
+            self.borderless_fullscreen = False
+            self.screen = pygame.display.set_mode((W, H), pygame.SCALED)
+            return
         if fullscreen:
             try:
                 self.screen = pygame.display.set_mode(
@@ -247,6 +256,10 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
             )
 
     def toggle_borderless_fullscreen(self):
+        if sys.platform in ("android", "emscripten"):
+            self.borderless_fullscreen = False
+            self.persist()
+            return
         self.borderless_fullscreen = not self.borderless_fullscreen
         self.set_display_mode(self.borderless_fullscreen)
         self.persist()
