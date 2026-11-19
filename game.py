@@ -332,7 +332,7 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
             if hwnd:
                 ctypes.windll.user32.SetWindowPos(
                     int(hwnd), 0, int(position[0]), int(position[1]),
-                    0, 0, 0x0001 | 0x0002 | 0x0010
+                    0, 0, 0x0001 | 0x0004 | 0x0010
                 )
         except (AttributeError, OSError, TypeError, ValueError):
             log.exception("Не удалось восстановить позицию окна")
