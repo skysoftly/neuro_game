@@ -136,7 +136,12 @@ class SimulationMixin:
 
         back = -V(math.cos(p.ang), math.sin(p.ang))
         if p.v.length_squared() > 4000 or p.dash_t > 0:
-            for _ in range(2 if p.dash_t > 0 else 1):
+            base_trails = 2 if p.dash_t > 0 else 1
+            scaled_trails = base_trails * max(0.0, min(1.5, getattr(self, "particle_density", 100) / 100.0))
+            trail_count = int(scaled_trails)
+            if random.random() < scaled_trails - trail_count:
+                trail_count += 1
+            for _ in range(trail_count):
                 self.parts.append(Particle(
                     p.p + back * 12,
                     back * random.uniform(60, 220) + V(random.uniform(-40, 40), random.uniform(-40, 40)),
@@ -751,7 +756,9 @@ class SimulationMixin:
         self.enemies = [e for e in self.enemies if not e.dead]
 
     def burst(self, pos, col, n=20, speed=300, life=(0.3, 0.8), size=3.0):
-        particle_budget = max(0, 520 - len(self.parts))
+        density = max(0.0, min(1.5, getattr(self, "particle_density", 100) / 100.0))
+        n = int(round(n * density))
+        particle_budget = max(0, int(520 * density) - len(self.parts))
         n = min(n, particle_budget)
         for _ in range(n):
             a = random.uniform(0, math.tau)
