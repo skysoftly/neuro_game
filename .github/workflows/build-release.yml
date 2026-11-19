@@ -7,6 +7,7 @@ on:
       - release/v0.2.1
       - release/v0.2.2
       - release/v0.2.3
+      - release/v0.2.4
       - fix/reliable-fullscreen-toggle
   workflow_dispatch:
     inputs:
@@ -103,10 +104,10 @@ jobs:
           retention-days: 14
 
       - name: Publish GitHub Release
-        if: (github.event_name == 'workflow_dispatch' && inputs.publish_release) || (github.event_name == 'push' && (github.ref == 'refs/heads/release/v0.2.1' || github.ref == 'refs/heads/release/v0.2.2' || github.ref == 'refs/heads/release/v0.2.3'))
+        if: (github.event_name == 'workflow_dispatch' && inputs.publish_release) || (github.event_name == 'push' && (github.ref == 'refs/heads/release/v0.2.1' || github.ref == 'refs/heads/release/v0.2.2' || github.ref == 'refs/heads/release/v0.2.3' || github.ref == 'refs/heads/release/v0.2.4'))
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/release/v0.2.3' && 'v0.2.3' || github.ref == 'refs/heads/release/v0.2.2' && 'v0.2.2' || 'v0.2.1') || inputs.release_tag || 'v0.2.0' }}
+          tag_name: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/release/v0.2.4' && 'v0.2.4' || github.ref == 'refs/heads/release/v0.2.3' && 'v0.2.3' || github.ref == 'refs/heads/release/v0.2.2' && 'v0.2.2' || 'v0.2.1') || inputs.release_tag || 'v0.2.0' }}
           target_commitish: ${{ github.ref_name }}
           name: "NEON VOID ${{ github.event_name == 'push' && (github.ref == 'refs/heads/release/v0.2.3' && 'v0.2.3' || github.ref == 'refs/heads/release/v0.2.2' && 'v0.2.2' || 'v0.2.1') || inputs.release_tag || 'v0.2.0' }}"
           generate_release_notes: true
