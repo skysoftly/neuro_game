@@ -260,31 +260,43 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
                      "player_hat": self.local_hat_index})
 
     def set_display_mode(self, fullscreen):
-        """Switch between a true display fullscreen mode and a resizable window.
+        """Safely switch display mode without leaving a half-updated state.
 
-        SCALED keeps the game's 1280x720 logical canvas while SDL presents it
-        at the monitor's fullscreen resolution.
+        The game renders to a fixed 1280x720 logical surface. SCALED lets SDL
+        handle presentation scaling for both windowed and fullscreen modes.
+        Avoid forcing vsync here: some Windows/SDL drivers recreate the swap
+        chain unreliably when F11 is pressed more than once.
         """
-        if fullscreen:
+        flags = pygame.SCALED | (pygame.FULLSCREEN if fullscreen else pygame.RESIZABLE)
+        try:
+            new_screen = pygame.display.set_mode((W, H), flags)
+        except pygame.error:
+            log.exception("Не удалось переключить режим экрана (SCALED)")
+            # A few older drivers reject SCALED. Keep a non-SCALED fallback,
+            # but only replace self.screen after set_mode actually succeeds.
+            fallback_flags = pygame.FULLSCREEN if fullscreen else pygame.RESIZABLE
             try:
-                self.screen = pygame.display.set_mode(
-                    (W, H), pygame.SCALED | pygame.FULLSCREEN, vsync=1
-                )
+                new_screen = pygame.display.set_mode((W, H), fallback_flags)
             except pygame.error:
-                log.exception("Не удалось включить настоящий полноэкранный режим")
-                # Fallback for drivers that reject SCALED + FULLSCREEN.
-                self.screen = pygame.display.set_mode(
-                    (W, H), pygame.FULLSCREEN, vsync=1
-                )
-        else:
-            self.screen = pygame.display.set_mode(
-                (W, H), pygame.SCALED | pygame.RESIZABLE, vsync=1
-            )
+                log.exception("Не удалось применить запасной режим экрана")
+                return False
+        self.screen = new_screen
+        return True
 
     def toggle_borderless_fullscreen(self):
-        self.borderless_fullscreen = not self.borderless_fullscreen
-        self.set_display_mode(self.borderless_fullscreen)
+        # Ignore duplicate KEYDOWN events generated while a display transition
+        # is still settling. This prevents rapid swap-chain recreation.
+        now = pygame.time.get_ticks()
+        if now - getattr(self, "_last_fullscreen_toggle_ms", -1000) < 220:
+            return False
+        self._last_fullscreen_toggle_ms = now
+
+        target = not self.borderless_fullscreen
+        if not self.set_display_mode(target):
+            return False
+        self.borderless_fullscreen = target
         self.persist()
+        return True
 
     def logical_mouse(self, pos=None):
         if pos is None:
