@@ -181,6 +181,11 @@ class RelayHostServer:
         with self.lock:
             self.inbox.append((-1, {"t": "relay_disconnect"}))
 
+    def _drop_client(self, cid):
+        self.socket.send({"t": "kick", "cid": int(cid)})
+        with self.lock:
+            self.clients.pop(int(cid), None)
+
     def broadcast(self, obj):
         self.socket.send({"t": "broadcast", "data": obj})
 
