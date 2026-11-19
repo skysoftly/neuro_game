@@ -38,6 +38,19 @@ class DisplayModeTests(unittest.TestCase):
         self.assertEqual(set_mode.call_args_list[0].args[1], pygame.SCALED | pygame.FULLSCREEN)
         self.assertEqual(set_mode.call_args_list[1].args[1], pygame.SCALED | pygame.RESIZABLE)
 
+    def test_rapid_duplicate_toggle_is_ignored(self):
+        game = DisplayHarness()
+        screen = object()
+
+        with patch("pygame.display.set_mode", return_value=screen) as set_mode, \
+             patch("pygame.time.get_ticks", side_effect=[1000, 1050]):
+            self.assertTrue(game.toggle_borderless_fullscreen())
+            self.assertFalse(game.toggle_borderless_fullscreen())
+
+        self.assertEqual(set_mode.call_count, 1)
+        self.assertTrue(game.borderless_fullscreen)
+        self.assertEqual(game.persist_calls, 1)
+
     def test_scaled_mode_failure_uses_fallback(self):
         game = DisplayHarness()
         screen = object()
