@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#080910">
-  <meta name="description" content="NEON VOID — кооперативный top-down arena shooter для Windows. Собери команду, переживи волны, побеждай боссов и собирай билд.">
+  <meta name="description" content="NEON VOID v0.2.0 — кооперативный top-down arena shooter для Windows 10/11 x64. Собери команду, переживи волны, побеждай боссов и собирай билд.">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="NEON VOID — Survive the signal">
+  <meta property="og:title" content="NEON VOID v0.2.0 — Survive the signal">
   <meta property="og:description" content="Кооперативный арена-шутер по локальной сети. Собери команду и переживи неоновый хаос.">
   <meta property="og:url" content="https://skysoftly.github.io/neuro_game/">
   <title>NEON VOID — Survive the signal</title>
@@ -34,7 +34,8 @@
     .art-image{display:block;width:100%;aspect-ratio:1.24;object-fit:cover;background:#101321}.art-meta{position:absolute;left:25px;right:25px;bottom:24px;display:flex;justify-content:space-between;align-items:end;text-shadow:0 2px 12px #000}.art-meta span{font:10px var(--mono);letter-spacing:.13em;color:#d4d5e3}.art-meta strong{display:block;font:20px var(--display);margin-top:6px}
     .float-label{position:absolute;padding:11px 14px;background:#111321ed;border:1px solid #ffffff22;box-shadow:0 12px 40px #0008;font:10px var(--mono);letter-spacing:.1em}.float-label b{color:var(--lime);font-weight:400}.float-a{top:12%;right:-28px}.float-b{bottom:11%;left:-32px;color:var(--cyan)}
     .scroll-note{position:absolute;bottom:24px;left:0;display:flex;gap:13px;align-items:center;color:#74798d;font:9px var(--mono);letter-spacing:.16em;text-transform:uppercase}.scroll-line{width:44px;height:1px;background:var(--violet)}
-    .ticker{border-block:1px solid #ffffff16;background:#0e1019;overflow:hidden}.ticker-inner{display:flex;justify-content:space-around;gap:35px;white-space:nowrap;padding:18px 0;color:#85899d;font:10px var(--mono);letter-spacing:.17em}.ticker em{font-style:normal;color:var(--violet)}
+    .ticker{border-block:1px solid #ffffff16;background:#0e1019;overflow:hidden}
+    .release-strip{border-bottom:1px solid #ffffff16;background:#0b0d15}.release-inner{min-height:88px;display:flex;justify-content:space-between;align-items:center;gap:20px}.release-kicker{display:block;color:var(--cyan);font:9px var(--mono);letter-spacing:.18em}.release-inner strong{display:block;margin-top:5px;font:18px var(--display)}.release-inner strong b{color:var(--lime);font-weight:400}.release-inner small{display:block;margin-top:5px;color:#85899d;font:9px var(--mono)}.release-inner>a{color:var(--lime);font:10px var(--mono);letter-spacing:.06em;border-bottom:1px solid #c8ff6570;padding:9px 0}.release-inner>a:hover{color:white;border-color:white}.ticker-inner{display:flex;justify-content:space-around;gap:35px;white-space:nowrap;padding:18px 0;color:#85899d;font:10px var(--mono);letter-spacing:.17em}.ticker em{font-style:normal;color:var(--violet)}
     .stats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid #ffffff16;background:#0b0d15}.stat{padding:24px 18px;text-align:center;border-right:1px solid #ffffff12}.stat:last-child{border:0}.stat strong{display:block;color:var(--lime);font:clamp(24px,3vw,34px)/1 var(--display)}.stat span{display:block;margin-top:9px;color:#85899d;font:9px var(--mono);letter-spacing:.13em;text-transform:uppercase}.feature{transition:background .25s,transform .25s}.feature:hover{transform:translateY(-3px)}
     section{padding:112px 0}.section-head{display:flex;justify-content:space-between;align-items:end;gap:30px}.kicker{color:var(--pink);font:10px var(--mono);letter-spacing:.2em;text-transform:uppercase}.section-title{font:clamp(32px,4vw,52px)/1.05 var(--display);text-transform:uppercase;margin:14px 0 0}.section-title span{color:var(--violet)}.section-intro{max-width:380px;color:var(--muted);font-size:13px;line-height:1.85;margin:0}
     .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:48px}.feature{min-height:220px;background:var(--panel);padding:27px;position:relative;overflow:hidden;transition:background .25s}.feature:hover{background:#171a29}.feature:after{content:"";position:absolute;width:110px;height:110px;right:-55px;bottom:-55px;border:1px solid #a78bfa40;transform:rotate(45deg)}.feature-top{display:flex;justify-content:space-between;align-items:center}.feature-no{font:11px var(--mono);color:var(--violet)}.feature-icon{width:34px;height:34px;display:grid;place-items:center;border:1px solid #ffffff20;color:var(--cyan);font:17px var(--mono)}.feature h3{font-size:16px;margin:27px 0 9px;letter-spacing:-.02em}.feature p{max-width:290px;color:#969bad;font-size:12px;line-height:1.8;margin:0}
@@ -44,7 +45,7 @@
     .download{padding:35px 0 115px}.download-card{position:relative;overflow:hidden;padding:65px 70px;border:1px solid #a78bfa70;background:radial-gradient(ellipse at 90% 10%,#a78bfa2d,transparent 43%),linear-gradient(110deg,#171729,#10121d 60%,#171326);display:flex;justify-content:space-between;align-items:center;gap:40px}.download-card:before{content:"VOID";position:absolute;right:5%;bottom:-50px;font:clamp(110px,20vw,230px)/1 var(--display);color:#ffffff05;pointer-events:none}.download-content{position:relative;z-index:1}.download-content p{max-width:510px;color:#a6a9ba;font-size:13px;line-height:1.8;margin:16px 0 26px}.download-side{position:relative;z-index:1;text-align:right;min-width:170px}.download-side strong{display:block;font:27px var(--display);color:var(--lime)}.download-side span{display:block;margin-top:7px;color:#85899d;font:9px var(--mono);letter-spacing:.12em}
     footer{border-top:1px solid #ffffff15;padding:28px 0 35px;color:#72778b;font:10px var(--mono);letter-spacing:.05em}.footer-inner{display:flex;justify-content:space-between;gap:20px;align-items:center}.footer-links{display:flex;gap:22px}.footer-links a:hover{color:white}.footer-brand{color:#d8d5e3;letter-spacing:.12em}
     @media(max-width:900px){.hero{grid-template-columns:1fr;gap:50px;padding-top:65px}.hero-copy{max-width:620px}.art-wrap{width:min(100%,700px);margin:0 auto}.scroll-note{display:none}.gameplay{gap:40px}.controls-layout{gap:35px}.download-card{padding:50px 40px}}
-    @media(max-width:650px){.wrap{width:calc(100% - 34px)}header{height:64px}nav{gap:10px;font-size:8px}nav a:nth-child(1),nav a:nth-child(2){display:none}.brand{font-size:11px}.hero{padding:55px 0 65px;min-height:0;gap:38px}h1{font-size:clamp(53px,15vw,78px)}.hero-copy{font-size:13px}.hero-actions{display:grid;grid-template-columns:1fr}.btn{width:100%}.art-frame{padding:7px;transform:none}.float-a{right:-3px;top:-20px}.float-b{left:-4px;bottom:-18px}.float-label{font-size:8px;padding:9px}.art-meta{left:15px;right:15px;bottom:15px}.art-meta strong{font-size:15px}.ticker{overflow:visible}.ticker-inner{display:grid;grid-template-columns:minmax(0,1fr);width:100%;min-width:0;justify-items:center;white-space:normal;gap:9px;padding:16px 10px;font-size:9px;text-align:center;overflow:visible}.ticker-inner span{display:block;width:100%;min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;word-break:normal}.ticker-inner span:nth-child(n+4){display:none}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stat{padding:19px 8px}.stat:nth-child(2){border-right:0}.stat:nth-child(-n+2){border-bottom:1px solid #ffffff12}section{padding:75px 0}.section-head{display:block}.section-intro{margin-top:18px}.feature-grid{grid-template-columns:1fr;margin-top:30px}.feature{min-height:175px}.gameplay,.controls-layout{grid-template-columns:1fr;gap:32px}.gameplay-visual{min-height:310px}.ring{width:205px;height:205px}.download{padding:20px 0 75px}.download-card{padding:38px 24px;display:block}.download-side{text-align:left;margin-top:30px}.download-side strong{font-size:23px}.control-panel{padding:19px}.key-row{font-size:11px}.footer-inner{align-items:flex-start;flex-direction:column}.footer-links{flex-wrap:wrap}.section-title{font-size:35px}}
+    @media(max-width:650px){.wrap{width:calc(100% - 34px)}.release-inner{padding:17px 0;align-items:flex-start;flex-direction:column;gap:12px}.release-inner strong{font-size:16px}header{height:64px}nav{gap:10px;font-size:8px}nav a:nth-child(1),nav a:nth-child(2){display:none}.brand{font-size:11px}.hero{padding:55px 0 65px;min-height:0;gap:38px}h1{font-size:clamp(53px,15vw,78px)}.hero-copy{font-size:13px}.hero-actions{display:grid;grid-template-columns:1fr}.btn{width:100%}.art-frame{padding:7px;transform:none}.float-a{right:-3px;top:-20px}.float-b{left:-4px;bottom:-18px}.float-label{font-size:8px;padding:9px}.art-meta{left:15px;right:15px;bottom:15px}.art-meta strong{font-size:15px}.ticker{overflow:visible}.ticker-inner{display:grid;grid-template-columns:minmax(0,1fr);width:100%;min-width:0;justify-items:center;white-space:normal;gap:9px;padding:16px 10px;font-size:9px;text-align:center;overflow:visible}.ticker-inner span{display:block;width:100%;min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;word-break:normal}.ticker-inner span:nth-child(n+4){display:none}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stat{padding:19px 8px}.stat:nth-child(2){border-right:0}.stat:nth-child(-n+2){border-bottom:1px solid #ffffff12}section{padding:75px 0}.section-head{display:block}.section-intro{margin-top:18px}.feature-grid{grid-template-columns:1fr;margin-top:30px}.feature{min-height:175px}.gameplay,.controls-layout{grid-template-columns:1fr;gap:32px}.gameplay-visual{min-height:310px}.ring{width:205px;height:205px}.download{padding:20px 0 75px}.download-card{padding:38px 24px;display:block}.download-side{text-align:left;margin-top:30px}.download-side strong{font-size:23px}.control-panel{padding:19px}.key-row{font-size:11px}.footer-inner{align-items:flex-start;flex-direction:column}.footer-links{flex-wrap:wrap}.section-title{font-size:35px}}
     @media(max-width:380px){.brand{font-size:10px}.nav-cta{padding:9px 10px}.stat span{font-size:8px}}
     @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
   </style>
@@ -60,7 +61,7 @@
   <main>
     <div class="wrap hero" id="game">
       <div>
-        <div class="eyebrow"><i class="signal"></i> CO-OP SURVIVAL / WINDOWS</div>
+        <div class="eyebrow"><i class="signal"></i> CO-OP SURVIVAL / WINDOWS <span style="color:var(--lime)">· v0.2.0</span></div>
         <h1>WELCOME<br>TO THE <span>VOID.</span></h1>
         <p class="hero-copy">Арена уже проснулась. <strong>Собери команду, переживи волну за волной</strong> и не дай неоновому хаосу поглотить тебя. Здесь каждая ошибка стоит жизни, а каждый новый раунд — ещё один повод стать сильнее.</p>
         <div class="hero-actions">
@@ -69,7 +70,7 @@
         </div>
         <div class="platform">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 5.2 10.8 4v7.2H2V5.2Zm10.2-1.4L22 2.5v8.7h-9.8V3.8ZM2 12.8h8.8V20L2 18.8v-6Zm10.2 0H22v8.7l-9.8-1.3v-7.4Z"/></svg>
-          WINDOWS 10 / 11 <span>·</span> PC GAME <span>·</span> LAN CO-OP
+          WINDOWS 10 / 11 <span>·</span> x64 PC GAME <span>·</span> LAN CO-OP
         </div>
       </div>
       <div class="art-wrap">
@@ -83,6 +84,7 @@
       <div class="scroll-note"><span class="scroll-line"></span> SCROLL TO DESCEND</div>
     </div>
     <div class="ticker"><div class="wrap ticker-inner"><span><em>✳</em> SURVIVE TOGETHER</span><span>WAVE AFTER WAVE</span><span><em>✳</em> BUILD YOUR POWER</span><span>NO SECOND CHANCES</span><span><em>✳</em> STAY ALIVE</span></div></div>
+    <div class="release-strip"><div class="wrap release-inner"><div><span class="release-kicker">LATEST RELEASE</span><strong>NEON VOID <b>v0.2.0</b></strong><small>Windows 10/11 · x64 · около 18 MB</small></div><a href="https://github.com/skysoftly/neuro_game/releases/latest">Скачать актуальную версию ↗</a></div></div>
     <div class="stats" aria-label="Характеристики NEON VOID"><div class="stat"><strong>05</strong><span>Боссов</span></div><div class="stat"><strong>17</strong><span>Улучшений</span></div><div class="stat"><strong>09</strong><span>Типов врагов</span></div><div class="stat"><strong>LAN</strong><span>Кооператив по TCP</span></div></div>
     <section class="wrap" id="features">
       <div class="section-head">
@@ -96,6 +98,7 @@
         <article class="feature"><div class="feature-top"><span class="feature-no">04 / CO-OP</span><span class="feature-icon">⌘</span></div><h3>Держитесь вместе</h3><p>Создавай лобби и зови друзей по IP в одной локальной сети.</p></article>
         <article class="feature"><div class="feature-top"><span class="feature-no">05 / ENEMIES</span><span class="feature-icon">◇</span></div><h3>Разные угрозы</h3><p>Девять типов противников со своим поведением. Не стой на месте и следи за ареной.</p></article>
         <article class="feature"><div class="feature-top"><span class="feature-no">06 / ATMOSPHERE</span><span class="feature-icon">▧</span></div><h3>Ретро. Но живое.</h3><p>Неоновая палитра, CRT-эффекты, динамичный звук и атмосфера старых аркад.</p></article>
+        <article class="feature"><div class="feature-top"><span class="feature-no">07 / PLAYER DATA</span><span class="feature-icon">▤</span></div><h3>Твой прогресс остаётся</h3><p>Локальная статистика матчей, убийств, лучшего счёта и достигнутой волны. Настройки и статистика хранятся отдельно от папки игры.</p></article>
       </div>
     </section>
     <section class="wrap">
@@ -131,11 +134,11 @@
     </section>
     <section class="wrap download" id="download">
       <div class="download-card">
-        <div class="download-content"><div class="kicker">04 / YOUR NEXT RUN STARTS HERE</div><h2 class="section-title">ГОТОВ ВОЙТИ<br><span>В ПУСТОТУ?</span></h2><p>Скачай последнюю Windows-сборку, собери друзей и проверь, сколько волн выдержит ваша команда.</p><a class="btn btn-primary" href="https://github.com/skysoftly/neuro_game/releases/latest">Забрать свой билд <span class="btn-arrow">↗</span></a></div>
-        <div class="download-side"><strong>NEON VOID</strong><span>WINDOWS x64 / PC ONLY</span><span style="margin-top:15px">NO WEB. NO MOBILE. JUST GAME.</span></div>
+        <div class="download-content"><div class="kicker">04 / YOUR NEXT RUN STARTS HERE</div><h2 class="section-title">ГОТОВ ВОЙТИ<br><span>В ПУСТОТУ?</span></h2><p>Скачай NEON VOID v0.2.0 для Windows x64, собери друзей и проверь, сколько волн выдержит ваша команда. Настройки и статистика сохраняются в профиле Windows.</p><a class="btn btn-primary" href="https://github.com/skysoftly/neuro_game/releases/latest">Забрать свой билд <span class="btn-arrow">↗</span></a></div>
+        <div class="download-side"><strong>v0.2.0</strong><span>WINDOWS x64 / PC ONLY</span><span style="margin-top:15px">NO WEB. NO MOBILE. JUST GAME.</span></div>
       </div>
     </section>
   </main>
-  <footer><div class="wrap footer-inner"><span class="footer-brand">NEON VOID <span style="color:#77778a">© 2026</span></span><span>BUILT TO SURVIVE THE VOID.</span><div class="footer-links"><a href="https://github.com/skysoftly/neuro_game">GITHUB ↗</a><a href="https://github.com/skysoftly/neuro_game/releases">RELEASES ↗</a></div></div></footer>
+  <footer><div class="wrap footer-inner"><span class="footer-brand">NEON VOID <span style="color:#77778a">v0.2.0 · © 2026</span></span><span>BUILT TO SURVIVE THE VOID.</span><div class="footer-links"><a href="https://github.com/skysoftly/neuro_game">GITHUB ↗</a><a href="https://github.com/skysoftly/neuro_game/releases">RELEASES ↗</a></div></div></footer>
 </body>
 </html>
