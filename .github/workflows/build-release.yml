@@ -42,7 +42,7 @@ jobs:
         run: python make_icon.py
 
       - name: Build EXE
-        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name "NEON VOID" --icon "icon.ico" --add-data "icon.ico;." main.py
+        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name "NEON VOID" --icon "icon.ico" --add-data "icon.ico;." --hidden-import websocket main.py
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
