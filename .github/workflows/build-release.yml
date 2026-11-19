@@ -14,6 +14,11 @@ on:
 permissions:
   contents: write
 
+# Do not run several release builds for every rapid commit in this branch.
+concurrency:
+  group: neon-void-742-release
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build NEON VOID for Windows x64
@@ -47,11 +52,28 @@ jobs:
           path: dist/NEON VOID.exe
           if-no-files-found: error
           retention-days: 14
+      - name: Point v7.42 tag at this branch build
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $headers = @{
+            Authorization = "Bearer $env:GITHUB_TOKEN"
+            Accept = "application/vnd.github+json"
+            "X-GitHub-Api-Version" = "2022-11-28"
+          }
+          $body = @{
+            sha = "$env:GITHUB_SHA"
+            force = $true
+          } | ConvertTo-Json
+          Invoke-RestMethod -Method Patch -Uri "https://api.github.com/repos/$env:GITHUB_REPOSITORY/git/refs/tags/v7.42" -Headers $headers -Body $body -ContentType "application/json"
+
       - name: Publish GitHub Release
         if: github.ref == 'refs/heads/release/7.42'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v7.42
+          target_commitish: release/7.42
           name: "NEON VOID 7.42 — CHAOS BUILD"
           generate_release_notes: false
           body: |
