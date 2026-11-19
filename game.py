@@ -95,6 +95,7 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
         self.touch_shoot = False
         self.touch_dash_pressed = False
         self.touch_pulse_pressed = False
+        self.touch_overlay = pygame.Surface((W, H), pygame.SRCALPHA)
         self.scene = pygame.Surface((W, H)).convert()
 
         self.audio = Audio()
