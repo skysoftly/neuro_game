@@ -248,6 +248,30 @@ class SimulationMixin:
             self.finish_session()
             return
         self.intermission = False
+        # Возвращаем павших к новой волне, если хотя бы один игрок пережил прошлую.
+        living = [p for p in self.players.values() if p.alive]
+        for p in self.players.values():
+            if p.alive:
+                continue
+            p.alive = True
+            p.hp = p.max_hp
+            p.p = V(WORLD_W / 2, WORLD_H / 2) + V(
+                math.cos(p.pid * 2.399), math.sin(p.pid * 2.399)
+            ) * (90 + 24 * (p.pid % 4))
+            p.v = V()
+            p.inv = 2.0
+            p.hurt_t = 0.0
+            p.boundary_t = 0.0
+            p.dash_t = 0.0
+            p.dash_cd = 0.0
+            p.cool = 0.0
+            p.shield_t = 0.0
+            p.shield_hits = 0
+            p.inp = V()
+            p.shoot = False
+            p.want_dash = False
+            p.want_pulse = False
+            self.pops.append([V(p.p), "ВОЗРОЖДЕНИЕ", 1.4, GREEN, p.pid])
         # Дополнительная страховка: перед новой волной арена чистая от снарядов.
         self.ebullets.clear()
         self.bullets.clear()
@@ -588,6 +612,11 @@ class SimulationMixin:
         self.play_sound("heal" if kind == "heal" else "pickup", p.pid)
 
     def damage(self, e, n, src):
+        # Запоминаем реальный урон каждого участника, включая добивание.
+        dealt = min(max(0.0, float(n)), max(0.0, float(e.hp)))
+        if dealt > 0 and src is not None:
+            contributions = self.damage_contributions.setdefault(id(e), {})
+            contributions[src.pid] = contributions.get(src.pid, 0.0) + dealt
         e.hp -= n
         e.flash = 0.08
         if e.hp <= 0:
@@ -604,9 +633,19 @@ class SimulationMixin:
         self.burst(e.p, WHITE, 8, 300, (0.1, 0.3), 2)
         self.rings.append(Ring(e.p, e.r, e.r * 4 + 30, 520, e.col, 3))
         self.shake = max(self.shake, 5 + e.r * 0.4)
+        contributions = self.damage_contributions.pop(id(e), {})
+        total_damage = sum(contributions.values())
+        if total_damage > 0:
+            base_score = int(d["score"])
+            for pid, dealt in contributions.items():
+                player = self.players.get(pid)
+                if player is None:
+                    continue
+                # Каждый участник получает минимум одно очко, даже за небольшой вклад.
+                points = max(1, int(round(base_score * dealt / total_damage)))
+                player.score += points
+                self.pops.append([V(e.p), "+%d" % points, 0.8, e.col, pid])
         if src:
-            pts = int(d["score"])
-            src.score += pts
             src.kills += 1
             if src.lifesteal:
                 src.lifesteal_progress += src.lifesteal
@@ -616,7 +655,6 @@ class SimulationMixin:
                     self.play_sound("heal", src.pid)
                     self.pops.append([V(src.p), "+1 HP", 0.9, GREEN, src.pid])
             src.charge = min(100.0, src.charge + (26 if e.kind.startswith("boss") else 14 if e.kind == "tank" else 7) * src.pulse_gain)
-            self.pops.append([V(e.p), "+%d" % pts, 0.8, e.col, src.pid])
             # Одно улучшение выдаётся в конце каждой волны.
         self.play_sound("boom")
         if e.kind in ("tank", "splitter"):
