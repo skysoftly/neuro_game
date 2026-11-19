@@ -5,4 +5,5 @@ services:
     plan: free
     buildCommand: pip install -r requirements-relay.txt
     startCommand: python relay_server.py
+    healthCheckPath: /health
     autoDeploy: true
