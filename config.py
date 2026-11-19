@@ -74,6 +74,40 @@ def boss_kind_for_wave(wave, rng=None, previous=None):
     bosses = ("boss", "boss_storm", "boss_hunter", "boss_void", "boss_siege")
     choices = [kind for kind in bosses if kind != previous] or list(bosses)
     return chooser.choice(choices)
+# Графические параметры — локальные, не влияют на сетевую симуляцию.
+GRAPHICS_QUALITIES = ("low", "medium", "high", "ultra")
+GRAPHICS_QUALITY_LABELS = {
+    "low": "НИЗКОЕ",
+    "medium": "СРЕДНЕЕ",
+    "high": "ВЫСОКОЕ",
+    "ultra": "УЛЬТРА",
+}
+GRAPHICS_BLOOM = {"low": 0.0, "medium": 0.025, "high": 0.055, "ultra": 0.085}
+PARTICLE_STYLES = ("circle", "spark", "diamond")
+PARTICLE_STYLE_LABELS = {
+    "circle": "КРУГИ",
+    "spark": "ИСКРЫ",
+    "diamond": "ОСКОЛКИ",
+}
+PARTICLE_DENSITIES = (50, 75, 100, 150)
+
+
+def normalize_graphics_quality(value):
+    return value if value in GRAPHICS_QUALITIES else "high"
+
+
+def normalize_particle_style(value):
+    return value if value in PARTICLE_STYLES else "spark"
+
+
+def normalize_particle_density(value):
+    try:
+        value = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return 100
+    return value if value in PARTICLE_DENSITIES else 100
+
+
 # Пользовательские данные находятся вне каталога проекта и сборки.
 # Windows: %APPDATA%/NEON VOID; Linux: ~/.local/share/NEON VOID.
 _APP_DATA_ROOT = os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), ".local", "share")
