@@ -32,12 +32,7 @@ log = logging.getLogger("neuro_game")
 
 class ControlsMixin:
     def mouse_world(self):
-        mx, my = pygame.mouse.get_pos()
-        display = pygame.display.get_surface()
-        sw, sh = display.get_size() if display else (W, H)
-        if sw and sh:
-            mx = mx * W / sw
-            my = my * H / sh
+        mx, my = self.logical_mouse()
         return self.camera.to_world(mx, my)
 
     def is_spectating(self):
