@@ -98,7 +98,7 @@ jobs:
       - name: Upload Windows x64 build
         uses: actions/upload-artifact@v4
         with:
-          name: "NEON VOID ${{ github.event_name == 'push' && (((github.ref == 'refs/heads/master' && contains(github.event.head_commit.message, 'Release v0.2.5')) || github.ref == 'refs/heads/release/v0.2.5') && 'v0.2.5' || github.ref == 'refs/heads/release/v0.2.3' && 'v0.2.3' || github.ref == 'refs/heads/release/v0.2.2' && 'v0.2.2' || 'v0.2.1') || inputs.release_tag || 'v0.2.5' }}"
+          name: NEON-VOID-Windows-x64
           path: dist/NEON VOID.exe
           if-no-files-found: error
           retention-days: 14
@@ -109,7 +109,7 @@ jobs:
         with:
           tag_name: ${{ github.event_name == 'push' && ((github.ref == 'refs/heads/master' && contains(github.event.head_commit.message, 'Release v0.2.5')) || github.ref == 'refs/heads/release/v0.2.5') && 'v0.2.5' || github.event_name == 'push' && github.ref == 'refs/heads/release/v0.2.3' && 'v0.2.3' || github.event_name == 'push' && github.ref == 'refs/heads/release/v0.2.2' && 'v0.2.2' || github.event_name == 'push' && 'v0.2.1' || inputs.release_tag || 'v0.2.5' }}
           target_commitish: ${{ github.ref_name }}
-          name: "NEON VOID ${{ github.event_name == 'push' && (github.ref == 'refs/heads/release/v0.2.3' && 'v0.2.3' || github.ref == 'refs/heads/release/v0.2.2' && 'v0.2.2' || 'v0.2.1') || inputs.release_tag || 'v0.2.0' }}"
+          name: "NEON VOID ${{ github.event_name == 'push' && (((github.ref == 'refs/heads/master' && contains(github.event.head_commit.message, 'Release v0.2.5')) || github.ref == 'refs/heads/release/v0.2.5') && 'v0.2.5' || github.ref == 'refs/heads/release/v0.2.3' && 'v0.2.3' || github.ref == 'refs/heads/release/v0.2.2' && 'v0.2.2' || 'v0.2.1') || inputs.release_tag || 'v0.2.5' }}"
           generate_release_notes: true
           make_latest: true
           files: dist/NEON VOID.exe
