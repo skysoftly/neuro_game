@@ -260,13 +260,7 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
                      "player_hat": self.local_hat_index})
 
     def set_display_mode(self, fullscreen):
-        """Use a real borderless desktop-sized window, never SDL fullscreen.
-
-        Keep the same SDL window and SCALED display Surface. Save the user's
-        window geometry on entry and restore it exactly on exit. This avoids
-        repeated SDL fullscreen transitions, which can desynchronise Windows'
-        window state after several F11 presses.
-        """
+        """Switch between windowed and SDL desktop-fullscreen modes."""
         window = None
         previous = None
         entering = bool(fullscreen) and getattr(self, "_windowed_geometry", None) is None
@@ -277,6 +271,7 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
             if window is None:
                 window = Window.from_display_module()
                 self._display_window = window
+
             previous = {
                 "position": tuple(window.position),
                 "size": tuple(window.size),
@@ -285,47 +280,37 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
 
             if fullscreen:
                 if getattr(self, "_windowed_geometry", None) is None:
-                    self._windowed_geometry = {
-                        "position": tuple(window.position),
-                        "size": tuple(window.size),
-                        "borderless": bool(window.borderless),
-                    }
-
-                sizes = pygame.display.get_desktop_sizes()
-                display_index = getattr(window, "display_index", 0)
-                if not sizes:
-                    raise pygame.error("Не удалось определить разрешение рабочего стола")
-                display_index = max(0, min(int(display_index), len(sizes) - 1))
-                desktop_size = tuple(sizes[display_index])
-
-                window.borderless = True
-                window.position = (0, 0)
-                window.size = desktop_size
+                    self._windowed_geometry = previous.copy()
+                # SDL handles the desktop-sized borderless window itself.
+                # Manually changing the window size was unreliable on Windows.
+                window.set_fullscreen(desktop=True)
             else:
                 geometry = getattr(self, "_windowed_geometry", None)
+                window.set_windowed()
                 if geometry is not None:
+                    window.borderless = geometry["borderless"]
                     window.size = geometry["size"]
                     window.position = geometry["position"]
-                    window.borderless = geometry["borderless"]
-                else:
-                    window.borderless = False
+                if geometry is not None:
+                    self._windowed_geometry = None
 
-            # Do not recreate the display Surface: SCALED owns it for the
-            # lifetime of the game and the render loop continues using it.
             self.screen = pygame.display.get_surface() or self.screen
-            if not fullscreen:
-                self._windowed_geometry = None
             return True
         except (pygame.error, RuntimeError, AttributeError, TypeError, IndexError, ValueError):
-            if window is not None and previous is not None:
+            if window is not None:
                 try:
-                    window.size = previous["size"]
-                    window.position = previous["position"]
-                    window.borderless = previous["borderless"]
+                    if entering:
+                        window.set_windowed()
+                        if previous is not None:
+                            window.borderless = previous["borderless"]
+                            window.size = previous["size"]
+                            window.position = previous["position"]
+                    elif fullscreen is False:
+                        window.set_fullscreen(desktop=True)
+                    if entering:
+                        self._windowed_geometry = None
                 except Exception:
                     log.exception("Не удалось восстановить окно после ошибки переключения")
-            if entering:
-                self._windowed_geometry = None
             log.exception("Не удалось переключить безрамочный режим")
             return False
 

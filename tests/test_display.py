@@ -1,4 +1,4 @@
-"""Regression tests for stable borderless window transitions."""
+"""Regression tests for SDL desktop-fullscreen transitions."""
 import unittest
 from unittest.mock import patch
 
@@ -13,10 +13,21 @@ class FakeWindow:
         self.size = (1280, 720)
         self.borderless = False
         self.display_index = 0
-        self.history = []
+        self.fullscreen = False
+        self.calls = []
 
-    def record(self):
-        self.history.append((self.position, self.size, self.borderless))
+    def set_fullscreen(self, desktop=False):
+        self.calls.append(("fullscreen", desktop))
+        if not desktop:
+            raise AssertionError("Expected desktop fullscreen")
+        self.fullscreen = True
+        self.position = (0, 0)
+        self.size = (1920, 1080)
+        self.borderless = True
+
+    def set_windowed(self):
+        self.calls.append(("windowed",))
+        self.fullscreen = False
 
 
 class DisplayHarness:
@@ -43,7 +54,6 @@ class DisplayModeTests(unittest.TestCase):
 
         with (
             patch("pygame.time.get_ticks", side_effect=ticks),
-            patch("pygame.display.get_desktop_sizes", return_value=[(1920, 1080)]),
             patch("pygame.display.get_surface", return_value=original_screen),
             patch("pygame.display.set_mode") as set_mode,
         ):
@@ -51,73 +61,52 @@ class DisplayModeTests(unittest.TestCase):
                 self.assertTrue(Game.set_display_mode(game, expected))
                 self.assertIs(game.screen, original_screen)
                 if expected:
-                    self.assertEqual(window.position, (0, 0))
+                    self.assertTrue(window.fullscreen)
                     self.assertEqual(window.size, (1920, 1080))
-                    self.assertTrue(window.borderless)
+                    self.assertEqual(window.calls[-1], ("fullscreen", True))
                 else:
+                    self.assertFalse(window.fullscreen)
                     self.assertEqual(window.position, (140, 90))
                     self.assertEqual(window.size, (1280, 720))
                     self.assertFalse(window.borderless)
+                    self.assertEqual(window.calls[-1], ("windowed",))
 
         self.assertEqual(set_mode.call_count, 0)
         self.assertIsNone(game._windowed_geometry)
 
     def test_toggle_persists_only_after_success(self):
-        window = FakeWindow()
-        game = DisplayHarness(window)
-
-        with (
-            patch("pygame.time.get_ticks", side_effect=[1000, 1300]),
-            patch("pygame.display.get_desktop_sizes", return_value=[(1920, 1080)]),
-            patch("pygame.display.get_surface", return_value=game.screen),
+        game = DisplayHarness()
+        with patch("pygame.time.get_ticks", side_effect=[1000, 1300]), patch(
+            "pygame.display.get_surface", return_value=game.screen
         ):
             self.assertTrue(Game.toggle_borderless_fullscreen(game))
             self.assertTrue(game.borderless_fullscreen)
             self.assertTrue(Game.toggle_borderless_fullscreen(game))
             self.assertFalse(game.borderless_fullscreen)
-
         self.assertEqual(game.persist_calls, 2)
 
     def test_rapid_duplicate_toggle_is_ignored(self):
         game = DisplayHarness()
-        with (
-            patch("pygame.time.get_ticks", side_effect=[1000, 1050]),
-            patch("pygame.display.get_desktop_sizes", return_value=[(1920, 1080)]),
-            patch("pygame.display.get_surface", return_value=game.screen),
+        with patch("pygame.time.get_ticks", side_effect=[1000, 1050]), patch(
+            "pygame.display.get_surface", return_value=game.screen
         ):
             self.assertTrue(Game.toggle_borderless_fullscreen(game))
             self.assertFalse(Game.toggle_borderless_fullscreen(game))
-
         self.assertTrue(game.borderless_fullscreen)
         self.assertEqual(game.persist_calls, 1)
 
-    def test_failed_transition_rolls_back_window_and_config(self):
+    def test_failed_enter_rolls_back_window_and_config(self):
         class BrokenWindow(FakeWindow):
-            @property
-            def size(self):
-                return self._size
-
-            @size.setter
-            def size(self, value):
-                if value == (1920, 1080):
-                    raise pygame.error("simulated resize failure")
-                self._size = value
-
-            def __init__(self):
-                self.position = (140, 90)
-                self._size = (1280, 720)
-                self.borderless = False
-                self.display_index = 0
-                self.history = []
+            def set_fullscreen(self, desktop=False):
+                super().set_fullscreen(desktop)
+                raise pygame.error("simulated fullscreen failure")
 
         window = BrokenWindow()
         game = DisplayHarness(window)
-        with (
-            patch("pygame.time.get_ticks", return_value=1000),
-            patch("pygame.display.get_desktop_sizes", return_value=[(1920, 1080)]),
-        ):
+        with patch("pygame.time.get_ticks", return_value=1000):
             self.assertFalse(Game.toggle_borderless_fullscreen(game))
 
+        self.assertFalse(window.fullscreen)
         self.assertEqual(window.position, (140, 90))
         self.assertEqual(window.size, (1280, 720))
         self.assertFalse(window.borderless)
