@@ -129,11 +129,6 @@ async def handler(ws):
                     pass
 
 
-async def health(_request):
-    from aiohttp import web
-    return web.json_response({"status": "ok", "rooms": len(rooms)})
-
-
 async def main():
     port = int(os.environ.get("PORT", "10000"))
     async with serve(handler, "0.0.0.0", port, max_size=MAX_MESSAGE,
