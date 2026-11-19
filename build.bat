@@ -43,7 +43,16 @@ if errorlevel 1 goto :failed
 if errorlevel 1 goto :failed
 if not exist "dist\NEON VOID.exe" goto :missing_exe
 
-echo [5/5] Build completed successfully!
+echo [5/5] Smoke-testing the packaged EXE...
+set "SDL_VIDEODRIVER=dummy"
+set "SDL_AUDIODRIVER=dummy"
+"dist\NEON VOID.exe" --smoke-test
+if errorlevel 1 goto :failed
+set "SDL_VIDEODRIVER="
+set "SDL_AUDIODRIVER="
+
+echo.
+echo BUILD COMPLETED SUCCESSFULLY!
 echo.
 echo EXE: %~dp0dist\NEON VOID.exe
 echo.
