@@ -112,6 +112,7 @@ class NetworkingMixin:
             required = {entry[0] for entry in self.lobby_players}
             if not required.issubset(self.lobby_ready):
                 return
+        self.session_recorded = False
         self.players = {}
         for pid, name, color_index, skin_index, hat_index in self.lobby_players:
             player = Player(pid, name)
@@ -304,6 +305,7 @@ class NetworkingMixin:
             self.lobby_ready = set()
             self.set_error("ИГРА УЖЕ ЗАПУЩЕНА\\nПодключиться можно будет после завершения текущей игры.")
         elif t == "start":
+            self.session_recorded = False
             self.difficulty = m.get("difficulty", "normal") if m.get("difficulty") in ("easy", "normal", "hard", "impossible") else "normal"
             self.snap = None
             self.camera_target_previous = None
