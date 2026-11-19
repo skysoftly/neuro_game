@@ -6,7 +6,7 @@ on:
       release_tag:
         description: "Release tag (for example v0.1.0)"
         required: true
-        default: "v0.1.0"
+        default: "v0.2.0"
         type: string
 
 permissions:
@@ -48,7 +48,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.release_tag }}
-          name: "ПОСЛЕДНИЙ НА РАБОТЕ ${{ inputs.release_tag }}"
+          name: "NEON VOID ${{ inputs.release_tag }}"
           generate_release_notes: true
           make_latest: true
           files: dist/NEON VOID.exe
