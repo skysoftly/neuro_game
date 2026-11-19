@@ -75,6 +75,11 @@ async def handler(ws):
                     peer = dict(recipients).get(target)
                     if peer:
                         await send_json(peer, packet.get("data"))
+                elif kind == "kick":
+                    target = int(packet.get("cid", -1))
+                    peer = dict(recipients).get(target)
+                    if peer:
+                        await peer.close(code=4000, reason="Removed by host")
         else:
             async with rooms_lock:
                 room = rooms.get(room_code)
