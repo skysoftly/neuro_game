@@ -33,7 +33,8 @@ log = logging.getLogger("neuro_game")
 class ControlsMixin:
     def mouse_world(self):
         mx, my = pygame.mouse.get_pos()
-        sw, sh = self.screen.get_size()
+        display = pygame.display.get_surface()
+        sw, sh = display.get_size() if display else (W, H)
         if sw and sh:
             mx = mx * W / sw
             my = my * H / sh

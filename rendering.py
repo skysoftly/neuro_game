@@ -1157,4 +1157,10 @@ class RenderingMixin:
         if self.intermission and self.state == "play":
             self.draw_mouse_cursor(self.screen)
 
+        # Не полагаемся на SDL SCALED: после F11 он мог оставить старый viewport.
+        # Масштабируем весь готовый кадр вместе с интерфейсом на размер окна.
+        display = pygame.display.get_surface()
+        if display is not None:
+            pygame.transform.scale(self.screen, display.get_size(), display)
+
     # ================= главный цикл =================
