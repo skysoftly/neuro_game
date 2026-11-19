@@ -4,10 +4,10 @@ from unittest.mock import patch
 
 import pygame
 
-from controls import ControlsMixin
+from game import Game
 
 
-class DisplayHarness(ControlsMixin):
+class DisplayHarness:
     def __init__(self):
         self.screen = object()
         self.borderless_fullscreen = False
@@ -25,11 +25,11 @@ class DisplayModeTests(unittest.TestCase):
 
         with patch("pygame.display.set_mode", side_effect=[fullscreen, windowed]) as set_mode, \
              patch("pygame.time.get_ticks", side_effect=[1000, 1300]):
-            self.assertTrue(game.toggle_borderless_fullscreen())
+            self.assertTrue(Game.toggle_borderless_fullscreen(game))
             self.assertTrue(game.borderless_fullscreen)
             self.assertIs(game.screen, fullscreen)
 
-            self.assertTrue(game.toggle_borderless_fullscreen())
+            self.assertTrue(Game.toggle_borderless_fullscreen(game))
             self.assertFalse(game.borderless_fullscreen)
             self.assertIs(game.screen, windowed)
 
@@ -44,8 +44,8 @@ class DisplayModeTests(unittest.TestCase):
 
         with patch("pygame.display.set_mode", return_value=screen) as set_mode, \
              patch("pygame.time.get_ticks", side_effect=[1000, 1050]):
-            self.assertTrue(game.toggle_borderless_fullscreen())
-            self.assertFalse(game.toggle_borderless_fullscreen())
+            self.assertTrue(Game.toggle_borderless_fullscreen(game))
+            self.assertFalse(Game.toggle_borderless_fullscreen(game))
 
         self.assertEqual(set_mode.call_count, 1)
         self.assertTrue(game.borderless_fullscreen)
@@ -57,7 +57,7 @@ class DisplayModeTests(unittest.TestCase):
 
         with patch("pygame.display.set_mode",
                    side_effect=[pygame.error("scaled unsupported"), screen]) as set_mode:
-            self.assertTrue(game.set_display_mode(True))
+            self.assertTrue(Game.set_display_mode(game, True))
 
         self.assertIs(game.screen, screen)
         self.assertEqual(set_mode.call_count, 2)
@@ -70,7 +70,7 @@ class DisplayModeTests(unittest.TestCase):
         with patch("pygame.display.set_mode",
                    side_effect=pygame.error("display unavailable")), \
              patch("pygame.time.get_ticks", return_value=1000):
-            self.assertFalse(game.toggle_borderless_fullscreen())
+            self.assertFalse(Game.toggle_borderless_fullscreen(game))
 
         self.assertFalse(game.borderless_fullscreen)
         self.assertIs(game.screen, original_screen)
