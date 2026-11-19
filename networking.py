@@ -22,7 +22,7 @@ from draw_utils import shape, dim, make_overlay, bloom, read_clipboard
 from camera import Camera
 from entities import Player, Enemy, Particle, Ring, Bullet
 from upgrades import UPGRADES_BY_ID, apply_upgrade, roll_upgrades
-from network import HostServer, ClientConn
+from network import HostServer, ClientConn, OfflineServer
 from visuals import draw_glow
 
 log = logging.getLogger("neuro_game")
@@ -34,7 +34,7 @@ class NetworkingMixin:
         log.info("Запуск лобби хоста")
         self.connect_error = ""
         try:
-            self.server = HostServer()
+            self.server = OfflineServer() if sys.platform == "emscripten" else HostServer()
         except Exception as e:
             self.set_error("Не удалось создать сервер: %s\nВозможно, порт %d занят." % (e, PORT))
             return
@@ -46,6 +46,9 @@ class NetworkingMixin:
         self.state = "lobby"
 
     def join_server(self, ip):
+        if sys.platform == "emscripten":
+            self.set_error("Сетевой режим пока недоступен в браузере. Пока можно играть одному; WebSocket-мультиплеер появится позже.")
+            return
         log.info("Подключение к хосту %s:%d", ip, PORT)
         self.connect_error = ""
         ip = ip.strip()
