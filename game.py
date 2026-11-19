@@ -11,7 +11,7 @@ import pygame
 from pygame import Vector2 as V
 
 from config import (
-    W, H, WORLD_W, WORLD_H, PORT, CONFIG_FILE,
+    W, H, WORLD_W, WORLD_H, PORT, CONFIG_FILE, STATS_FILE,
     BG, CYAN, MAGENTA, YELLOW, RED, ORANGE, GREEN, PURPLE, PINK, WHITE,
     SHIP, DIAMOND, TRI, HEX, SQ,
     KINDS, PICK_COL, PICK_LET, PLAYER_COLORS, PLAYER_SKINS,
@@ -42,10 +42,11 @@ def load_config():
 
 def save_config(cfg):
     try:
+        os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
+    except OSError:
+        log.exception("Не удалось сохранить настройки")
 
 
 def get_lan_ips():
@@ -150,6 +151,7 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
         self.wave_started = False
         self.debug_overlay = False
         self.debug_timer = 0.0
+        self.session_recorded = False
 
         cfg = load_config()
         self.last_ip = cfg.get("last_ip", "")
@@ -214,6 +216,40 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
         if owner_pid is None or owner_pid == self.my_id:
             self.audio.play(sound_name)
         self.sound_events.append([sound_name, -1 if owner_pid is None else int(owner_pid)])
+
+    def record_session(self):
+        """Сохранить личную статистику завершённого матча в AppData."""
+        if self.session_recorded:
+            return
+        if self.is_host:
+            player = self.players.get(self.my_id)
+            if player is None:
+                return
+            score, kills, wave = player.score, player.kills, self.wave
+        else:
+            if not self.snap:
+                return
+            player = next((p for p in self.snap.get("players", [])
+                           if int(p.get("pid", -1)) == self.my_id), None)
+            if player is None:
+                return
+            score, kills, wave = player.get("score", 0), player.get("kills", 0), self.snap.get("wave", self.wave)
+        try:
+            os.makedirs(os.path.dirname(STATS_FILE), exist_ok=True)
+            try:
+                with open(STATS_FILE, "r", encoding="utf-8") as f:
+                    stats = json.load(f)
+            except (OSError, ValueError):
+                stats = {}
+            stats["games_played"] = int(stats.get("games_played", 0)) + 1
+            stats["total_kills"] = int(stats.get("total_kills", 0)) + int(kills)
+            stats["best_score"] = max(int(stats.get("best_score", 0)), int(score))
+            stats["best_wave"] = max(int(stats.get("best_wave", 0)), int(wave))
+            with open(STATS_FILE, "w", encoding="utf-8") as f:
+                json.dump(stats, f, ensure_ascii=False, indent=2)
+            self.session_recorded = True
+        except (OSError, TypeError, ValueError):
+            log.exception("Не удалось сохранить статистику")
 
     def persist(self):
         save_config({"last_ip": self.last_ip, "name": self.name_input,
