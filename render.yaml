@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: neon-void-relay
-    runtime: python
-    plan: free
-    buildCommand: pip install -r requirements-relay.txt
-    startCommand: python relay_server.py
-    healthCheckPath: /health
-    autoDeploy: true

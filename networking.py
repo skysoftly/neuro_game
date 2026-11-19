@@ -22,8 +22,7 @@ from draw_utils import shape, dim, make_overlay, bloom, read_clipboard
 from camera import Camera
 from entities import Player, Enemy, Particle, Ring, Bullet
 from upgrades import UPGRADES_BY_ID, apply_upgrade, roll_upgrades
-from network import HostServer, ClientConn, OfflineServer
-from online_network import RelayHostServer, RelayClientConn, make_room_code
+from network import HostServer, ClientConn
 from visuals import draw_glow
 
 log = logging.getLogger("neuro_game")
@@ -32,16 +31,13 @@ log = logging.getLogger("neuro_game")
 
 class NetworkingMixin:
     def start_host(self):
-        log.info("Создание интернет-комнаты")
+        log.info("Запуск лобби хоста")
         self.connect_error = ""
-        room_code = make_room_code()
         try:
-            self.server = RelayHostServer(room_code)
+            self.server = HostServer()
         except Exception as e:
-            log.exception("Не удалось подключиться к серверу комнат")
-            self.set_error("НЕ УДАЛОСЬ СОЗДАТЬ КОМНАТУ\n" + str(e))
+            self.set_error("Не удалось создать сервер: %s\nВозможно, порт %d занят." % (e, PORT))
             return
-        self.online_room_code = room_code
         self.is_host = True
         self.my_id = 0
         self.lobby_players = [(0, self.name_input or "Хост", self.local_color_index,
@@ -49,29 +45,21 @@ class NetworkingMixin:
         self.lobby_ready = {0}
         self.state = "lobby"
 
-    def join_server(self, address):
+    def join_server(self, ip):
+        log.info("Подключение к хосту %s:%d", ip, PORT)
         self.connect_error = ""
-        address = address.strip()
-        if not address:
-            self.set_error("ВВЕДИ КОД КОМНАТЫ ИЛИ IP ХОСТА")
+        ip = ip.strip()
+        if not ip:
+            self.set_error("Не указан IP-адрес хоста.")
             return
-        is_room_code = len(address) == 6 and address.isalnum()
         try:
-            if is_room_code:
-                self.client = RelayClientConn(address.upper())
-                self.online_room_code = address.upper()
-            else:
-                if sys.platform == "emscripten":
-                    self.set_error("В БРАУЗЕРЕ МОЖНО ПОДКЛЮЧИТЬСЯ ПО КОДУ КОМНАТЫ, А НЕ ПО IP")
-                    return
-                self.client = ClientConn(address)
-                self.online_room_code = ""
+            self.client = ClientConn(ip)
         except Exception as e:
-            log.exception("Не удалось подключиться: %s", address)
-            self.set_error("НЕ УДАЛОСЬ ПОДКЛЮЧИТЬСЯ\nПроверь код комнаты или IP.\n" + str(e))
+            log.exception("Не удалось подключиться к %s:%d", ip, PORT)
+            self.set_error("ИГРА НЕ НАЙДЕНА\nПо адресу %s:%d никто не отвечает.\nПроверь IP и убедись, что хост запущен." % (ip, PORT))
             return
         self.is_host = False
-        self.last_ip = address.upper() if is_room_code else address
+        self.last_ip = ip
         self.persist()
         self.client.send({"t": "hello", "name": self.name_input or "Клиент",
                            "color": self.local_color_index, "skin": self.local_skin_index,
@@ -94,7 +82,6 @@ class NetworkingMixin:
             self.client.stop()
             self.client = None
         self.is_host = False
-        self.online_room_code = ""
         self.my_id = 0
         self.lobby_players = []
         self.lobby_ready = set()
@@ -120,9 +107,6 @@ class NetworkingMixin:
 
     def host_start_game(self):
         if not self.is_host or self.state not in ("lobby", "dead"):
-            return
-        if self.state == "lobby" and self.server and not getattr(self.server, "connected", True):
-            self.connect_error = "ПОДКЛЮЧАЕМСЯ К СЕРВЕРУ КОМНАТ..."
             return
         if self.state == "lobby":
             required = {entry[0] for entry in self.lobby_players}
@@ -164,22 +148,12 @@ class NetworkingMixin:
 
     def poll_network(self):
         if self.is_host and self.server:
-            if getattr(self.server, "connection_error", ""):
-                self.set_error("СЕРВЕР КОМНАТ НЕДОСТУПЕН\n" + self.server.connection_error)
-                return
             with self.server.lock:
                 msgs = self.server.inbox[:]
                 self.server.inbox.clear()
             for cid, m in msgs:
-                if m.get("t") == "relay_disconnect":
-                    if self.state != "menu":
-                        self.set_error("СОЕДИНЕНИЕ С СЕРВЕРОМ КОМНАТ ПОТЕРЯНО")
-                    continue
                 self.on_host_msg(cid, m)
         elif (not self.is_host) and self.client:
-            if getattr(self.client, "connection_error", ""):
-                self.set_error("НЕ УДАЛОСЬ ВОЙТИ В КОМНАТУ\n" + self.client.connection_error)
-                return
             with self.client.lock:
                 msgs = self.client.inbox[:]
                 self.client.inbox.clear()

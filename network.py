@@ -215,20 +215,3 @@ class ClientConn:
             self.sock.close()
         except OSError:
             pass
-
-class OfflineServer:
-    """No-op server interface used for local single-player sessions in WebAssembly."""
-    def __init__(self):
-        self.clients = {}
-        self.inbox = []
-        self.lock = threading.Lock()
-
-    def broadcast(self, _obj):
-        pass
-
-    def send(self, _cid, _obj):
-        pass
-
-    def stop(self):
-        self.clients.clear()
-        self.inbox.clear()

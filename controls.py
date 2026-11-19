@@ -64,8 +64,6 @@ class ControlsMixin:
     def gather_local_input(self):
         p = self.players.get(self.my_id)
         if p is None or not p.alive:
-            self.touch_dash_pressed = False
-            self.touch_pulse_pressed = False
             return
         k = pygame.key.get_pressed()
         x = int(k[pygame.K_d] or k[pygame.K_RIGHT]) - int(k[pygame.K_a] or k[pygame.K_LEFT])
@@ -73,104 +71,17 @@ class ControlsMixin:
         v = V(x, y)
         if v.length_squared() > 0:
             v.normalize_ip()
-        if self.touch_move.length_squared() > 0:
-            v = self.touch_move.copy()
         p.inp = v
-
-        if self.touch_aim is not None:
-            mx, my = self.camera.to_world(self.touch_aim.x, self.touch_aim.y)
-            shooting = self.touch_shoot
-        else:
-            mx, my = self.mouse_world()
-            shooting = pygame.mouse.get_pressed()[0]
+        mx, my = self.mouse_world()
         aim = V(mx, my) - p.p
         if aim.length_squared() > 1:
             p.ang = math.atan2(aim.y, aim.x)
-        p.shoot = bool(shooting)
-        if k[pygame.K_SPACE] or k[pygame.K_LSHIFT] or self.touch_dash_pressed:
+        p.shoot = pygame.mouse.get_pressed()[0]
+        if k[pygame.K_SPACE] or k[pygame.K_LSHIFT]:
             p.want_dash = True
-        if k[pygame.K_e] or self.touch_pulse_pressed:
-            p.want_pulse = True
-        self.touch_dash_pressed = False
-        self.touch_pulse_pressed = False
-
-    def _handle_touch_event(self, event):
-        key = (getattr(event, "touch_id", 0), getattr(event, "finger_id", 0))
-        pos = V(float(event.x) * W, float(event.y) * H)
-        if event.type == pygame.FINGERDOWN:
-            if self.state != "play" or self.paused or self.tutorial_active or self.intermission:
-                return
-            dash_center = V(W * 0.77, H * 0.86)
-            pulse_center = V(W * 0.91, H * 0.86)
-            if pos.distance_to(dash_center) < 62:
-                self.touch_points[key] = {"mode": "dash", "pos": pos}
-                self.touch_dash_pressed = True
-            elif pos.distance_to(pulse_center) < 62:
-                self.touch_points[key] = {"mode": "pulse", "pos": pos}
-                self.touch_pulse_pressed = True
-            elif pos.x < W * 0.48:
-                self.touch_points[key] = {"mode": "move", "origin": pos, "pos": pos}
-            else:
-                self.touch_points[key] = {"mode": "aim", "pos": pos}
-        elif event.type == pygame.FINGERMOTION:
-            point = self.touch_points.get(key)
-            if point:
-                point["pos"] = pos
-        elif event.type == pygame.FINGERUP:
-            self.touch_points.pop(key, None)
-
-        self.touch_move = V()
-        self.touch_aim = None
-        self.touch_shoot = False
-        for point in self.touch_points.values():
-            if point["mode"] == "move":
-                delta = point["pos"] - point["origin"]
-                if delta.length() > 58:
-                    delta.scale_to_length(58)
-                self.touch_move = delta / 58.0
-            elif point["mode"] == "aim":
-                self.touch_aim = point["pos"]
-                self.touch_shoot = True
-
-    def draw_touch_controls(self):
-        if sys.platform not in ("android", "emscripten") or self.state != "play" or self.paused:
-            return
-        layer = self.touch_overlay
-        layer.fill((0, 0, 0, 0))
-        base = V(145, H - 145)
-        pygame.draw.circle(layer, (90, 220, 255, 34), base, 76, 3)
-        pygame.draw.circle(layer, (90, 220, 255, 75), base + self.touch_move * 58, 31, 2)
-        for center, label, active in (
-            (V(W * 0.77, H * 0.86), "DASH", self.touch_dash_pressed),
-            (V(W * 0.91, H * 0.86), "PULSE", self.touch_pulse_pressed),
-        ):
-            pygame.draw.circle(layer, (245, 100, 205, 65 if active else 30), center, 48)
-            pygame.draw.circle(layer, (245, 130, 220, 180), center, 48, 2)
-            label_surface = self.f_small.render(label, True, WHITE)
-            layer.blit(label_surface, label_surface.get_rect(center=(int(center.x), int(center.y))))
-        self.screen.blit(layer, (0, 0))
 
     def handle_events(self):
-        # SDL's virtual keyboard is activated only while a text field is focused.
-        active_text_input = bool(self.input_mode)
-        if active_text_input and not getattr(self, "_text_input_active", False):
-            pygame.key.start_text_input()
-            self._text_input_active = True
-        elif not active_text_input and getattr(self, "_text_input_active", False):
-            pygame.key.stop_text_input()
-            self._text_input_active = False
-
         for e in pygame.event.get():
-            if e.type in (pygame.FINGERDOWN, pygame.FINGERMOTION, pygame.FINGERUP):
-                self._handle_touch_event(e)
-                continue
-            if e.type == pygame.TEXTINPUT and self.input_mode and sys.platform in ("android", "emscripten"):
-                value = e.text or ""
-                if self.input_mode == "ip":
-                    self.ip_input = (self.ip_input + "".join(ch for ch in value if ch.isalnum() or ch in ".:-_%").upper())[:253]
-                else:
-                    self.name_input = (self.name_input + value.replace("\\n", " ").replace("\\r", " "))[:16]
-                continue
             if e.type == pygame.QUIT:
                 self.quit()
                 continue
@@ -455,8 +366,6 @@ class ControlsMixin:
             return
         if e.key == pygame.K_v and (e.mod & pygame.KMOD_CTRL):
             self._paste_input()
-            return
-        if sys.platform in ("android", "emscripten"):
             return
         ch = e.unicode
         if ch and ch.isprintable():

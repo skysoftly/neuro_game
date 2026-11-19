@@ -689,7 +689,7 @@ class RenderingMixin:
 
         y = cy + 160
         self.draw_button(sc, pygame.Rect(cx - 210, y - 20, 420, 52), "СОЗДАТЬ ЛОББИ", CYAN)
-        self.draw_button(sc, pygame.Rect(cx - 210, y + 42, 420, 52), "ПОДКЛЮЧИТЬСЯ ПО КОДУ / IP", MAGENTA)
+        self.draw_button(sc, pygame.Rect(cx - 210, y + 42, 420, 52), "ПОДКЛЮЧИТЬСЯ ПО IP", MAGENTA)
         self.draw_button(sc, pygame.Rect(cx - 210, y + 104, 420, 44),
                          "ИМЯ ИГРОКА: " + (self.name_input or "НЕ ЗАДАНО"), PURPLE)
         self.draw_button(sc, pygame.Rect(cx - 210, y + 158, 420, 44), "НАСТРОЙКИ", YELLOW)
@@ -723,13 +723,11 @@ class RenderingMixin:
         cx = W / 2
         text(sc, "ЛОББИ", self.f_huge, CYAN, (cx, 76), outline=3)
         if self.is_host:
-            role, shown_code = "ВЫ - ХОСТ", self.online_room_code or "СОЗДАЁТСЯ..."
+            role, shown_ip = "ВЫ - ХОСТ", (self.lan_ips[0] if self.lan_ips else "IP НЕ НАЙДЕН")
         else:
-            role, shown_code = "ВЫ - ИГРОК", self.online_room_code or self.last_ip or "НЕИЗВЕСТНО"
-        self.draw_fit_text(sc, role, YELLOW, pygame.Rect(cx - 380, 132, 300, 38), 27, 16)
-        self.draw_fit_text(sc, "КОД КОМНАТЫ: " + shown_code, WHITE, pygame.Rect(cx - 70, 132, 560, 38), 27, 12)
-        text(sc, "ДРУЗЬЯ МОГУТ ПОДКЛЮЧИТЬСЯ ИЗ ЛЮБОЙ СЕТИ", font(12), CYAN,
-             (cx, 158), outline=1)
+            role, shown_ip = "ВЫ - КЛИЕНТ", (self.last_ip or "НЕИЗВЕСТНО")
+        self.draw_fit_text(sc, role, YELLOW, pygame.Rect(cx - 380, 132, 360, 38), 27, 16)
+        self.draw_fit_text(sc, "IP: " + shown_ip, WHITE, pygame.Rect(cx + 20, 132, 500, 38), 27, 12)
 
         diff_label = DIFFICULTY_LABELS.get(self.difficulty, "НОРМАЛЬНО")
         diff_rect = pygame.Rect(cx - 190, 174, 380, 34)
@@ -918,7 +916,7 @@ class RenderingMixin:
         if not self.input_mode:
             return
         sc.blit(self.input_shade, (0, 0))
-        label = "КОД КОМНАТЫ ИЛИ IP ХОСТА" if self.input_mode == "ip" else "ВВЕДИТЕ ИМЯ"
+        label = "ВВЕДИТЕ IP ХОСТА" if self.input_mode == "ip" else "ВВЕДИТЕ ИМЯ"
         text(sc, label, self.f_big, CYAN, (W / 2, H / 2 - 110), outline=3)
         value = self.ip_input if self.input_mode == "ip" else self.name_input
         box = pygame.Rect(W / 2 - 280, H / 2 - 45, 560, 64)
@@ -1145,8 +1143,6 @@ class RenderingMixin:
             self.screen.blit(self.debug_panel_surface, (W - 322, H - 138))
             for i, line in enumerate(debug_lines):
                 text(self.screen, line, self.f_small, GREEN, (W - 312, H - 126 + i * 23), "topleft", outline=1)
-
-        self.draw_touch_controls()
 
         # Курсор рисуется последним: он выше карточек, текста и debug-панели.
         if self.intermission and self.state == "play":
