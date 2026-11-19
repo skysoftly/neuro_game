@@ -267,6 +267,9 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
         repeated SDL fullscreen transitions, which can desynchronise Windows'
         window state after several F11 presses.
         """
+        window = None
+        previous = None
+        entering = bool(fullscreen) and getattr(self, "_windowed_geometry", None) is None
         try:
             from pygame._sdl2.video import Window
 
@@ -274,6 +277,11 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
             if window is None:
                 window = Window.from_display_module()
                 self._display_window = window
+            previous = {
+                "position": tuple(window.position),
+                "size": tuple(window.size),
+                "borderless": bool(window.borderless),
+            }
 
             if fullscreen:
                 if getattr(self, "_windowed_geometry", None) is None:
@@ -309,6 +317,15 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
                 self._windowed_geometry = None
             return True
         except (pygame.error, RuntimeError, AttributeError, TypeError, IndexError, ValueError):
+            if window is not None and previous is not None:
+                try:
+                    window.size = previous["size"]
+                    window.position = previous["position"]
+                    window.borderless = previous["borderless"]
+                except Exception:
+                    log.exception("Не удалось восстановить окно после ошибки переключения")
+            if entering:
+                self._windowed_geometry = None
             log.exception("Не удалось переключить безрамочный режим")
             return False
 
