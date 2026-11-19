@@ -21,6 +21,9 @@ class DisplayHarness:
     def set_display_mode(self, fullscreen):
         return Game.set_display_mode(self, fullscreen)
 
+    def move_fullscreen_window_to_origin(self, size):
+        self.fullscreen_origin = size
+
 
 class DisplayModeTests(unittest.TestCase):
     def _mock_display(self, game):
@@ -40,6 +43,7 @@ class DisplayModeTests(unittest.TestCase):
         with mocks[0], mocks[1], mocks[2] as set_mode:
             self.assertTrue(Game.set_display_mode(game, True))
             self.assertEqual(game.display_surface.get_size(), (1920, 1080))
+            self.assertEqual(game.fullscreen_origin, (1920, 1080))
             self.assertEqual(set_mode.call_args.args, ((1920, 1080), pygame.NOFRAME))
 
             self.assertTrue(Game.set_display_mode(game, False))
