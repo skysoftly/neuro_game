@@ -256,6 +256,7 @@ class SimulationMixin:
     def finish_session(self):
         if self.state == "dead":
             return
+        self.record_session()
         self.state = "dead"
         self.intermission = False
         self.local_upgrade_waiting = False
