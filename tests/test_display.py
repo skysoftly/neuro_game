@@ -36,9 +36,9 @@ class DisplayModeTests(unittest.TestCase):
         original_screen = game.screen
         ticks = [1000 + i * 300 for i in range(8)]
 
-        with patch("pygame.time.get_ticks", side_effect=ticks), \\
-             patch("pygame.display.set_mode") as set_mode, \\
-             patch("pygame.display.get_surface", return_value=original_screen):
+        with (patch("pygame.time.get_ticks", side_effect=ticks) as ticks_mock,
+              patch("pygame.display.set_mode") as set_mode,
+              patch("pygame.display.get_surface", return_value=original_screen) as surface_mock):
             for expected in (True, False, True, False, True, False, True, False):
                 self.assertTrue(Game.toggle_borderless_fullscreen(game))
                 self.assertEqual(game.borderless_fullscreen, expected)
@@ -65,8 +65,8 @@ class DisplayModeTests(unittest.TestCase):
         game = DisplayHarness(window)
         original_screen = game.screen
 
-        with patch("pygame.time.get_ticks", return_value=1000), \\
-             patch("pygame.display.get_surface", return_value=original_screen):
+        with (patch("pygame.time.get_ticks", return_value=1000),
+              patch("pygame.display.get_surface", return_value=original_screen)):
             self.assertFalse(Game.toggle_borderless_fullscreen(game))
 
         self.assertFalse(game.borderless_fullscreen)
