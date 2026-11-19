@@ -78,7 +78,10 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
         pygame.mixer.pre_init(44100, -16, 1, 512)
         pygame.init()
         pygame.display.set_caption("NEON VOID")
-        self.screen = pygame.display.set_mode((W, H), pygame.SCALED | pygame.RESIZABLE)
+        self.display_surface = pygame.display.set_mode((W, H), pygame.RESIZABLE)
+        # Игровой кадр всегда рисуется в логическом разрешении, а в конце
+        # масштабируется на весь реальный размер окна/экрана.
+        self.screen = pygame.Surface((W, H)).convert()
         icon = pygame.Surface((64, 64), pygame.SRCALPHA)
         icon.fill((7, 13, 23))
         pygame.draw.polygon(icon, CYAN, [(32, 3), (57, 18), (57, 46), (32, 61), (7, 46), (7, 18)], 4)
@@ -260,58 +263,48 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
                      "player_hat": self.local_hat_index})
 
     def set_display_mode(self, fullscreen):
-        """Switch between windowed and SDL desktop-fullscreen modes."""
-        window = None
-        previous = None
+        """Use a real-size borderless display and scale the logical frame to it."""
+        from pygame._sdl2.video import Window
+
         entering = bool(fullscreen) and getattr(self, "_windowed_geometry", None) is None
-        try:
-            from pygame._sdl2.video import Window
-
-            window = getattr(self, "_display_window", None)
-            if window is None:
-                window = Window.from_display_module()
-                self._display_window = window
-
+        previous = getattr(self, "_windowed_geometry", None)
+        if entering:
+            current = Window.from_display_module()
             previous = {
-                "position": tuple(window.position),
-                "size": tuple(window.size),
-                "borderless": bool(window.borderless),
+                "position": tuple(current.position),
+                "size": tuple(current.size),
             }
 
+        try:
             if fullscreen:
-                if getattr(self, "_windowed_geometry", None) is None:
-                    self._windowed_geometry = previous.copy()
-                # SDL handles the desktop-sized borderless window itself.
-                # Manually changing the window size was unreliable on Windows.
-                window.set_fullscreen(desktop=True)
+                sizes = pygame.display.get_desktop_sizes()
+                window = Window.from_display_module()
+                display_index = max(0, min(len(sizes) - 1, int(window.display_index)))
+                desktop_size = sizes[display_index]
+                self.display_surface = pygame.display.set_mode(desktop_size, pygame.NOFRAME)
+                Window.from_display_module().position = (0, 0)
+                if entering:
+                    self._windowed_geometry = previous
             else:
-                geometry = getattr(self, "_windowed_geometry", None)
-                window.set_windowed()
-                if geometry is not None:
-                    window.borderless = geometry["borderless"]
-                    window.size = geometry["size"]
-                    window.position = geometry["position"]
-                if geometry is not None:
-                    self._windowed_geometry = None
+                geometry = previous or {"position": (100, 100), "size": (W, H)}
+                self.display_surface = pygame.display.set_mode(geometry["size"], pygame.RESIZABLE)
+                Window.from_display_module().position = geometry["position"]
+                self._windowed_geometry = None
 
-            self.screen = pygame.display.get_surface() or self.screen
             return True
         except (pygame.error, RuntimeError, AttributeError, TypeError, IndexError, ValueError):
-            if window is not None:
-                try:
-                    if entering:
-                        window.set_windowed()
-                        if previous is not None:
-                            window.borderless = previous["borderless"]
-                            window.size = previous["size"]
-                            window.position = previous["position"]
-                    elif fullscreen is False:
-                        window.set_fullscreen(desktop=True)
-                    if entering:
-                        self._windowed_geometry = None
-                except Exception:
-                    log.exception("Не удалось восстановить окно после ошибки переключения")
-            log.exception("Не удалось переключить безрамочный режим")
+            log.exception("Не удалось переключить режим окна")
+            try:
+                if entering and previous:
+                    self.display_surface = pygame.display.set_mode(previous["size"], pygame.RESIZABLE)
+                    Window.from_display_module().position = previous["position"]
+                    self._windowed_geometry = None
+                elif not fullscreen:
+                    sizes = pygame.display.get_desktop_sizes()
+                    self.display_surface = pygame.display.set_mode(sizes[0], pygame.NOFRAME)
+                    Window.from_display_module().position = (0, 0)
+            except Exception:
+                log.exception("Не удалось восстановить прежний режим окна")
             return False
 
     def toggle_borderless_fullscreen(self):
@@ -332,7 +325,8 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
     def logical_mouse(self, pos=None):
         if pos is None:
             pos = pygame.mouse.get_pos()
-        sw, sh = self.screen.get_size()
+        display = pygame.display.get_surface()
+        sw, sh = display.get_size() if display else (W, H)
         return (pos[0] * W / max(1, sw), pos[1] * H / max(1, sh))
 
     def draw_fit_text(self, surface, value, color, rect, base_size=18, min_size=12):
