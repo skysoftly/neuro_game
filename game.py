@@ -15,6 +15,7 @@ from config import (
     BG, CYAN, MAGENTA, YELLOW, RED, ORANGE, GREEN, PURPLE, PINK, WHITE,
     SHIP, DIAMOND, TRI, HEX, SQ,
     KINDS, PICK_COL, PICK_LET, PLAYER_COLORS, PLAYER_SKINS,
+    normalize_graphics_quality, normalize_particle_style, normalize_particle_density,
 )
 from fonts import font, text
 from draw_utils import shape, dim, make_overlay, bloom, read_clipboard
