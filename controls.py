@@ -17,6 +17,7 @@ from config import (
     BG, CYAN, MAGENTA, YELLOW, RED, ORANGE, GREEN, PURPLE, PINK, WHITE,
     SHIP, DIAMOND, TRI, HEX, SQ,
     KINDS, PICK_COL, PICK_LET, PLAYER_COLORS, PLAYER_SKINS,
+    GRAPHICS_QUALITIES, PARTICLE_STYLES, PARTICLE_DENSITIES,
 )
 from fonts import font, text
 from draw_utils import shape, dim, make_overlay, bloom, read_clipboard
@@ -216,32 +217,50 @@ class ControlsMixin:
                         self.state = "settings"
                 elif self.state == "settings" and e.button == 1:
                     cx = W / 2
-                    if pygame.Rect(cx - 205, 244, 70, 48).collidepoint(mx, my):
+                    if pygame.Rect(cx - 205, 112, 70, 38).collidepoint(mx, my):
                         self.music_volume = max(0.0, self.music_volume - 0.05)
                         self.audio.set_volumes(music=self.music_volume)
                         self.persist()
-                    elif pygame.Rect(cx + 135, 244, 70, 48).collidepoint(mx, my):
+                    elif pygame.Rect(cx + 135, 112, 70, 38).collidepoint(mx, my):
                         self.music_volume = min(1.0, self.music_volume + 0.05)
                         self.audio.set_volumes(music=self.music_volume)
                         self.persist()
-                    elif pygame.Rect(cx - 205, 344, 70, 48).collidepoint(mx, my):
+                    elif pygame.Rect(cx - 205, 172, 70, 38).collidepoint(mx, my):
                         self.sfx_volume = max(0.0, self.sfx_volume - 0.05)
                         self.audio.set_volumes(sfx=self.sfx_volume)
                         self.persist()
-                    elif pygame.Rect(cx + 135, 344, 70, 48).collidepoint(mx, my):
+                    elif pygame.Rect(cx + 135, 172, 70, 38).collidepoint(mx, my):
                         self.sfx_volume = min(1.0, self.sfx_volume + 0.05)
                         self.audio.set_volumes(sfx=self.sfx_volume)
                         self.persist()
-                    elif pygame.Rect(cx - 210, 444, 420, 48).collidepoint(mx, my):
+                    elif pygame.Rect(cx - 210, 230, 420, 38).collidepoint(mx, my):
                         self.screen_shake_enabled = not self.screen_shake_enabled
                         self.persist()
-                    elif pygame.Rect(cx - 210, 514, 420, 48).collidepoint(mx, my):
+                    elif pygame.Rect(cx - 210, 274, 420, 38).collidepoint(mx, my):
+                        self.dirty_filter_enabled = not self.dirty_filter_enabled
+                        self.persist()
+                    elif pygame.Rect(cx - 210, 318, 420, 38).collidepoint(mx, my):
+                        self.graphics_quality = GRAPHICS_QUALITIES[
+                            (GRAPHICS_QUALITIES.index(self.graphics_quality) + 1) % len(GRAPHICS_QUALITIES)
+                        ]
+                        self.persist()
+                    elif pygame.Rect(cx - 210, 362, 420, 38).collidepoint(mx, my):
+                        self.particle_style = PARTICLE_STYLES[
+                            (PARTICLE_STYLES.index(self.particle_style) + 1) % len(PARTICLE_STYLES)
+                        ]
+                        self.persist()
+                    elif pygame.Rect(cx - 210, 406, 420, 38).collidepoint(mx, my):
+                        self.particle_density = PARTICLE_DENSITIES[
+                            (PARTICLE_DENSITIES.index(self.particle_density) + 1) % len(PARTICLE_DENSITIES)
+                        ]
+                        self.persist()
+                    elif pygame.Rect(cx - 210, 450, 420, 38).collidepoint(mx, my):
                         options = (60, 120, 144, 0)
                         self.target_fps = options[(options.index(self.target_fps) + 1) % len(options)]
                         self.persist()
-                    elif pygame.Rect(cx - 210, 584, 420, 48).collidepoint(mx, my):
+                    elif pygame.Rect(cx - 210, 494, 420, 38).collidepoint(mx, my):
                         self.toggle_borderless_fullscreen()
-                    elif pygame.Rect(cx - 150, H - 58, 300, 42).collidepoint(mx, my):
+                    elif pygame.Rect(cx - 150, 650, 300, 42).collidepoint(mx, my):
                         self.state = "menu"
                 elif self.state == "lobby" and e.button == 1:
                     action_rect = pygame.Rect(
