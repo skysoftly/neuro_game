@@ -150,9 +150,25 @@ class ControlsMixin:
         self.screen.blit(layer, (0, 0))
 
     def handle_events(self):
+        # SDL's virtual keyboard is activated only while a text field is focused.
+        active_text_input = bool(self.input_mode)
+        if active_text_input and not getattr(self, "_text_input_active", False):
+            pygame.key.start_text_input()
+            self._text_input_active = True
+        elif not active_text_input and getattr(self, "_text_input_active", False):
+            pygame.key.stop_text_input()
+            self._text_input_active = False
+
         for e in pygame.event.get():
             if e.type in (pygame.FINGERDOWN, pygame.FINGERMOTION, pygame.FINGERUP):
                 self._handle_touch_event(e)
+                continue
+            if e.type == pygame.TEXTINPUT and self.input_mode and sys.platform in ("android", "emscripten"):
+                value = e.text or ""
+                if self.input_mode == "ip":
+                    self.ip_input = (self.ip_input + "".join(ch for ch in value if ch.isalnum() or ch in ".:-_%"))[:253]
+                else:
+                    self.name_input = (self.name_input + value.replace("\\n", " ").replace("\\r", " "))[:16]
                 continue
             if e.type == pygame.QUIT:
                 self.quit()
