@@ -24,6 +24,12 @@ class DisplayHarness:
     def move_fullscreen_window_to_origin(self, size):
         self.fullscreen_origin = size
 
+    def get_window_position(self):
+        return (120, 80)
+
+    def restore_window_position(self, position):
+        self.restored_position = position
+
 
 class DisplayModeTests(unittest.TestCase):
     def _mock_display(self, game):
