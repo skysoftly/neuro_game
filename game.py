@@ -282,6 +282,7 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
                     desktop_size = (info.current_w, info.current_h)
 
                 self.display_surface = pygame.display.set_mode(desktop_size, pygame.NOFRAME)
+                self.move_fullscreen_window_to_origin(desktop_size)
                 if entering:
                     self._windowed_geometry = previous
             else:
@@ -304,6 +305,22 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
             except Exception:
                 log.exception("Не удалось восстановить размер окна")
             return False
+
+    def move_fullscreen_window_to_origin(self, size):
+        """Прижимает borderless-окно к левому верхнему углу рабочего стола."""
+        if sys.platform != "win32":
+            return
+        try:
+            import ctypes
+
+            window = pygame.display.get_wm_info().get("window")
+            if window:
+                width, height = size
+                ctypes.windll.user32.SetWindowPos(
+                    int(window), 0, 0, 0, int(width), int(height), 0x0014
+                )
+        except (AttributeError, OSError, TypeError, ValueError):
+            log.exception("Не удалось установить позицию полноэкранного окна")
 
     def toggle_borderless_fullscreen(self):
         # Ignore duplicate KEYDOWN events generated while a display transition
