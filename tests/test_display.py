@@ -38,7 +38,7 @@ class DisplayModeTests(unittest.TestCase):
 
         self.assertEqual(set_mode.call_count, 2)
         self.assertEqual(game.persist_calls, 2)
-        self.assertEqual(set_mode.call_args_list[0].args[1], pygame.SCALED | pygame.FULLSCREEN)
+        self.assertEqual(set_mode.call_args_list[0].args[1], pygame.SCALED | pygame.FULLSCREEN | pygame.NOFRAME)
         self.assertEqual(set_mode.call_args_list[1].args[1], pygame.SCALED | pygame.RESIZABLE)
 
     def test_rapid_duplicate_toggle_is_ignored(self):
@@ -54,17 +54,16 @@ class DisplayModeTests(unittest.TestCase):
         self.assertTrue(game.borderless_fullscreen)
         self.assertEqual(game.persist_calls, 1)
 
-    def test_scaled_mode_failure_uses_fallback(self):
+    def test_borderless_mode_failure_does_not_use_exclusive_fallback(self):
         game = DisplayHarness()
-        screen = object()
+        original_screen = game.screen
 
         with patch("pygame.display.set_mode",
-                   side_effect=[pygame.error("scaled unsupported"), screen]) as set_mode:
-            self.assertTrue(Game.set_display_mode(game, True))
+                   side_effect=pygame.error("scaled unsupported")) as set_mode:
+            self.assertFalse(Game.set_display_mode(game, True))
 
-        self.assertIs(game.screen, screen)
-        self.assertEqual(set_mode.call_count, 2)
-        self.assertEqual(set_mode.call_args_list[1].args[1], pygame.FULLSCREEN)
+        self.assertIs(game.screen, original_screen)
+        self.assertEqual(set_mode.call_count, 1)
 
     def test_failed_transition_keeps_previous_state(self):
         game = DisplayHarness()

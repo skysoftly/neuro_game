@@ -260,26 +260,31 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
                      "player_hat": self.local_hat_index})
 
     def set_display_mode(self, fullscreen):
-        """Safely switch display mode without leaving a half-updated state.
+        """Switch between a resizable window and desktop-sized borderless mode.
 
-        The game renders to a fixed 1280x720 logical surface. SCALED lets SDL
-        handle presentation scaling for both windowed and fullscreen modes.
-        Avoid forcing vsync here: some Windows/SDL drivers recreate the swap
-        chain unreliably when F11 is pressed more than once.
+        FULLSCREEN | SCALED is SDL's desktop-fullscreen mode: it covers the
+        current desktop without changing the monitor's display resolution.
+        NOFRAME makes the borderless intent explicit. Never fall back to
+        FULLSCREEN alone, because that can request an exclusive video mode.
         """
-        flags = pygame.SCALED | (pygame.FULLSCREEN if fullscreen else pygame.RESIZABLE)
-        try:
-            new_screen = pygame.display.set_mode((W, H), flags)
-        except pygame.error:
-            log.exception("Не удалось переключить режим экрана (SCALED)")
-            # A few older drivers reject SCALED. Keep a non-SCALED fallback,
-            # but only replace self.screen after set_mode actually succeeds.
-            fallback_flags = pygame.FULLSCREEN if fullscreen else pygame.RESIZABLE
+        if fullscreen:
+            flags = pygame.FULLSCREEN | pygame.SCALED | pygame.NOFRAME
             try:
-                new_screen = pygame.display.set_mode((W, H), fallback_flags)
+                new_screen = pygame.display.set_mode((W, H), flags)
             except pygame.error:
-                log.exception("Не удалось применить запасной режим экрана")
+                log.exception("Не удалось включить безрамочный режим на весь экран")
                 return False
+        else:
+            flags = pygame.SCALED | pygame.RESIZABLE
+            try:
+                new_screen = pygame.display.set_mode((W, H), flags)
+            except pygame.error:
+                log.exception("Не удалось переключиться в оконный режим (SCALED)")
+                try:
+                    new_screen = pygame.display.set_mode((W, H), pygame.RESIZABLE)
+                except pygame.error:
+                    log.exception("Не удалось применить запасной оконный режим")
+                    return False
         self.screen = new_screen
         return True
 
