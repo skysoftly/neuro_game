@@ -185,6 +185,7 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
         self.is_host = False
         self.server = None
         self.client = None
+        self.online_room_code = ""
         self.my_id = 0
         self.lobby_players = []
         self.lobby_ready = set()
