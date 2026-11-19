@@ -455,6 +455,8 @@ class ControlsMixin:
         if e.key == pygame.K_v and (e.mod & pygame.KMOD_CTRL):
             self._paste_input()
             return
+        if sys.platform in ("android", "emscripten"):
+            return
         ch = e.unicode
         if ch and ch.isprintable():
             if self.input_mode == "ip":
