@@ -72,7 +72,7 @@ jobs:
       - name: Build standalone Windows executable
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --onefile --windowed --name "NEON VOID" --icon "icon.ico" --add-data "icon.ico;." --collect-all pygame main.py
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name "NEON VOID" --icon "icon.ico" --add-data "icon.ico;." main.py
           if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
           $exe = "dist/NEON VOID.exe"
           if (-not (Test-Path $exe)) { throw "Executable was not created" }
@@ -87,8 +87,10 @@ jobs:
           SDL_AUDIODRIVER: dummy
           PYTHONNOUSERSITE: "1"
         run: |
-          & "dist/NEON VOID.exe" --smoke-test
-          if ($LASTEXITCODE -ne 0) { throw "Packaged executable smoke test failed with exit code $LASTEXITCODE" }
+          $exe = (Resolve-Path "dist/NEON VOID.exe").Path
+          $process = Start-Process -FilePath $exe -ArgumentList "--smoke-test" -Wait -PassThru
+          Write-Host "Packaged executable exit code: $($process.ExitCode)"
+          if ($process.ExitCode -ne 0) { throw "Packaged executable smoke test failed with exit code $($process.ExitCode)" }
 
       - name: Upload Windows x64 build
         uses: actions/upload-artifact@v4
