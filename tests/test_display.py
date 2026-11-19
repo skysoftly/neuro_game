@@ -42,7 +42,9 @@ class DisplayModeTests(unittest.TestCase):
         return (
             patch("pygame.display.get_desktop_sizes", return_value=[(1920, 1080)]),
             patch("pygame.display.set_mode", side_effect=set_mode),
-            patch("pygame._sdl2.video.Window", new=type("FakeWindowFactory", (), {\n                "from_display_module": staticmethod(lambda: game.window)\n            })),
+            patch("pygame._sdl2.video.Window", new=type("FakeWindowFactory", (), {
+                "from_display_module": staticmethod(lambda: game.window)
+            })),
         )
 
     def test_fullscreen_uses_desktop_size_and_restores_window(self):
