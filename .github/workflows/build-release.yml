@@ -7,6 +7,7 @@ on:
       - release/v0.2.1
       - release/v0.2.2
       - release/v0.2.3
+      - fix/reliable-fullscreen-toggle
   workflow_dispatch:
     inputs:
       publish_release:
