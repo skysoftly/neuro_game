@@ -263,48 +263,46 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
                      "player_hat": self.local_hat_index})
 
     def set_display_mode(self, fullscreen):
-        """Use a real-size borderless display and scale the logical frame to it."""
-        from pygame._sdl2.video import Window
-
-        entering = bool(fullscreen) and getattr(self, "_windowed_geometry", None) is None
+        """Переключает обычное окно и полноэкранное окно без pygame._sdl2."""
         previous = getattr(self, "_windowed_geometry", None)
-        if entering:
-            current = Window.from_display_module()
-            previous = {
-                "position": tuple(current.position),
-                "size": tuple(current.size),
-            }
+        entering = bool(fullscreen) and previous is None
 
         try:
             if fullscreen:
+                if entering:
+                    current = pygame.display.get_surface()
+                    size = current.get_size() if current else (W, H)
+                    previous = {"size": size}
+
                 sizes = pygame.display.get_desktop_sizes()
-                window = Window.from_display_module()
-                display_index = max(0, min(len(sizes) - 1, int(window.display_index)))
-                desktop_size = sizes[display_index]
+                if sizes:
+                    desktop_size = sizes[0]
+                else:
+                    info = pygame.display.Info()
+                    desktop_size = (info.current_w, info.current_h)
+
                 self.display_surface = pygame.display.set_mode(desktop_size, pygame.NOFRAME)
-                Window.from_display_module().position = (0, 0)
                 if entering:
                     self._windowed_geometry = previous
             else:
-                geometry = previous or {"position": (100, 100), "size": (W, H)}
-                self.display_surface = pygame.display.set_mode(geometry["size"], pygame.RESIZABLE)
-                Window.from_display_module().position = geometry["position"]
+                geometry = previous or {"size": (W, H)}
+                self.display_surface = pygame.display.set_mode(
+                    geometry["size"], pygame.RESIZABLE
+                )
                 self._windowed_geometry = None
 
             return True
-        except (pygame.error, RuntimeError, AttributeError, TypeError, IndexError, ValueError):
+        except (pygame.error, RuntimeError, AttributeError, TypeError,
+                IndexError, ValueError):
             log.exception("Не удалось переключить режим окна")
             try:
                 if entering and previous:
-                    self.display_surface = pygame.display.set_mode(previous["size"], pygame.RESIZABLE)
-                    Window.from_display_module().position = previous["position"]
+                    self.display_surface = pygame.display.set_mode(
+                        previous["size"], pygame.RESIZABLE
+                    )
                     self._windowed_geometry = None
-                elif not fullscreen:
-                    sizes = pygame.display.get_desktop_sizes()
-                    self.display_surface = pygame.display.set_mode(sizes[0], pygame.NOFRAME)
-                    Window.from_display_module().position = (0, 0)
             except Exception:
-                log.exception("Не удалось восстановить прежний режим окна")
+                log.exception("Не удалось восстановить размер окна")
             return False
 
     def toggle_borderless_fullscreen(self):
