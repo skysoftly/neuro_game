@@ -16,6 +16,9 @@ class DisplayHarness:
     def persist(self):
         self.persist_calls += 1
 
+    def set_display_mode(self, fullscreen):
+        return Game.set_display_mode(self, fullscreen)
+
 
 class DisplayModeTests(unittest.TestCase):
     def test_repeated_f11_style_toggles_switch_both_directions(self):
