@@ -260,26 +260,73 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
                      "player_hat": self.local_hat_index})
 
     def set_display_mode(self, fullscreen):
-        """Toggle SDL's existing window between windowed and desktop fullscreen.
+        """Use a real borderless desktop-sized window, never SDL fullscreen.
 
-        Do not call display.set_mode() here: recreating the display surface
-        repeatedly can invalidate SCALED surfaces and leave Windows/SDL in a
-        broken state after several F11 presses. SDL2's Window API changes the
-        existing window state without replacing the game's render surface.
+        Keep the same SDL window and SCALED display Surface. Save the user's
+        window geometry on entry and restore it exactly on exit. This avoids
+        repeated SDL fullscreen transitions, which can desynchronise Windows'
+        window state after several F11 presses.
         """
+        window = None
+        previous = None
+        entering = bool(fullscreen) and getattr(self, "_windowed_geometry", None) is None
         try:
             from pygame._sdl2.video import Window
+
             window = getattr(self, "_display_window", None)
             if window is None:
                 window = Window.from_display_module()
                 self._display_window = window
-            window.set_fullscreen(desktop=bool(fullscreen))
-            # Keep the existing display Surface: it is still the target used
-            # by SCALED and by the game's render loop.
+            previous = {
+                "position": tuple(window.position),
+                "size": tuple(window.size),
+                "borderless": bool(window.borderless),
+            }
+
+            if fullscreen:
+                if getattr(self, "_windowed_geometry", None) is None:
+                    self._windowed_geometry = {
+                        "position": tuple(window.position),
+                        "size": tuple(window.size),
+                        "borderless": bool(window.borderless),
+                    }
+
+                sizes = pygame.display.get_desktop_sizes()
+                display_index = getattr(window, "display_index", 0)
+                if not sizes:
+                    raise pygame.error("Не удалось определить разрешение рабочего стола")
+                display_index = max(0, min(int(display_index), len(sizes) - 1))
+                desktop_size = tuple(sizes[display_index])
+
+                window.borderless = True
+                window.position = (0, 0)
+                window.size = desktop_size
+            else:
+                geometry = getattr(self, "_windowed_geometry", None)
+                if geometry is not None:
+                    window.size = geometry["size"]
+                    window.position = geometry["position"]
+                    window.borderless = geometry["borderless"]
+                else:
+                    window.borderless = False
+
+            # Do not recreate the display Surface: SCALED owns it for the
+            # lifetime of the game and the render loop continues using it.
             self.screen = pygame.display.get_surface() or self.screen
+            if not fullscreen:
+                self._windowed_geometry = None
             return True
-        except (pygame.error, RuntimeError, AttributeError, TypeError):
-            log.exception("Не удалось переключить оконный режим через SDL2")
+        except (pygame.error, RuntimeError, AttributeError, TypeError, IndexError, ValueError):
+            if window is not None and previous is not None:
+                try:
+                    window.size = previous["size"]
+                    window.position = previous["position"]
+                    window.borderless = previous["borderless"]
+                except Exception:
+                    log.exception("Не удалось восстановить окно после ошибки переключения")
+            if entering:
+                self._windowed_geometry = None
+            log.exception("Не удалось переключить безрамочный режим")
             return False
 
     def toggle_borderless_fullscreen(self):
