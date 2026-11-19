@@ -168,6 +168,10 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
         if self.target_fps not in (60, 120, 144, 0):
             self.target_fps = 120
         self.borderless_fullscreen = bool(cfg.get("borderless_fullscreen", False))
+        self.dirty_filter_enabled = bool(cfg.get("dirty_filter", True))
+        self.graphics_quality = normalize_graphics_quality(cfg.get("graphics_quality", "high"))
+        self.particle_style = normalize_particle_style(cfg.get("particle_style", "spark"))
+        self.particle_density = normalize_particle_density(cfg.get("particle_density", 100))
         if self.borderless_fullscreen:
             self.set_display_mode(True)
         self.audio.set_volumes(self.music_volume, self.sfx_volume)
@@ -260,7 +264,11 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
                      "screen_shake": self.screen_shake_enabled, "target_fps": self.target_fps,
                      "borderless_fullscreen": self.borderless_fullscreen,
                      "player_color": self.local_color_index, "player_skin": self.local_skin_index,
-                     "player_hat": self.local_hat_index})
+                     "player_hat": self.local_hat_index,
+                     "dirty_filter": self.dirty_filter_enabled,
+                     "graphics_quality": self.graphics_quality,
+                     "particle_style": self.particle_style,
+                     "particle_density": self.particle_density})
 
     def set_display_mode(self, fullscreen):
         """Переключает обычное окно и полноэкранное окно без pygame._sdl2."""
