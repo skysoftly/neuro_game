@@ -167,7 +167,7 @@ class ControlsMixin:
             if e.type == pygame.TEXTINPUT and self.input_mode and sys.platform in ("android", "emscripten"):
                 value = e.text or ""
                 if self.input_mode == "ip":
-                    self.ip_input = (self.ip_input + "".join(ch for ch in value if ch.isalnum() or ch in ".:-_%"))[:253]
+                    self.ip_input = (self.ip_input + "".join(ch for ch in value if ch.isalnum() or ch in ".:-_%").upper())[:253]
                 else:
                     self.name_input = (self.name_input + value.replace("\\n", " ").replace("\\r", " "))[:16]
                 continue
