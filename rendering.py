@@ -1144,6 +1144,8 @@ class RenderingMixin:
             for i, line in enumerate(debug_lines):
                 text(self.screen, line, self.f_small, GREEN, (W - 312, H - 126 + i * 23), "topleft", outline=1)
 
+        self.draw_touch_controls()
+
         # Курсор рисуется последним: он выше карточек, текста и debug-панели.
         if self.intermission and self.state == "play":
             self.draw_mouse_cursor(self.screen)
