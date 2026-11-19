@@ -249,7 +249,6 @@ class SimulationMixin:
             return
         self.intermission = False
         # Возвращаем павших к новой волне, если хотя бы один игрок пережил прошлую.
-        living = [p for p in self.players.values() if p.alive]
         for p in self.players.values():
             if p.alive:
                 continue
@@ -615,6 +614,8 @@ class SimulationMixin:
         # Запоминаем реальный урон каждого участника, включая добивание.
         dealt = min(max(0.0, float(n)), max(0.0, float(e.hp)))
         if dealt > 0 and src is not None:
+            if not hasattr(self, "damage_contributions"):
+                self.damage_contributions = {}
             contributions = self.damage_contributions.setdefault(id(e), {})
             contributions[src.pid] = contributions.get(src.pid, 0.0) + dealt
         e.hp -= n
@@ -633,7 +634,7 @@ class SimulationMixin:
         self.burst(e.p, WHITE, 8, 300, (0.1, 0.3), 2)
         self.rings.append(Ring(e.p, e.r, e.r * 4 + 30, 520, e.col, 3))
         self.shake = max(self.shake, 5 + e.r * 0.4)
-        contributions = self.damage_contributions.pop(id(e), {})
+        contributions = getattr(self, "damage_contributions", {}).pop(id(e), {})
         total_damage = sum(contributions.values())
         if total_damage > 0:
             base_score = int(d["score"])
