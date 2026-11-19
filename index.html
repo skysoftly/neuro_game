@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090a12">
+  <meta name="description" content="ПОСЛЕДНИЙ НА РАБОТЕ — кооперативный top-down arena shooter. Собирайте команду, переживайте волны и побеждайте боссов.">
+  <title>ПОСЛЕДНИЙ НА РАБОТЕ — кооперативный арена-шутер</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Russo+One&display=swap');
+    :root{color-scheme:dark;--bg:#090a12;--panel:#111321;--line:#292c43;--muted:#9b9db4;--text:#f4f2ff;--violet:#a78bfa;--pink:#f472b6;--cyan:#67e8f9}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:Manrope,system-ui,sans-serif;overflow-x:hidden}
+    body:before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;background:linear-gradient(rgba(167,139,250,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(167,139,250,.035) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom,black,transparent 78%)}
+    a{color:inherit;text-decoration:none}.wrap{width:min(1120px,calc(100% - 48px));margin:auto}
+    header{height:76px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.07)}
+    .brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:.04em}.brand-mark{width:32px;height:32px;background:linear-gradient(135deg,var(--violet),var(--pink));clip-path:polygon(0 0,100% 0,100% 72%,72% 72%,72% 100%,0 100%);box-shadow:0 0 28px #a78bfa55}
+    nav{display:flex;gap:28px;color:var(--muted);font-size:13px;font-weight:700}nav a:hover{color:white}
+    .hero{min-height:670px;display:grid;grid-template-columns:1.05fr .95fr;align-items:center;gap:42px;padding:72px 0 90px}
+    .eyebrow{display:inline-flex;align-items:center;gap:9px;color:var(--cyan);font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}.dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 14px var(--cyan)}
+    h1{font-family:"Russo One",Impact,sans-serif;font-size:clamp(46px,6.5vw,82px);line-height:.99;letter-spacing:-.035em;margin:24px 0 22px;text-transform:uppercase}h1 span{display:block;color:var(--violet);text-shadow:0 0 36px #a78bfa55}
+    .lead{max-width:520px;color:#b7b8ca;font-size:16px;line-height:1.8}
+    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:32px}.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:15px 21px;font-size:13px;font-weight:800;border:1px solid var(--line);transition:.2s;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)}
+    .btn-primary{background:linear-gradient(110deg,#8b5cf6,#c084fc);color:#090812;border:0;box-shadow:0 10px 34px #8b5cf633}.btn:hover{transform:translateY(-3px);filter:brightness(1.12)}.btn-secondary:hover{border-color:var(--violet)}
+    .fine{font-size:11px;color:#777991;margin-top:16px}
+    .visual{position:relative;min-height:430px;display:grid;place-items:center}.glow{position:absolute;width:76%;aspect-ratio:1;border-radius:50%;background:#8b5cf622;filter:blur(65px)}
+    .screen{position:relative;width:min(100%,490px);aspect-ratio:1.16;border:1px solid #55506f;background:linear-gradient(145deg,#19172b,#090b14 70%);padding:13px;box-shadow:0 28px 90px #0009,0 0 55px #8b5cf622;transform:perspective(1000px) rotateY(-7deg) rotateX(3deg)}
+    .screen-inner{height:100%;position:relative;overflow:hidden;background-color:#111322;background-image:linear-gradient(#7770 1px,transparent 1px),linear-gradient(90deg,#7770 1px,transparent 1px);background-size:24px 24px;border:1px solid #34334d}
+    .screen-inner:before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at center,#8b5cf622,transparent 65%),linear-gradient(0deg,transparent 48%,#fff05 50%,transparent 52%);background-size:auto,100% 7px;opacity:.8}
+    .arena{position:absolute;inset:12%;border:1px solid #6b5a9a66;clip-path:polygon(12% 0,88% 0,100% 15%,100% 85%,88% 100%,12% 100%,0 85%,0 15%);background:radial-gradient(circle at 50% 50%,#33264b66,transparent 62%)}
+    .player{position:absolute;left:49%;top:49%;width:25px;height:25px;background:var(--cyan);box-shadow:0 0 22px var(--cyan);clip-path:polygon(50% 0,100% 100%,50% 76%,0 100%)}
+    .enemy{position:absolute;width:17px;height:17px;background:var(--pink);box-shadow:0 0 17px #f472b6;transform:rotate(45deg)}.e1{left:20%;top:25%}.e2{right:18%;top:33%;background:#fb923c;box-shadow:0 0 17px #fb923c}.e3{left:27%;bottom:20%}.e4{right:24%;bottom:18%;width:25px;height:25px;background:#c084fc}
+    .beam{position:absolute;left:51%;top:49%;width:38%;height:2px;transform:rotate(-26deg);transform-origin:left;background:linear-gradient(90deg,var(--cyan),transparent);filter:drop-shadow(0 0 5px var(--cyan))}
+    .hud{position:absolute;left:14px;right:14px;top:12px;display:flex;justify-content:space-between;color:#c9c4e8;font:10px monospace;letter-spacing:.12em}.health{position:absolute;bottom:15px;left:14px;display:flex;gap:4px}.health i{display:block;width:20px;height:6px;background:var(--pink);box-shadow:0 0 8px #f472b6}
+    .wave{position:absolute;bottom:13px;right:14px;color:var(--cyan);font:11px monospace;letter-spacing:.12em}.float-tag{position:absolute;padding:9px 13px;background:#171629;border:1px solid #51466f;color:#d8caff;font:10px monospace;letter-spacing:.1em;box-shadow:0 10px 30px #0008}.tag-a{top:9%;right:-2%}.tag-b{bottom:10%;left:-4%;color:var(--cyan)}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:25px 0}.stat{text-align:center;border-right:1px solid var(--line)}.stat:last-child{border:0}.stat strong{display:block;font:25px "Russo One",sans-serif;color:var(--violet)}.stat small{color:var(--muted);font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+    section{padding:100px 0}.section-kicker{color:var(--pink);font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}h2{font:clamp(30px,4vw,46px) "Russo One",sans-serif;margin:13px 0 14px;text-transform:uppercase}.section-lead{max-width:620px;color:var(--muted);line-height:1.8;font-size:14px}
+    .features{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:42px}.feature{background:linear-gradient(145deg,#151728,#0d0f19);border:1px solid var(--line);padding:25px;min-height:190px;position:relative;overflow:hidden}.feature:after{content:"";position:absolute;width:110px;height:110px;right:-48px;bottom:-52px;border:1px solid #a78bfa44;transform:rotate(45deg)}.feature .num{font:12px monospace;color:var(--violet)}.feature h3{font-size:16px;margin:19px 0 9px}.feature p{color:var(--muted);font-size:12px;line-height:1.75;margin:0}
+    .how{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}.steps{display:grid;gap:18px;margin-top:30px}.step{display:grid;grid-template-columns:38px 1fr;gap:14px}.step b{width:34px;height:34px;display:grid;place-items:center;border:1px solid #6f5ca5;color:var(--violet);font:13px monospace}.step strong{font-size:13px}.step p{font-size:12px;color:var(--muted);line-height:1.65;margin:5px 0 0}
+    .controls{border:1px solid var(--line);background:#10121e;padding:25px}.controls h3{margin:0 0 17px;font-size:14px}.keyrow{display:flex;justify-content:space-between;gap:20px;padding:11px 0;border-bottom:1px solid #ffffff0d;color:var(--muted);font-size:12px}.keyrow:last-child{border:0}.keys{color:#e5ddff;font:11px monospace;text-align:right}
+    .cta{padding:64px 34px;text-align:center;border:1px solid #514174;background:radial-gradient(ellipse at 50% 0,#8b5cf633,transparent 65%),#111321;position:relative;overflow:hidden}.cta h2{margin-top:0}.cta p{color:var(--muted);font-size:13px;line-height:1.8;max-width:540px;margin:0 auto 25px}
+    footer{padding:28px 0;border-top:1px solid var(--line);color:#777991;font-size:11px}.foot{display:flex;justify-content:space-between;gap:20px;align-items:center}.foot a{color:#b9a5f7}
+    @media(max-width:800px){.hero{grid-template-columns:1fr;padding:66px 0 58px;gap:20px}.visual{min-height:350px}.screen{width:min(92%,490px)}.features{grid-template-columns:repeat(2,1fr)}.how{grid-template-columns:1fr;gap:34px}.stats{grid-template-columns:repeat(2,1fr);row-gap:22px}.stat:nth-child(2){border:0}.stat:nth-child(3),.stat:nth-child(4){padding-top:17px;border-top:1px solid var(--line)}section{padding:72px 0}}
+    @media(max-width:520px){.wrap{width:calc(100% - 34px)}header{height:64px}.brand{font-size:12px}nav{gap:14px;font-size:10px}nav a:nth-child(2){display:none}.hero{padding-top:52px;min-height:auto}h1{font-size:clamp(43px,13vw,62px)}.lead{font-size:14px}.actions{display:grid;grid-template-columns:1fr}.btn{width:100%}.visual{min-height:285px;margin:4px -7px}.screen{width:100%;padding:8px}.float-tag{font-size:8px}.tag-a{right:0}.tag-b{left:0}.stats{padding:20px 0}.stat strong{font-size:22px}.stat small{font-size:9px}.features{grid-template-columns:1fr;gap:10px}.feature{min-height:155px;padding:21px}.how{gap:26px}.controls{padding:20px}.cta{padding:45px 20px}.foot{align-items:flex-start;flex-direction:column;gap:9px}section{padding:62px 0}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important}}
+  </style>
+</head>
+<body>
+  <header class="wrap">
+    <a class="brand" href="#"><span class="brand-mark"></span><span>ПОСЛЕДНИЙ НА РАБОТЕ</span></a>
+    <nav aria-label="Навигация"><a href="#about">ОБ ИГРЕ</a><a href="#features">ОСОБЕННОСТИ</a><a href="#start">КАК ИГРАТЬ</a></nav>
+  </header>
+  <main>
+    <div class="wrap hero">
+      <div>
+        <div class="eyebrow"><span class="dot"></span> CO-OP ARENA SHOOTER</div>
+        <h1>ОДИН НЕ <span>ВЫВЕЗЕШЬ.</span></h1>
+        <p class="lead">Собери команду, держи оборону и переживи бесконечные волны. Враги становятся сильнее, боссы не дают передышки, а каждое улучшение меняет ход боя.</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="https://github.com/skysoftly/neuro_game/releases">СМОТРЕТЬ РЕЛИЗЫ <span>↗</span></a>
+          <a class="btn btn-secondary" href="https://github.com/skysoftly/neuro_game">ИСХОДНЫЙ КОД <span>↗</span></a>
+        </div>
+        <div class="fine">Игра для Windows · Кооператив по локальной сети · До 12 игроков</div>
+      </div>
+      <div class="visual" aria-label="Стилизованная иллюстрация арены">
+        <div class="glow"></div>
+        <div class="screen"><div class="screen-inner">
+          <div class="hud"><span>SECTOR 07 // SURVIVE</span><span>CO-OP LINK: ON</span></div>
+          <div class="arena"></div><div class="beam"></div><div class="player"></div>
+          <i class="enemy e1"></i><i class="enemy e2"></i><i class="enemy e3"></i><i class="enemy e4"></i>
+          <div class="health"><i></i><i></i><i></i><i></i><i></i></div><div class="wave">WAVE 08</div>
+        </div></div>
+        <div class="float-tag tag-a">HOSTILE SIGNAL DETECTED</div><div class="float-tag tag-b">▰ TEAM ALIVE: 04</div>
+      </div>
+    </div>
+    <div class="wrap stats">
+      <div class="stat"><strong>12</strong><small>игроков в команде</small></div>
+      <div class="stat"><strong>∞</strong><small>волн на выживание</small></div>
+      <div class="stat"><strong>5</strong><small>типов боссов</small></div>
+      <div class="stat"><strong>17+</strong><small>улучшений</small></div>
+    </div>
+    <section class="wrap" id="about">
+      <div class="section-kicker">01 / ОПИСАНИЕ</div><h2>АРЕНА НЕ ПРОЩАЕТ ОШИБОК</h2>
+      <p class="section-lead">Это кооперативный top-down шутер, где вы вместе отбиваетесь от всё более опасных противников. Держитесь рядом, прикрывайте друг друга и собирайте билд, который позволит дожить до следующей волны.</p>
+      <div class="features" id="features">
+        <article class="feature"><div class="num">[ 01 ]</div><h3>ВОЛНЫ БЕЗ КОНЦА</h3><p>С каждой волной давление растёт. Обычные враги становятся опаснее, а арена постепенно превращается в хаос.</p></article>
+        <article class="feature"><div class="num">[ 02 ]</div><h3>БОССЫ С ХАРАКТЕРОМ</h3><p>Разные боссы со своими паттернами атак. Победа над ними приносит отдельную награду каждому выжившему.</p></article>
+        <article class="feature"><div class="num">[ 03 ]</div><h3>СБИРАЙ СВОЙ БИЛД</h3><p>Выбирай улучшение после волны, усиливай урон или выживаемость и подстраивайся под ситуацию.</p></article>
+        <article class="feature"><div class="num">[ 04 ]</div><h3>ИГРАЙТЕ ВМЕСТЕ</h3><p>Создай лобби и пригласи друзей по IP. Хост управляет запуском и общей паузой.</p></article>
+        <article class="feature"><div class="num">[ 05 ]</div><h3>КАЖДЫЙ ВЫСТРЕЛ ВАЖЕН</h3><p>У врагов разные роли и поведение: кто-то давит вблизи, кто-то атакует издалека.</p></article>
+        <article class="feature"><div class="num">[ 06 ]</div><h3>РЕТРО-АТМОСФЕРА</h3><p>Неоновая арена, CRT-эффекты, тряска экрана и отдельные музыкальные темы для разных этапов игры.</p></article>
+      </div>
+    </section>
+    <section class="wrap" id="start">
+      <div class="how">
+        <div><div class="section-kicker">02 / БЫСТРЫЙ СТАРТ</div><h2>ЗАЛЕТАЙ С ДРУЗЬЯМИ</h2><p class="section-lead">Мультиплеер работает по TCP в одной локальной сети. Подключиться можно за пару шагов.</p>
+          <div class="steps">
+            <div class="step"><b>01</b><div><strong>Создай лобби</strong><p>Один игрок запускает игру и выбирает создание лобби.</p></div></div>
+            <div class="step"><b>02</b><div><strong>Позови команду</strong><p>Отправь друзьям IP-адрес, который отображается в лобби.</p></div></div>
+            <div class="step"><b>03</b><div><strong>Переживите волну</strong><p>Подключайтесь, выбирайте улучшения и не дайте арене вас съесть.</p></div></div>
+          </div>
+        </div>
+        <div class="controls"><h3>УПРАВЛЕНИЕ</h3>
+          <div class="keyrow"><span>Движение</span><span class="keys">W A S D / ↑ ↓ ← →</span></div>
+          <div class="keyrow"><span>Прицел и стрельба</span><span class="keys">МЫШЬ / ЛКМ</span></div>
+          <div class="keyrow"><span>Рывок</span><span class="keys">SPACE / SHIFT</span></div>
+          <div class="keyrow"><span>Щит</span><span class="keys">ПКМ / E</span></div>
+          <div class="keyrow"><span>Пауза</span><span class="keys">P / ESC</span></div>
+          <div class="keyrow"><span>Полный экран</span><span class="keys">F11</span></div>
+          <div class="keyrow"><span>Порт подключения</span><span class="keys">TCP : 5555</span></div>
+        </div>
+      </div>
+    </section>
+    <section class="wrap">
+      <div class="cta"><div class="section-kicker">03 / ГОТОВ К ЗАБЕГУ?</div><h2>СОБИРАЙ КОМАНДУ.</h2><p>Загляни в репозиторий, посмотри доступные сборки и следи за обновлениями проекта.</p><a class="btn btn-primary" href="https://github.com/skysoftly/neuro_game/releases">ОТКРЫТЬ РЕЛИЗЫ ↗</a></div>
+    </section>
+  </main>
+  <footer><div class="wrap foot"><span>© 2026 · ПОСЛЕДНИЙ НА РАБОТЕ</span><span>Сделано <a href="https://github.com/skysoftly">SkySoftly</a> · <a href="https://github.com/skysoftly/neuro_game">GitHub</a></span></div></footer>
+</body>
+</html>
