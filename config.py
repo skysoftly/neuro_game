@@ -11,6 +11,11 @@ PORT = 5555
 MAX_PLAYERS = 12
 SIDE_SHOT_DAMAGE_RATIO = 0.33
 
+# Лобби: отдельные области статуса и кнопки готовности клиента.
+LOBBY_HOST_ACTION_RECT = (W // 2 - 190, H - 136, 380, 52)
+LOBBY_CLIENT_STATUS_RECT = (130, H - 136, 470, 52)
+LOBBY_CLIENT_ACTION_RECT = (695, H - 136, 380, 52)
+
 DIFFICULTIES = ("easy", "normal", "hard", "impossible")
 DIFFICULTY_LABELS = {
     "easy": "ЛЕГКО",
