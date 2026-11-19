@@ -198,6 +198,7 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
         self.enemies = []
         self.parts = []
         self.rings = []
+        self.damage_contributions = {}
         self.pickups = []   # [pos, kind, ttl]
         self.pops = []      # [pos, text, ttl, color]
         self.sound_events = []
