@@ -260,33 +260,27 @@ class Game(RenderingMixin, NetworkingMixin, ControlsMixin, SimulationMixin):
                      "player_hat": self.local_hat_index})
 
     def set_display_mode(self, fullscreen):
-        """Switch between a resizable window and desktop-sized borderless mode.
+        """Toggle SDL's existing window between windowed and desktop fullscreen.
 
-        FULLSCREEN | SCALED is SDL's desktop-fullscreen mode: it covers the
-        current desktop without changing the monitor's display resolution.
-        NOFRAME makes the borderless intent explicit. Never fall back to
-        FULLSCREEN alone, because that can request an exclusive video mode.
+        Do not call display.set_mode() here: recreating the display surface
+        repeatedly can invalidate SCALED surfaces and leave Windows/SDL in a
+        broken state after several F11 presses. SDL2's Window API changes the
+        existing window state without replacing the game's render surface.
         """
-        if fullscreen:
-            flags = pygame.FULLSCREEN | pygame.SCALED | pygame.NOFRAME
-            try:
-                new_screen = pygame.display.set_mode((W, H), flags)
-            except pygame.error:
-                log.exception("Не удалось включить безрамочный режим на весь экран")
-                return False
-        else:
-            flags = pygame.SCALED | pygame.RESIZABLE
-            try:
-                new_screen = pygame.display.set_mode((W, H), flags)
-            except pygame.error:
-                log.exception("Не удалось переключиться в оконный режим (SCALED)")
-                try:
-                    new_screen = pygame.display.set_mode((W, H), pygame.RESIZABLE)
-                except pygame.error:
-                    log.exception("Не удалось применить запасной оконный режим")
-                    return False
-        self.screen = new_screen
-        return True
+        try:
+            from pygame._sdl2.video import Window
+            window = getattr(self, "_display_window", None)
+            if window is None:
+                window = Window.from_display_module()
+                self._display_window = window
+            window.set_fullscreen(desktop=bool(fullscreen))
+            # Keep the existing display Surface: it is still the target used
+            # by SCALED and by the game's render loop.
+            self.screen = pygame.display.get_surface() or self.screen
+            return True
+        except (pygame.error, RuntimeError, AttributeError, TypeError):
+            log.exception("Не удалось переключить оконный режим через SDL2")
+            return False
 
     def toggle_borderless_fullscreen(self):
         # Ignore duplicate KEYDOWN events generated while a display transition
