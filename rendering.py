@@ -714,7 +714,7 @@ class RenderingMixin:
         self.draw_button(sc, pygame.Rect(cx - 210, 514, 420, 48),
                          "ЛИМИТ FPS: " + fps_label, PURPLE)
         self.draw_button(sc, pygame.Rect(cx - 210, 584, 420, 48),
-                         "ПОЛНОЭКРАННЫЙ РЕЖИМ: " + ("ВКЛ" if self.borderless_fullscreen else "ВЫКЛ"),
+                         "БЕЗРАМОЧНЫЙ НА ВЕСЬ ЭКРАН: " + ("ВКЛ" if self.borderless_fullscreen else "ВЫКЛ"),
                          CYAN if self.borderless_fullscreen else RED)
         text(sc, "F11 — переключить в любой момент", font(13), (135, 155, 175),
              (cx, 642), outline=1)
