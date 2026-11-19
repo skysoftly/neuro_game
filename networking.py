@@ -348,6 +348,7 @@ class NetworkingMixin:
             self.paused = bool(m.get("paused", False))
             pygame.mouse.set_visible(self.paused or self.intermission)
         elif t == "dead":
+            self.record_session()
             self.local_choices = []
             self.paused = False
             self.state = "dead"
