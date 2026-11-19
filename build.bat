@@ -19,7 +19,7 @@ echo [2/4] Creating application icon...
 if errorlevel 1 goto :failed
 
 echo [3/4] Packaging NEON VOID...
-%PY% -m PyInstaller --noconfirm --clean --onefile --windowed --name "NEON VOID" --icon "icon.ico" --add-data "icon.ico;." main.py
+%PY% -m PyInstaller --noconfirm --clean --onefile --windowed --name "NEON VOID" --icon "icon.ico" --add-data "icon.ico;." --hidden-import websocket main.py
 if errorlevel 1 goto :failed
 
 echo [4/4] Build complete.
