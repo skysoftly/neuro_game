@@ -689,7 +689,7 @@ class RenderingMixin:
 
         y = cy + 160
         self.draw_button(sc, pygame.Rect(cx - 210, y - 20, 420, 52), "СОЗДАТЬ ЛОББИ", CYAN)
-        self.draw_button(sc, pygame.Rect(cx - 210, y + 42, 420, 52), "ПОДКЛЮЧИТЬСЯ ПО IP", MAGENTA)
+        self.draw_button(sc, pygame.Rect(cx - 210, y + 42, 420, 52), "ПОДКЛЮЧИТЬСЯ ПО КОДУ / IP", MAGENTA)
         self.draw_button(sc, pygame.Rect(cx - 210, y + 104, 420, 44),
                          "ИМЯ ИГРОКА: " + (self.name_input or "НЕ ЗАДАНО"), PURPLE)
         self.draw_button(sc, pygame.Rect(cx - 210, y + 158, 420, 44), "НАСТРОЙКИ", YELLOW)
@@ -723,11 +723,13 @@ class RenderingMixin:
         cx = W / 2
         text(sc, "ЛОББИ", self.f_huge, CYAN, (cx, 76), outline=3)
         if self.is_host:
-            role, shown_ip = "ВЫ - ХОСТ", (self.lan_ips[0] if self.lan_ips else "IP НЕ НАЙДЕН")
+            role, shown_code = "ВЫ - ХОСТ", self.online_room_code or "СОЗДАЁТСЯ..."
         else:
-            role, shown_ip = "ВЫ - КЛИЕНТ", (self.last_ip or "НЕИЗВЕСТНО")
-        self.draw_fit_text(sc, role, YELLOW, pygame.Rect(cx - 380, 132, 360, 38), 27, 16)
-        self.draw_fit_text(sc, "IP: " + shown_ip, WHITE, pygame.Rect(cx + 20, 132, 500, 38), 27, 12)
+            role, shown_code = "ВЫ - ИГРОК", self.online_room_code or self.last_ip or "НЕИЗВЕСТНО"
+        self.draw_fit_text(sc, role, YELLOW, pygame.Rect(cx - 380, 132, 300, 38), 27, 16)
+        self.draw_fit_text(sc, "КОД КОМНАТЫ: " + shown_code, WHITE, pygame.Rect(cx - 70, 132, 560, 38), 27, 12)
+        text(sc, "ДРУЗЬЯ МОГУТ ПОДКЛЮЧИТЬСЯ ИЗ ЛЮБОЙ СЕТИ", font(12), CYAN,
+             (cx, 158), outline=1)
 
         diff_label = DIFFICULTY_LABELS.get(self.difficulty, "НОРМАЛЬНО")
         diff_rect = pygame.Rect(cx - 190, 174, 380, 34)
@@ -916,7 +918,7 @@ class RenderingMixin:
         if not self.input_mode:
             return
         sc.blit(self.input_shade, (0, 0))
-        label = "ВВЕДИТЕ IP ХОСТА" if self.input_mode == "ip" else "ВВЕДИТЕ ИМЯ"
+        label = "КОД КОМНАТЫ ИЛИ IP ХОСТА" if self.input_mode == "ip" else "ВВЕДИТЕ ИМЯ"
         text(sc, label, self.f_big, CYAN, (W / 2, H / 2 - 110), outline=3)
         value = self.ip_input if self.input_mode == "ip" else self.name_input
         box = pygame.Rect(W / 2 - 280, H / 2 - 45, 560, 64)
